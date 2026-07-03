@@ -1,0 +1,200 @@
+/* ==================== 溯源页面主题变量系统 ====================
+ * 用法：在任意元素上设置 data-theme="tech-blue" 或 data-theme="premium-gold"
+ * 默认（不设置或 standard-green）使用 :root 变量。
+ */
+
+:root,
+[data-theme="standard-green"] {
+  // 页面背景
+  --trace-bg: #f5f5f5;
+  --trace-bg-gradient: none;
+
+  // 主题强调色
+  --trace-accent: #059669;
+  --trace-accent-light: #10b981;
+  --trace-accent-dark: #047857;
+  --trace-accent-rgb: 5, 150, 105;
+
+  // 卡片/模块
+  --trace-section-bg: #ffffff;
+  --trace-section-bg-alt: #fafafa;
+  --trace-section-radius: 12px;
+  --trace-section-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --trace-section-border: none;
+  --trace-section-border-left: 0 solid transparent;
+
+  // 头部
+  --trace-header-bg: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  --trace-header-text: #ffffff;
+
+  // 文字
+  --trace-text-primary: #333333;
+  --trace-text-secondary: #666666;
+  --trace-text-muted: #999999;
+  --trace-link-color: var(--trace-accent);
+  --trace-link-hover: var(--trace-accent-dark);
+
+  // 边框/分割线
+  --trace-border-color: #f0f0f0;
+  --trace-divider-color: #e5e7eb;
+
+  // 输入框
+  --trace-input-bg: #ffffff;
+  --trace-input-border: #dcdfe6;
+  --trace-input-text: #333333;
+  --trace-input-focus-border: var(--trace-accent);
+  --trace-input-focus-shadow: 0 0 0 2px rgba(var(--trace-accent-rgb), 0.1);
+
+  // 状态色
+  --trace-success-bg: linear-gradient(135deg, #ecfdf5, #d1fae5);
+  --trace-success-text: #065f46;
+  --trace-success-border: #a7f3d0;
+  --trace-error-bg: linear-gradient(135deg, #fef2f2, #fee2e2);
+  --trace-error-text: #991b1b;
+  --trace-error-border: #fca5a5;
+  --trace-warning-text: #e6a23c;
+
+  // 按钮
+  --trace-btn-bg: var(--trace-accent);
+  --trace-btn-text: #ffffff;
+  --trace-btn-hover: var(--trace-accent-dark);
+
+  // 报告卡片
+  --trace-report-bg: #f0fdf4;
+  --trace-report-border: var(--trace-accent);
+
+  // 防伪
+  --trace-anti-code: var(--trace-warning-text);
+
+  // 装饰
+  --trace-decoration-opacity: 0.12;
+}
+
+[data-theme="tech-blue"] {
+  --trace-bg: #eef2ff;
+  --trace-accent: #3b82f6;
+  --trace-accent-light: #60a5fa;
+  --trace-accent-dark: #1e40af;
+  --trace-accent-rgb: 59, 130, 246;
+
+  --trace-section-shadow: 0 2px 12px rgba(30, 64, 175, 0.08);
+  --trace-section-border-left: 4px solid var(--trace-accent);
+  --trace-section-radius: 8px;
+
+  --trace-header-bg: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+
+  --trace-text-primary: #1e40af;
+  --trace-text-secondary: #475569;
+  --trace-text-muted: #64748b;
+  --trace-border-color: #dbeafe;
+  --trace-divider-color: #dbeafe;
+
+  --trace-input-focus-border: var(--trace-accent);
+  --trace-input-focus-shadow: 0 0 0 2px rgba(var(--trace-accent-rgb), 0.12);
+
+  --trace-report-bg: #eff6ff;
+  --trace-report-border: var(--trace-accent);
+
+  --trace-anti-code: var(--trace-accent);
+  --trace-decoration-opacity: 0.15;
+}
+
+[data-theme="premium-gold"] {
+  --trace-bg: #fefcf3;
+  --trace-accent: #d97706;
+  --trace-accent-light: #f59e0b;
+  --trace-accent-dark: #92400e;
+  --trace-accent-rgb: 217, 119, 6;
+
+  --trace-section-bg: #fffdf7;
+  --trace-section-bg-alt: #fff9ed;
+  --trace-section-shadow: 0 2px 8px rgba(146, 64, 14, 0.06);
+  --trace-section-border: 1px solid #e5c07b;
+  --trace-section-radius: 8px;
+
+  --trace-header-bg: linear-gradient(135deg, #92400e 0%, #b45309 50%, #d97706 100%);
+
+  --trace-text-primary: #92400e;
+  --trace-text-secondary: #785c38;
+  --trace-text-muted: #a08050;
+  --trace-border-color: #f0e6d2;
+  --trace-divider-color: #f0e6d2;
+
+  --trace-input-focus-border: var(--trace-accent);
+  --trace-input-focus-shadow: 0 0 0 2px rgba(var(--trace-accent-rgb), 0.12);
+
+  --trace-report-bg: #fffbeb;
+  --trace-report-border: var(--trace-accent);
+
+  --trace-anti-code: #b45309;
+  --trace-decoration-opacity: 0.1;
+}
+
+// 暗黑模式自动适配（基于系统偏好）
+@media (prefers-color-scheme: dark) {
+  [data-theme="standard-green"],
+  [data-theme="tech-blue"],
+  [data-theme="premium-gold"] {
+    color-scheme: dark;
+  }
+
+  [data-theme="standard-green"] {
+    --trace-bg: #0f172a;
+    --trace-section-bg: #1e293b;
+    --trace-section-bg-alt: #334155;
+    --trace-section-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+    --trace-section-border: 1px solid rgba(255, 255, 255, 0.08);
+
+    --trace-text-primary: #f1f5f9;
+    --trace-text-secondary: #cbd5e1;
+    --trace-text-muted: #94a3b8;
+    --trace-border-color: rgba(255, 255, 255, 0.1);
+    --trace-divider-color: rgba(255, 255, 255, 0.08);
+
+    --trace-input-bg: #0f172a;
+    --trace-input-border: rgba(255, 255, 255, 0.15);
+    --trace-input-text: #f1f5f9;
+
+    --trace-report-bg: rgba(5, 150, 105, 0.12);
+  }
+
+  [data-theme="tech-blue"] {
+    --trace-bg: #0f172a;
+    --trace-section-bg: #1e293b;
+    --trace-section-bg-alt: #334155;
+    --trace-section-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+    --trace-section-border: 1px solid rgba(255, 255, 255, 0.08);
+
+    --trace-text-primary: #f1f5f9;
+    --trace-text-secondary: #cbd5e1;
+    --trace-text-muted: #94a3b8;
+    --trace-border-color: rgba(255, 255, 255, 0.1);
+    --trace-divider-color: rgba(255, 255, 255, 0.08);
+
+    --trace-input-bg: #0f172a;
+    --trace-input-border: rgba(255, 255, 255, 0.15);
+    --trace-input-text: #f1f5f9;
+
+    --trace-report-bg: rgba(59, 130, 246, 0.12);
+  }
+
+  [data-theme="premium-gold"] {
+    --trace-bg: #1c1917;
+    --trace-section-bg: #292524;
+    --trace-section-bg-alt: #44403c;
+    --trace-section-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+    --trace-section-border: 1px solid rgba(245, 158, 11, 0.25);
+
+    --trace-text-primary: #fffbeb;
+    --trace-text-secondary: #fde68a;
+    --trace-text-muted: #d97706;
+    --trace-border-color: rgba(245, 158, 11, 0.2);
+    --trace-divider-color: rgba(245, 158, 11, 0.12);
+
+    --trace-input-bg: #1c1917;
+    --trace-input-border: rgba(245, 158, 11, 0.25);
+    --trace-input-text: #fffbeb;
+
+    --trace-report-bg: rgba(217, 119, 6, 0.12);
+  }
+}

@@ -1,0 +1,17 @@
+[Unit]
+Description=Trace System Backend
+After=network.target mysqld.service
+
+[Service]
+Type=simple
+User=root
+Environment=JAVA_HOME=/usr/lib/jvm/java-17-openjdk
+WorkingDirectory=/opt/trace-system/trace-backend
+ExecStart=/usr/bin/java -jar target/trace-backend-1.0.0.jar --spring.profiles.active=prod
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

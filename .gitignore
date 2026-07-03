@@ -1,0 +1,50 @@
+# Java
+trace-backend/target/
+*.class
+*.jar
+*.war
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+*.egg
+.eggs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# Node
+node_modules/
+trace-frontend/node_modules/
+trace-frontend/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Upload data
+/data/
+
+# Qoder
+.qoder/
