@@ -9,6 +9,8 @@ import com.huace.trace.mapper.TraceTemplateMapper;
 import com.huace.trace.service.EnterpriseCertService;
 import com.huace.trace.service.TracePageService;
 import com.huace.trace.service.TraceTemplateService;
+import com.huace.trace.service.VideoSourceService;
+import com.huace.trace.service.IotDataService;
 import com.huace.trace.util.FileUploadUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,8 @@ public class TracePageController {
     private final TraceTemplateService traceTemplateService;
     private final FileUploadUtil fileUploadUtil;
     private final SysFileMapper sysFileMapper;
+    private final VideoSourceService videoSourceService;
+    private final IotDataService iotDataService;
 
     /**
      * C端批次溯源查询 - 通过批次ID查询溯源信息
@@ -106,5 +110,73 @@ public class TracePageController {
                 "name", sysFile.getOriginalName(),
                 "size", sysFile.getFileSize()
         ));
+    }
+
+    // ==================== C端溯源扩展数据接口 ====================
+
+    /**
+     * 获取溯源关联视频流（使用 enterpriseId 和 batchId 查询）
+     */
+    @GetMapping("/api/trace/{serialNo}/videos")
+    public Result<List<Map<String, Object>>> getTraceVideos(@PathVariable String serialNo) {
+        Map<String, Object> traceData = tracePageService.queryBySerialNo(serialNo);
+        Long enterpriseId = toLong(traceData.get("_enterpriseId"));
+        Long batchId = toLong(traceData.get("_batchId"));
+        return Result.ok(videoSourceService.listForTrace(enterpriseId, null, batchId));
+    }
+
+    /**
+     * 获取最新IoT读数
+     */
+    @GetMapping("/api/trace/{serialNo}/iot/latest")
+    public Result<List<Map<String, Object>>> getTraceIotLatest(@PathVariable String serialNo) {
+        Map<String, Object> traceData = tracePageService.queryBySerialNo(serialNo);
+        Long enterpriseId = toLong(traceData.get("_enterpriseId"));
+        return Result.ok(iotDataService.getLatestReadings(enterpriseId, null));
+    }
+
+    /**
+     * 获取温度曲线数据
+     */
+    @GetMapping("/api/trace/{serialNo}/iot/temperature")
+    public Result<List<Map<String, Object>>> getTraceTemperature(@PathVariable String serialNo) {
+        Map<String, Object> traceData = tracePageService.queryBySerialNo(serialNo);
+        Long batchId = toLong(traceData.get("_batchId"));
+        return Result.ok(iotDataService.getTemperatureCurveForBatch(batchId));
+    }
+
+    /**
+     * 获取GPS轨迹
+     */
+    @GetMapping("/api/trace/{serialNo}/iot/gps-track")
+    public Result<List<Map<String, Object>>> getTraceGpsTrack(@PathVariable String serialNo) {
+        Map<String, Object> traceData = tracePageService.queryBySerialNo(serialNo);
+        Long batchId = toLong(traceData.get("_batchId"));
+        return Result.ok(iotDataService.getGpsTrackForBatch(batchId));
+    }
+
+    /**
+     * 批次维度 - 获取视频流
+     */
+    @GetMapping("/api/trace/batch/{batchId}/videos")
+    public Result<List<Map<String, Object>>> getBatchTraceVideos(@PathVariable Long batchId) {
+        Map<String, Object> traceData = tracePageService.queryByBatchId(batchId);
+        Long enterpriseId = toLong(traceData.get("_enterpriseId"));
+        return Result.ok(videoSourceService.listForTrace(enterpriseId, null, batchId));
+    }
+
+    /**
+     * 批次维度 - 获取最新IoT读数
+     */
+    @GetMapping("/api/trace/batch/{batchId}/iot/latest")
+    public Result<List<Map<String, Object>>> getBatchTraceIotLatest(@PathVariable Long batchId) {
+        Map<String, Object> traceData = tracePageService.queryByBatchId(batchId);
+        Long enterpriseId = toLong(traceData.get("_enterpriseId"));
+        return Result.ok(iotDataService.getLatestReadings(enterpriseId, null));
+    }
+
+    private Long toLong(Object obj) {
+        if (obj instanceof Number) return ((Number) obj).longValue();
+        return null;
     }
 }

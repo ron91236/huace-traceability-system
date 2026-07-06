@@ -77,3 +77,23 @@ springdoc:
 # 应用配置
 app:
   base-url: http://trace.cti-pit.com
+
+# 阿里云IoT配置
+aliyun:
+  iot:
+    access-key-id: ${ALIYUN_AK_ID:}
+    access-key-secret: ${ALIYUN_AK_SECRET:}
+    endpoint: ${ALIYUN_IOT_ENDPOINT:iot.cn-shanghai.aliyuncs.com}
+    instance-id: ${ALIYUN_IOT_INSTANCE_ID:}
+    amqp:
+      endpoint: ${ALIYUN_AMQP_ENDPOINT:}
+      group-id: ${ALIYUN_AMQP_GROUP_ID:DEFAULT_GROUP}
+      queue-name: ${ALIYUN_AMQP_QUEUE:iot-trace-queue}
+  video:
+    region-id: cn-shanghai
+    endpoint: vs.cn-shanghai.aliyuncs.com
+
+# IoT消息消费开关
+iot:
+  enabled: ${IOT_ENABLED:false}
+  mock-enabled: ${IOT_MOCK:true}

@@ -20,6 +20,8 @@ const adminRoutes: RouteRecordRaw[] = [
   { path: 'trace-template', name: 'AdminTraceTemplate', component: () => import('@/views/admin/trace-template/TemplateList.vue'), meta: { title: '溯源模板管理' } },
   { path: 'notice', name: 'AdminNotice', component: () => import('@/views/admin/notice/NoticeList.vue'), meta: { title: '公告管理' } },
   { path: 'system/user', name: 'AdminUser', component: () => import('@/views/admin/system/UserList.vue'), meta: { title: '用户管理' } },
+  { path: 'video-source', name: 'AdminVideoSource', component: () => import('@/views/admin/video-source/VideoSourceList.vue'), meta: { title: '视频源总览' } },
+  { path: 'iot-device', name: 'AdminIotDevice', component: () => import('@/views/admin/iot-device/IotDeviceList.vue'), meta: { title: 'IoT设备总览' } },
 ]
 
 // 企业端路由
@@ -36,6 +38,9 @@ const enterpriseRoutes: RouteRecordRaw[] = [
   { path: 'order-code', name: 'EntOrderCode', component: () => import('@/views/enterprise/order-code/OrderCodeList.vue'), meta: { title: '订单条码' } },
   { path: 'code-usage', name: 'EntCodeUsage', component: () => import('@/views/enterprise/code-usage/CodeUsageList.vue'), meta: { title: '条码使用' } },
   { path: 'notice', name: 'EntNotice', component: () => import('@/views/enterprise/notice/NoticeList.vue'), meta: { title: '公告' } },
+  { path: 'video-source', name: 'EntVideoSource', component: () => import('@/views/enterprise/video-source/VideoSourceList.vue'), meta: { title: '视频源管理' } },
+  { path: 'iot-device', name: 'EntIotDevice', component: () => import('@/views/enterprise/iot-device/IotDeviceList.vue'), meta: { title: 'IoT设备管理' } },
+  { path: 'iot-alert', name: 'EntIotAlert', component: () => import('@/views/enterprise/iot-alert/IotAlertList.vue'), meta: { title: 'IoT告警' } },
 ]
 
 const routes: RouteRecordRaw[] = [

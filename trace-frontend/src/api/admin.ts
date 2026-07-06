@@ -120,3 +120,12 @@ export const removeChildEnterprise = (parentId: number, childId: number) => requ
 
 // 数据大屏
 export const getAdminDataScreen = () => request.get('/admin/data-screen/all')
+
+// 视频源总览
+export const getAdminVideoSources = (params: any) => request.get('/admin/video-sources', { params })
+
+// IoT设备总览
+export const getAdminIotDevices = (params: any) => request.get('/admin/iot-devices', { params })
+
+// IoT告警总览
+export const getAdminIotAlerts = (params: any) => request.get('/admin/iot-alerts', { params })

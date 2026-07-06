@@ -71,6 +71,11 @@ public class TracePageService {
         result.put("serialNo", item.getSerialNo());
         result.put("antiFakeCode", item.getAntiFakeCode());
         result.put("url", item.getUrl());
+        // 关联ID（供C端扩展接口使用）
+        result.put("_enterpriseId", item.getEnterpriseId());
+        result.put("_batchId", item.getBatchId());
+        result.put("_goodsId", item.getGoodsId());
+        result.put("_certId", item.getCertId());
 
         // 2. 查询企业信息
         if (item.getEnterpriseId() != null) {
@@ -243,6 +248,8 @@ public class TracePageService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("batchId", batchId);
+        result.put("_enterpriseId", batch.getEnterpriseId());
+        result.put("_baseId", batch.getBaseId());
 
         // 1. 查询企业信息
         if (batch.getEnterpriseId() != null) {

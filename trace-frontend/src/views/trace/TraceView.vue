@@ -53,6 +53,14 @@
                 {{ el.label || '按钮' }}
               </el-button>
             </div>
+            <!-- 实时视频监控 -->
+            <LiveVideoElement v-else-if="el.type === 'live-video'" :label="el.label" :sources="videoSourcesData" :gridColumns="el.gridColumns || 2" />
+            <!-- IoT传感器读数 -->
+            <IotSensorElement v-else-if="el.type === 'iot-sensor'" :label="el.label" :data="iotLatestData" :updatedAt="iotUpdatedAt" />
+            <!-- 温湿度曲线 -->
+            <IotChartElement v-else-if="el.type === 'iot-chart'" :label="el.label" :series="temperatureSeries" />
+            <!-- 运输车辆轨迹 -->
+            <VehicleTrackElement v-else-if="el.type === 'vehicle-track'" :label="el.label" :points="gpsTrackPoints" :trackInfo="gpsTrackInfo" />
             <!-- 信息模块 -->
             <div v-else-if="isInfoSection(el.type)" :class="['trace-section', 'modern-section', el.style?.cardStyle ? 'card-' + el.style.cardStyle : '']" :style="{ backgroundColor: el.style?.backgroundColor || '', borderRadius: (el.style?.borderRadius || 0) + 'px', padding: el.style?.padding || '', boxShadow: el.style?.boxShadow || '' }">
               <div class="section-header">
@@ -289,7 +297,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { getTraceInfo, getBatchTraceInfo, getTraceTemplate, verifyAntiFake, directVerify } from '@/api/common'
+import { getTraceInfo, getBatchTraceInfo, getTraceTemplate, verifyAntiFake, directVerify, getTraceVideos, getTraceIotLatest, getTraceTemperature, getTraceGpsTrack, getBatchVideos, getBatchIotLatest } from '@/api/common'
+import LiveVideoElement from '@/components/trace/LiveVideoElement.vue'
+import IotSensorElement from '@/components/trace/IotSensorElement.vue'
+import IotChartElement from '@/components/trace/IotChartElement.vue'
+import VehicleTrackElement from '@/components/trace/VehicleTrackElement.vue'
 import QRCode from 'qrcode'
 import DOMPurify from 'dompurify'
 import { SECTION_FIELDS, SECTION_TYPE_MAP, isInfoSection, getSectionAllFields, getSectionDataPrefix } from '@/constants/section-fields'
@@ -325,7 +337,53 @@ const SECTION_ICONS: Record<string, string> = {
   'farm-info': 'Van',
   'transport-info': 'MapLocation',
   'slaughter-info': 'KnifeFork',
-  'cutting-record': 'Crop'
+  'cutting-record': 'Crop',
+  'video-monitor': 'VideoCamera',
+  'iot-environment': 'Monitor',
+}
+
+// 视频/IoT 扩展数据
+const videoSourcesData = ref<any[]>([])
+const iotLatestData = ref<Record<string, number | null>>({})
+const iotUpdatedAt = ref('')
+const temperatureSeries = ref<any[]>([])
+const gpsTrackPoints = ref<any[]>([])
+const gpsTrackInfo = ref<any>({})
+
+async function loadExtendedData() {
+  const id = isBatchMode.value ? batchId.value : serialNo.value
+  if (!id) return
+  try {
+    const [vRes, iRes, tRes, gRes] = await Promise.allSettled([
+      isBatchMode.value ? getBatchVideos(batchId.value) : getTraceVideos(serialNo.value),
+      isBatchMode.value ? getBatchIotLatest(batchId.value) : getTraceIotLatest(serialNo.value),
+      getTraceTemperature(serialNo.value),
+      getTraceGpsTrack(serialNo.value),
+    ])
+    if (vRes.status === 'fulfilled') videoSourcesData.value = vRes.value?.data || []
+    if (iRes.status === 'fulfilled') {
+      const d = iRes.value?.data
+      if (d) {
+        iotLatestData.value = d.metrics || d
+        iotUpdatedAt.value = d.updatedAt ? new Date(d.updatedAt).toLocaleString('zh-CN') : ''
+      }
+    }
+    if (tRes.status === 'fulfilled') {
+      const d = tRes.value?.data
+      if (Array.isArray(d) && d.length) {
+        temperatureSeries.value = [{ name: '温度', data: d.map((p: any) => ({ time: p.time || p.timestamp, value: p.value || p.temperature })) }]
+      }
+    }
+    if (gRes.status === 'fulfilled') {
+      const d = gRes.value?.data
+      if (Array.isArray(d)) {
+        gpsTrackPoints.value = d.map((p: any) => ({ lng: p.lng || p.longitude || p.coordinates?.[0], lat: p.lat || p.latitude || p.coordinates?.[1], time: p.time || p.timestamp, speed: p.speed, temperature: p.temperature }))
+      }
+      gpsTrackInfo.value = { status: '运输中', ...(traceData.value?._vehiclePlate ? { vehiclePlate: traceData.value._vehiclePlate } : {}) }
+    }
+  } catch (e) {
+    console.warn('扩展数据加载失败', e)
+  }
 }
 
 const defaultSections = [
@@ -676,6 +734,8 @@ async function loadTrace() {
         templateConfig.value = tplRes.data
           } catch (e) { templateConfig.value = null; console.warn('模板加载失败') }
     }
+    // 加载视频/IoT扩展数据（并行，不阻塞主查询）
+    loadExtendedData()
   } catch (e: any) {
     error.value = e.message || '未找到溯源信息，请确认流水号是否正确'
   } finally {

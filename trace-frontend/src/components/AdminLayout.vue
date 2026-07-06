@@ -60,6 +60,14 @@
             <el-icon><Bell /></el-icon>
             <span>公告管理</span>
           </el-menu-item>
+          <el-sub-menu index="iot-video-mgmt">
+            <template #title>
+              <el-icon><Monitor /></el-icon>
+              <span>视频/IoT</span>
+            </template>
+            <el-menu-item index="/admin/video-source">视频源总览</el-menu-item>
+            <el-menu-item index="/admin/iot-device">IoT设备总览</el-menu-item>
+          </el-sub-menu>
           <el-menu-item index="/screen/admin">
             <el-icon><TrendCharts /></el-icon>
             <span>数据大屏</span>

@@ -26,6 +26,8 @@ export const SECTION_TYPE_MAP: Record<string, string> = {
   'transport-info': 'transport',
   'slaughter-info': 'slaughter',
   'cutting-record': 'cutting',
+  'video-monitor': 'videoSources',
+  'iot-environment': 'iotReadings',
 }
 
 /** 信息模块字段定义（编辑器 + 渲染共用） */
@@ -94,6 +96,15 @@ export const SECTION_FIELDS: Record<string, SectionDefinition> = {
     { field: 'cutting.images', label: '分割照片', type: 'image' },
     { field: 'cutting.slaughterVideo', label: '屠宰视频', type: 'video' },
     { field: 'cutting.slaughterImages', label: '屠宰照片', type: 'image' },
+  ]},
+  'video-monitor': { title: '视频监控', fields: [
+    { field: 'videoSources.cameras', label: '摄像头列表', type: 'live-video' },
+  ]},
+  'iot-environment': { title: '环境监测', fields: [
+    { field: 'iotReadings.temperature', label: '温度' },
+    { field: 'iotReadings.humidity', label: '湿度' },
+    { field: 'iotReadings.soilMoisture', label: '土壤湿度' },
+    { field: 'iotReadings.ph', label: 'pH值' },
   ]},
 }
 

@@ -20,3 +20,11 @@ export const getTraceTemplate = (templateKey: string) => request.get(`/trace/tem
 export const verifyAntiFake = (data: { serialNo: string; antiFakeCode: string }) => request.post('/trace/verify', data)
 export const directVerify = (serialNo: string) => request.get(`/trace/direct-verify/${serialNo}`)
 export const getCertPublicInfo = (id: number) => request.get(`/trace/cert/${id}`)
+
+// 溯源扩展数据（视频/IoT - 公开）
+export const getTraceVideos = (serialNo: string) => request.get(`/trace/${serialNo}/videos`)
+export const getTraceIotLatest = (serialNo: string) => request.get(`/trace/${serialNo}/iot/latest`)
+export const getTraceTemperature = (serialNo: string) => request.get(`/trace/${serialNo}/iot/temperature`)
+export const getTraceGpsTrack = (serialNo: string) => request.get(`/trace/${serialNo}/iot/gps-track`)
+export const getBatchVideos = (batchId: number) => request.get(`/trace/batch/${batchId}/videos`)
+export const getBatchIotLatest = (batchId: number) => request.get(`/trace/batch/${batchId}/iot/latest`)

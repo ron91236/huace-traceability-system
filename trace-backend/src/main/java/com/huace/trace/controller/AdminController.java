@@ -49,6 +49,9 @@ public class AdminController {
     private final TraceTemplateMapper traceTemplateMapper;
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
+    private final VideoSourceService videoSourceService;
+    private final IotDeviceService iotDeviceService;
+    private final com.huace.trace.mapper.IotAlertRecordMapper alertRecordMapper;
 
     // ==================== 证书类型 ====================
     @GetMapping("/cert-types")
@@ -674,5 +677,26 @@ public class AdminController {
         if (obj == null) return 0;
         if (obj instanceof Number) return ((Number) obj).longValue();
         try { return Long.parseLong(obj.toString()); } catch (Exception e) { return 0; }
+    }
+
+    // ==================== 视频监控管理 ====================
+    @GetMapping("/video-sources")
+    public Result<List<VideoSource>> listAllVideoSources() {
+        return Result.ok(videoSourceService.listAll());
+    }
+
+    // ==================== IoT 设备管理 ====================
+    @GetMapping("/iot-devices")
+    public Result<List<IotDevice>> listAllIotDevices() {
+        return Result.ok(iotDeviceService.listAll());
+    }
+
+    // ==================== IoT 告警 ====================
+    @GetMapping("/iot-alerts")
+    public Result<List<IotAlertRecord>> listAllIotAlerts() {
+        return Result.ok(alertRecordMapper.selectList(
+                new LambdaQueryWrapper<IotAlertRecord>()
+                        .orderByDesc(IotAlertRecord::getCreatedAt)
+                        .last("LIMIT 200")));
     }
 }

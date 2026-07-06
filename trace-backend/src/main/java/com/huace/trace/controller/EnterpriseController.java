@@ -30,6 +30,11 @@ public class EnterpriseController {
     private final TestReportService testReportService;
     private final EnterpriseGroupService enterpriseGroupService;
     private final DataScreenService dataScreenService;
+    private final VideoSourceService videoSourceService;
+    private final IotDeviceService iotDeviceService;
+    private final IotDataService iotDataService;
+    private final com.huace.trace.mapper.IotAlertRuleMapper alertRuleMapper;
+    private final com.huace.trace.mapper.IotAlertRecordMapper alertRecordMapper;
 
     /**
      * 解析企业ID列表 — 支持集团母账号聚合查看
@@ -353,5 +358,132 @@ public class EnterpriseController {
         // DataScreenService takes single enterpriseId, for group we pass first or use full
         Long eid = enterpriseIds.size() == 1 ? enterpriseIds.get(0) : null;
         return Result.ok(dataScreenService.getAllData(eid));
+    }
+
+    // ==================== 视频源管理 ====================
+    @GetMapping("/video-sources")
+    public Result<List<VideoSource>> listVideoSources(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long baseId,
+            @RequestParam(required = false) Long batchId) {
+        return Result.ok(videoSourceService.listByEnterprise(principal.getUserId(), baseId, batchId));
+    }
+
+    @PostMapping("/video-sources")
+    public Result<Void> createVideoSource(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody VideoSource source) {
+        source.setEnterpriseId(principal.getUserId());
+        videoSourceService.createVideoSource(source);
+        return Result.ok(null);
+    }
+
+    @PutMapping("/video-sources/{id}")
+    public Result<VideoSource> updateVideoSource(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestBody VideoSource source) {
+        source.setEnterpriseId(principal.getUserId());
+        return Result.ok(videoSourceService.updateVideoSource(id, source));
+    }
+
+    @DeleteMapping("/video-sources/{id}")
+    public Result<Void> deleteVideoSource(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        videoSourceService.deleteVideoSource(id);
+        return Result.ok(null);
+    }
+
+    // ==================== IoT 设备管理 ====================
+    @GetMapping("/iot-devices")
+    public Result<PageResult<IotDevice>> listIotDevices(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String deviceType,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return Result.ok(iotDeviceService.listByEnterprise(principal.getUserId(), deviceType, page, size));
+    }
+
+    @PostMapping("/iot-devices")
+    public Result<Void> registerIotDevice(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody IotDevice device) {
+        device.setEnterpriseId(principal.getUserId());
+        iotDeviceService.registerDevice(device);
+        return Result.ok(null);
+    }
+
+    @PutMapping("/iot-devices/{id}")
+    public Result<IotDevice> updateIotDevice(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestBody IotDevice device) {
+        device.setEnterpriseId(principal.getUserId());
+        return Result.ok(iotDeviceService.updateDevice(id, device));
+    }
+
+    @DeleteMapping("/iot-devices/{id}")
+    public Result<Void> deleteIotDevice(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        iotDeviceService.deleteDevice(id);
+        return Result.ok(null);
+    }
+
+    @GetMapping("/iot-devices/{id}/latest")
+    public Result<Object> getDeviceLatest(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        return Result.ok(iotDeviceService.getDeviceLatest(id));
+    }
+
+    @GetMapping("/iot-devices/{id}/history")
+    public Result<List<com.huace.trace.entity.mongo.IotSensorData>> getDeviceHistory(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "24") int hours) {
+        java.time.LocalDateTime to = java.time.LocalDateTime.now();
+        return Result.ok(iotDataService.getSensorHistory(id, to.minusHours(hours), to));
+    }
+
+    // ==================== IoT 告警 ====================
+    @GetMapping("/iot-alerts")
+    public Result<List<IotAlertRecord>> listIotAlerts(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return Result.ok(alertRecordMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<IotAlertRecord>()
+                        .eq(IotAlertRecord::getEnterpriseId, principal.getUserId())
+                        .orderByDesc(IotAlertRecord::getCreatedAt)
+                        .last("LIMIT 100")));
+    }
+
+    @PutMapping("/iot-alerts/{id}/handle")
+    public Result<Void> handleIotAlert(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        IotAlertRecord record = new IotAlertRecord();
+        record.setId(id);
+        record.setHandleStatus(1);
+        record.setHandleNote(body.get("handleNote"));
+        alertRecordMapper.updateById(record);
+        return Result.ok(null);
+    }
+
+    @GetMapping("/iot-alert-rules")
+    public Result<List<IotAlertRule>> listAlertRules(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return Result.ok(alertRuleMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<IotAlertRule>()
+                        .eq(IotAlertRule::getEnterpriseId, principal.getUserId())));
+    }
+
+    @PostMapping("/iot-alert-rules")
+    public Result<Void> createAlertRule(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody IotAlertRule rule) {
+        rule.setEnterpriseId(principal.getUserId());
+        alertRuleMapper.insert(rule);
+        return Result.ok(null);
     }
 }

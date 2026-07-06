@@ -66,3 +66,23 @@ export const getGroupChildren = () => request.get('/enterprise/group/children')
 
 // 数据大屏
 export const getEntDataScreen = () => request.get('/enterprise/data-screen/all')
+
+// 视频源管理
+export const getVideoSources = (params: any) => request.get('/enterprise/video-sources', { params })
+export const createVideoSource = (data: any) => request.post('/enterprise/video-sources', data)
+export const updateVideoSource = (id: number, data: any) => request.put(`/enterprise/video-sources/${id}`, data)
+export const deleteVideoSource = (id: number) => request.delete(`/enterprise/video-sources/${id}`)
+
+// IoT 设备管理
+export const getIotDevices = (params: any) => request.get('/enterprise/iot-devices', { params })
+export const createIotDevice = (data: any) => request.post('/enterprise/iot-devices', data)
+export const updateIotDevice = (id: number, data: any) => request.put(`/enterprise/iot-devices/${id}`, data)
+export const deleteIotDevice = (id: number) => request.delete(`/enterprise/iot-devices/${id}`)
+export const getDeviceLatest = (id: number) => request.get(`/enterprise/iot-devices/${id}/latest`)
+export const getDeviceHistory = (id: number, params: any) => request.get(`/enterprise/iot-devices/${id}/history`, { params })
+
+// IoT 告警
+export const getIotAlerts = (params: any) => request.get('/enterprise/iot-alerts', { params })
+export const handleIotAlert = (id: number, data: any) => request.put(`/enterprise/iot-alerts/${id}/handle`, data)
+export const getIotAlertRules = (params: any) => request.get('/enterprise/iot-alert-rules', { params })
+export const createIotAlertRule = (data: any) => request.post('/enterprise/iot-alert-rules', data)
