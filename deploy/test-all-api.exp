@@ -1,0 +1,95 @@
+#!/usr/bin/expect -f
+set timeout 60
+spawn ssh -o StrictHostKeyChecking=no root@8.152.162.118
+expect "password:"
+send "Rango2025=\r"
+expect "# "
+
+# Check service status
+send "systemctl is-active trace-backend && ss -tlnp | grep 8080 | head -1\r"
+expect "# "
+
+# Get admin token
+send "ADMIN_TOKEN=\$(curl -s -X POST http://127.0.0.1:8080/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"admin123\",\"loginType\":\"admin\"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)\[\"data\"\]\[\"token\"\])')\r"
+expect "# "
+send "echo ADMIN_TOKEN_LEN=\${#ADMIN_TOKEN}\r"
+expect "# "
+
+# Get enterprise users from DB
+send "mysql -uroot -proot trace_system -e 'SELECT id,name,contact_name,phone FROM enterprise LIMIT 10;'\r"
+expect "# "
+
+# Get sys_user
+send "mysql -uroot -proot trace_system -e 'SELECT id,username,user_type,enterprise_id FROM sys_user;'\r"
+expect "# "
+
+# Check if any enterprise login works
+send "ENT_TOKEN=\$(curl -s -X POST http://127.0.0.1:8080/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"enterprise1\",\"password\":\"123456\",\"loginType\":\"enterprise\"}' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get(\"data\",{}).get(\"token\",\"FAIL:\"+str(d.get(\"msg\",\"\"))) if d.get(\"data\") else \"FAIL:\"+str(d.get(\"msg\",\"\")))')\r"
+expect "# "
+send "echo ENT_TOKEN_LEN=\${#ENT_TOKEN}\r"
+expect "# "
+
+# If enterprise1 failed, try with phone number
+send "if test \${#ENT_TOKEN} -lt 10; then ENT_TOKEN=\$(curl -s -X POST http://127.0.0.1:8080/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"13800138001\",\"password\":\"123456\",\"loginType\":\"enterprise\"}' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get(\"data\",{}).get(\"token\",\"FAIL\") if d.get(\"data\") else \"FAIL\")'); fi\r"
+expect "# "
+send "echo ENT_TOKEN_LEN2=\${#ENT_TOKEN}\r"
+expect "# "
+
+# ========== ADMIN API TESTS ==========
+send "echo '=== ADMIN API TESTS ==='\r"
+expect "# "
+send "curl -s http://127.0.0.1:8080/api/admin/enterprises -H \"Authorization: Bearer \$ADMIN_TOKEN\" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"enterprises:\",d.get(\"code\"),d.get(\"data\",{}).get(\"total\",\"?\"))'\r"
+expect "# "
+send "curl -s http://127.0.0.1:8080/api/admin/products -H \"Authorization: Bearer \$ADMIN_TOKEN\" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"products:\",d.get(\"code\"),d.get(\"data\",{}).get(\"total\",\"?\"))'\r"
+expect "# "
+send "curl -s http://127.0.0.1:8080/api/admin/cert-types -H \"Authorization: Bearer \$ADMIN_TOKEN\" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"cert-types:\",d.get(\"code\"),d.get(\"data\",{}).get(\"total\",\"?\"))'\r"
+expect "# "
+send "curl -s http://127.0.0.1:8080/api/admin/notices -H \"Authorization: Bearer \$ADMIN_TOKEN\" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"notices:\",d.get(\"code\"),d.get(\"data\",{}).get(\"total\",\"?\"))'\r"
+expect "# "
+send "curl -s http://127.0.0.1:8080/api/admin/dashboard/stats -H \"Authorization: Bearer \$ADMIN_TOKEN\" | head -200\r"
+expect "# "
+send "curl -s http://127.0.0.1:8080/api/admin/label-specs -H \"Authorization: Bearer \$ADMIN_TOKEN\" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"label-specs:\",d.get(\"code\"),d.get(\"data\",{}).get(\"total\",\"?\"))'\r"
+expect "# "
+
+# ========== ENTERPRISE API TESTS ==========
+send "echo '=== ENTERPRISE API TESTS ==='\r"
+expect "# "
+
+# Test reports
+send "curl -s http://127.0.0.1:8080/api/enterprise/test-reports -H \"Authorization: Bearer \$ENT_TOKEN\" | head -300\r"
+expect "# "
+send "curl -s http://127.0.0.1:8080/api/enterprise/test-reports/all -H \"Authorization: Bearer \$ENT_TOKEN\" | head -300\r"
+expect "# "
+
+# Batches
+send "curl -s http://127.0.0.1:8080/api/enterprise/batches -H \"Authorization: Bearer \$ENT_TOKEN\" | head -300\r"
+expect "# "
+
+# Other enterprise endpoints
+send "curl -s http://127.0.0.1:8080/api/enterprise/certs -H \"Authorization: Bearer \$ENT_TOKEN\" | head -200\r"
+expect "# "
+send "curl -s http://127.0.0.1:8080/api/enterprise/bases -H \"Authorization: Bearer \$ENT_TOKEN\" | head -200\r"
+expect "# "
+send "curl -s http://127.0.0.1:8080/api/enterprise/goods -H \"Authorization: Bearer \$ENT_TOKEN\" | head -200\r"
+expect "# "
+send "curl -s http://127.0.0.1:8080/api/enterprise/addresses -H \"Authorization: Bearer \$ENT_TOKEN\" | head -200\r"
+expect "# "
+send "curl -s http://127.0.0.1:8080/api/enterprise/orders -H \"Authorization: Bearer \$ENT_TOKEN\" | head -200\r"
+expect "# "
+send "curl -s http://127.0.0.1:8080/api/enterprise/notices -H \"Authorization: Bearer \$ENT_TOKEN\" | head -200\r"
+expect "# "
+send "curl -s http://127.0.0.1:8080/api/enterprise/dashboard/stats -H \"Authorization: Bearer \$ENT_TOKEN\" | head -200\r"
+expect "# "
+
+# Trace page
+send "curl -s http://127.0.0.1:8080/api/trace/templates | head -200\r"
+expect "# "
+
+# Check recent error logs
+send "echo '=== RECENT ERRORS ==='\r"
+expect "# "
+send "journalctl -u trace-backend --no-pager -n 30 | grep -i 'error\\|exception' | tail -10\r"
+expect "# "
+
+send "exit\r"
+expect eof

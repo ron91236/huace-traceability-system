@@ -1,0 +1,43 @@
+#!/usr/bin/expect -f
+set timeout 300
+set server_ip "8.152.162.118"
+set password "Rango2025="
+
+spawn ssh root@$server_ip
+expect {
+    "yes/no" { send "yes\r"; exp_continue }
+    "password:" { send "$password\r" }
+}
+
+expect "#"
+
+# 设置 JAVA_HOME
+send "export JAVA_HOME=/usr/lib/jvm/java-17-openjdk && echo 'JAVA_HOME set to:' && echo \$JAVA_HOME\r"
+expect "#"
+
+# 验证 Java 版本
+send "\$JAVA_HOME/bin/java -version 2>&1 | head -3\r"
+expect "#"
+
+# 使用正确的 Java 构建
+send "cd /opt/trace-system/trace-backend && export JAVA_HOME=/usr/lib/jvm/java-17-openjdk && mvn clean package -DskipTests 2>&1 | tail -50\r"
+expect "#"
+
+# 检查 jar 包
+send "ls -lh target/*.jar 2>&1\r"
+expect "#"
+
+# 重启服务
+send "systemctl restart trace-backend && sleep 10\r"
+expect "#"
+
+# 检查状态
+send "systemctl status trace-backend --no-pager | grep -A 5 'Active:'\r"
+expect "#"
+
+# 测试 API
+send "curl -s http://localhost:8080/api/auth/login -X POST -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"admin123\"}' 2>&1\r"
+expect "#"
+
+send "exit\r"
+expect eof

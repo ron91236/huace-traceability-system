@@ -1,0 +1,58 @@
+#!/usr/bin/expect -f
+set timeout 120
+
+spawn ssh -o StrictHostKeyChecking=no root@8.152.162.118
+expect "password:"
+send "Rango2025=\r"
+expect "# "
+
+# Check backend status
+send "systemctl is-active trace-backend\r"
+expect "# "
+
+# Login and get token
+send "TOKEN=\$(curl -s -X POST http://127.0.0.1:8080/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"test_enterprise\",\"password\":\"test123\",\"loginType\":\"enterprise\"}' | python3 -c 'import sys,json; print(json.load(sys.stdin).get(\"data\",{}).get(\"token\",\"\"))')\r"
+expect "# "
+
+send "echo TOKEN_LEN=\${#TOKEN}\r"
+expect "# "
+
+# Test each API
+send "echo '=== test-reports ===' && curl -s -H \"Authorization: Bearer \$TOKEN\" 'http://127.0.0.1:8080/api/enterprise/test-reports?page=1&size=10' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"msg:\",d.get(\"msg\",\"\"),\"total:\",d.get(\"data\",{}).get(\"total\",\"N/A\") if isinstance(d.get(\"data\"),dict) else \"N/A\")'\r"
+expect "# "
+
+send "echo '=== batches ===' && curl -s -H \"Authorization: Bearer \$TOKEN\" 'http://127.0.0.1:8080/api/enterprise/batches?page=1&size=10' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"msg:\",d.get(\"msg\",\"\"),\"total:\",d.get(\"data\",{}).get(\"total\",\"N/A\") if isinstance(d.get(\"data\"),dict) else \"N/A\")'\r"
+expect "# "
+
+send "echo '=== goods ===' && curl -s -H \"Authorization: Bearer \$TOKEN\" 'http://127.0.0.1:8080/api/enterprise/goods?page=1&size=10' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"msg:\",d.get(\"msg\",\"\"))'\r"
+expect "# "
+
+send "echo '=== bases ===' && curl -s -H \"Authorization: Bearer \$TOKEN\" 'http://127.0.0.1:8080/api/enterprise/bases?page=1&size=10' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"msg:\",d.get(\"msg\",\"\"))'\r"
+expect "# "
+
+send "echo '=== orders ===' && curl -s -H \"Authorization: Bearer \$TOKEN\" 'http://127.0.0.1:8080/api/enterprise/orders?page=1&size=10' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"msg:\",d.get(\"msg\",\"\"))'\r"
+expect "# "
+
+send "echo '=== dashboard ===' && curl -s -H \"Authorization: Bearer \$TOKEN\" 'http://127.0.0.1:8080/api/enterprise/dashboard' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"keys:\",list(d.get(\"data\",{}).keys()) if isinstance(d.get(\"data\"),dict) else d.get(\"msg\"))'\r"
+expect "# "
+
+send "echo '=== cert-types ===' && curl -s -H \"Authorization: Bearer \$TOKEN\" 'http://127.0.0.1:8080/api/enterprise/cert-types?page=1&size=10' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"msg:\",d.get(\"msg\",\"\"))'\r"
+expect "# "
+
+send "echo '=== label-specs ===' && curl -s -H \"Authorization: Bearer \$TOKEN\" 'http://127.0.0.1:8080/api/enterprise/label-specs?page=1&size=10' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"msg:\",d.get(\"msg\",\"\"))'\r"
+expect "# "
+
+send "echo '=== products ===' && curl -s -H \"Authorization: Bearer \$TOKEN\" 'http://127.0.0.1:8080/api/enterprise/products?page=1&size=10' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"msg:\",d.get(\"msg\",\"\"))'\r"
+expect "# "
+
+send "echo '=== notices ===' && curl -s -H \"Authorization: Bearer \$TOKEN\" 'http://127.0.0.1:8080/api/enterprise/notices?page=1&size=10' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"msg:\",d.get(\"msg\",\"\"))'\r"
+expect "# "
+
+send "echo '=== trace/templates ===' && curl -s 'http://127.0.0.1:8080/api/trace/templates' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"msg:\",d.get(\"msg\",\"\"))'\r"
+expect "# "
+
+send "echo '=== nginx ===' && curl -s -o /dev/null -w 'HTTP %{http_code}' http://8.152.162.118/ && echo ''\r"
+expect "# "
+
+send "exit\r"
+expect eof

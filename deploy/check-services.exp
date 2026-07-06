@@ -1,0 +1,28 @@
+#!/usr/bin/expect -f
+set timeout 30
+
+spawn ssh -o StrictHostKeyChecking=no root@8.152.162.118
+expect "password:"
+send "Rango2025=\r"
+expect "# "
+
+send "echo '=== MySQL ===' && systemctl is-active mysqld && ss -tlnp | grep 3306\r"
+expect "# "
+
+send "echo '=== MongoDB ===' && systemctl is-active mongod 2>&1; ss -tlnp | grep 27017\r"
+expect "# "
+
+send "echo '=== Redis ===' && systemctl is-active redis 2>&1; ss -tlnp | grep 6379\r"
+expect "# "
+
+send "echo '=== Java process ===' && ps aux | grep java | grep -v grep\r"
+expect "# "
+
+send "echo '=== Service file ===' && cat /etc/systemd/system/trace-backend.service\r"
+expect "# "
+
+send "echo '=== Last 5 lines app log ===' && tail -5 /opt/trace-system/trace-backend/target/app.log 2>/dev/null || journalctl -u trace-backend --no-pager -n 5\r"
+expect "# "
+
+send "exit\r"
+expect eof

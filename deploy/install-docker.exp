@@ -1,0 +1,42 @@
+#!/usr/bin/expect -f
+set timeout 600
+set server_ip "8.152.162.118"
+set password "Rango2025="
+
+puts "========================================"
+puts "  配置 Docker Compose 自动部署"
+puts "========================================"
+
+spawn ssh root@$server_ip
+expect {
+    "yes/no" { send "yes\r"; exp_continue }
+    "password:" { send "$password\r" }
+}
+
+expect "#"
+
+# 检查 Docker 是否已安装
+send "docker --version 2>&1 || echo 'Docker not installed'\r"
+expect "#"
+
+# 安装 Docker（如果未安装）
+send "if ! command -v docker &>/dev/null; then curl -fsSL https://get.docker.com | sh && systemctl start docker && systemctl enable docker; fi\r"
+expect "#"
+
+# 安装 Docker Compose（如果未安装）
+send "if ! command -v docker-compose &>/dev/null; then curl -L \"https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)\" -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose; fi\r"
+expect "#"
+
+# 验证安装
+send "docker --version && docker-compose --version\r"
+expect "#"
+
+# 上传新的部署脚本
+send "rm -f /tmp/setup-git-hook-docker.sh\r"
+expect "#"
+
+send "exit\r"
+expect eof
+
+puts "\n✅ Docker 环境准备完成"
+puts "下一步：上传部署脚本并重新配置 Git Hook"

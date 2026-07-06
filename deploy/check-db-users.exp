@@ -1,0 +1,27 @@
+#!/usr/bin/expect -f
+set timeout 30
+set server_ip "8.152.162.118"
+set password "Rango2025="
+
+spawn ssh root@$server_ip
+expect {
+    "yes/no" { send "yes\r"; exp_continue }
+    "password:" { send "$password\r" }
+}
+
+expect "#"
+
+# 查看数据库配置
+send "cat /opt/trace-system/trace-backend/src/main/resources/application.yml | grep -A 5 'datasource'\r"
+expect "#"
+
+# 尝试用正确的数据库密码连接
+send "mysql -u trace_user -p'Trace@2024' trace_system -e \"SELECT id, username, password FROM sys_user LIMIT 5;\" 2>&1 || mysql -uroot -e \"SHOW DATABASES;\"\r"
+expect "#"
+
+# 检查是否有其他用户表
+send "mysql -uroot -e \"USE trace_system; SHOW TABLES LIKE '%user%';\" 2>&1\r"
+expect "#"
+
+send "exit\r"
+expect eof

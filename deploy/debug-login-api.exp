@@ -1,0 +1,23 @@
+#!/usr/bin/expect -f
+set timeout 60
+set server_ip "8.152.162.118"
+set password "Rango2025="
+
+spawn ssh root@$server_ip
+expect {
+    "yes/no" { send "yes\r"; exp_continue }
+    "password:" { send "$password\r" }
+}
+
+expect "#"
+
+# 直接查看登录响应
+send "curl -sv -X POST http://127.0.0.1:8080/auth/enterprise-login -H 'Content-Type: application/json' -d '{\"account\":\"admin\",\"password\":\"admin123\"}' 2>&1\r"
+expect "#"
+
+# 检查后端日志
+send "journalctl -u trace-backend --no-pager -n 20 2>&1\r"
+expect "#"
+
+send "exit\r"
+expect eof

@@ -29,7 +29,7 @@ public class IotDataService {
      * 获取传感器历史数据
      */
     public List<IotSensorData> getSensorHistory(Long deviceId, LocalDateTime from, LocalDateTime to) {
-        return sensorDataRepository.findByMetadataDeviceIdAndTimestampBetweenOrderByTimestampAsc(deviceId, from, to);
+        return sensorDataRepository.findByDeviceIdAndTimeRange(deviceId, from, to);
     }
 
     /**
@@ -53,7 +53,7 @@ public class IotDataService {
      * 获取GPS轨迹 [{lng, lat, time, speed, temperature}]
      */
     public List<Map<String, Object>> getGpsTrack(Long deviceId, LocalDateTime from, LocalDateTime to) {
-        List<IotGpsTrack> tracks = gpsTrackRepository.findByMetadataDeviceIdAndTimestampBetweenOrderByTimestampAsc(deviceId, from, to);
+        List<IotGpsTrack> tracks = gpsTrackRepository.findByDeviceIdAndTimeRange(deviceId, from, to);
         List<Map<String, Object>> result = new ArrayList<>();
         for (IotGpsTrack t : tracks) {
             Map<String, Object> point = new HashMap<>();

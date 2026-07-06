@@ -1,0 +1,31 @@
+#!/usr/bin/expect -f
+set timeout 30
+set server_ip "8.152.162.118"
+set password "Rango2025="
+
+spawn ssh root@$server_ip
+expect {
+    "yes/no" { send "yes\r"; exp_continue }
+    "password:" { send "$password\r" }
+}
+
+expect "#"
+
+# 查看 admin 用户的完整信息
+send "mysql -u root -p'root' trace_system -e \"SELECT id, login_account, name, status, account_level FROM enterprise WHERE login_account='admin';\"\r"
+expect "#"
+
+# 如果 status 不是 1，更新为 1
+send "mysql -u root -p'root' trace_system -e \"UPDATE enterprise SET status=1 WHERE login_account='admin';\"\r"
+expect "#"
+
+# 再次验证
+send "mysql -u root -p'root' trace_system -e \"SELECT id, login_account, name, status, account_level FROM enterprise WHERE login_account='admin';\"\r"
+expect "#"
+
+# 测试登录
+send "curl -s http://localhost:8080/api/auth/login -X POST -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"admin123\"}'\r"
+expect "#"
+
+send "exit\r"
+expect eof

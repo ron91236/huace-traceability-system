@@ -1,0 +1,27 @@
+#!/usr/bin/expect -f
+set timeout 180
+set server_ip "8.152.162.118"
+set password "Rango2025="
+
+spawn ssh root@$server_ip
+expect {
+    "yes/no" { send "yes\r"; exp_continue }
+    "password:" { send "$password\r" }
+}
+
+expect "#"
+
+send "cd /opt/trace-system/trace-frontend && npm run build 2>&1 | tail -30\r"
+expect "#"
+
+send "ls -la dist/ | head -10\r"
+expect "#"
+
+send "systemctl restart nginx\r"
+expect "#"
+
+send "curl -I http://localhost 2>&1 | head -5\r"
+expect "#"
+
+send "exit\r"
+expect eof

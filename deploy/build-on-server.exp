@@ -1,0 +1,36 @@
+#!/usr/bin/expect -f
+set timeout 300
+set server_ip "8.152.162.118"
+set password "Rango2025="
+
+spawn ssh root@$server_ip
+expect {
+    "yes/no" { send "yes\r"; exp_continue }
+    "password:" { send "$password\r" }
+}
+
+expect "#"
+
+# 查看systemd服务配置找到jar路径
+send "cat /etc/systemd/system/trace-backend.service 2>&1\r"
+expect "#"
+
+# 查找现有的jar
+send "find /opt -name '*.jar' -path '*trace*' 2>/dev/null\r"
+expect "#"
+
+# 在服务器上构建项目（使用Java 17）
+send "export JAVA_HOME=/usr/lib/jvm/java-17-openjdk && cd /opt/trace-system/trace-backend && mvn package -DskipTests -q 2>&1\r"
+expect {
+    "BUILD SUCCESS" { puts "\n>>> BUILD SUCCESS <<<" }
+    "BUILD FAILURE" { puts "\n>>> BUILD FAILURE <<<" }
+    timeout { puts "\n>>> BUILD TIMEOUT <<<" }
+}
+expect "#"
+
+# 检查构建结果
+send "ls -la /opt/trace-system/trace-backend/target/*.jar 2>&1\r"
+expect "#"
+
+send "exit\r"
+expect eof

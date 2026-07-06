@@ -1,0 +1,76 @@
+#!/usr/bin/expect -f
+set timeout 300
+
+# Step 1: git push to deploy remote
+spawn git push deploy master
+expect {
+    "password:" {
+        send "Rango2025=\r"
+    }
+    "Username" {
+        send "root\r"
+        expect "password:"
+        send "Rango2025=\r"
+    }
+}
+
+expect {
+    "Writing objects" { puts "\n>>> Git push in progress..." }
+    "Everything up-to-date" { puts "\n>>> Already up-to-date" }
+    eof
+}
+
+# Wait for push to complete
+wait
+
+puts "\n>>> Git push complete. Now building on server..."
+
+# Step 2: SSH to server and build
+spawn ssh -o StrictHostKeyChecking=no root@8.152.162.118
+expect {
+    "password:" {
+        send "Rango2025=\r"
+    }
+}
+
+expect "# "
+
+# Stop the service first
+send "systemctl stop trace-backend\r"
+expect "# "
+
+# Build the project
+send "cd /opt/trace-system/trace-backend && mvn package -DskipTests -q 2>&1\r"
+expect {
+    "BUILD SUCCESS" {
+        puts "\n>>> BUILD SUCCESS!"
+    }
+    "BUILD FAILURE" {
+        puts "\n>>> BUILD FAILURE!"
+        expect "# "
+        send "mvn package -DskipTests 2>&1 | tail -50\r"
+        expect "# "
+    }
+    timeout {
+        puts "\n>>> Build timed out"
+    }
+}
+
+expect "# "
+
+# Restart the service
+send "systemctl start trace-backend\r"
+expect "# "
+
+# Wait a moment and check status
+send "sleep 5 && systemctl status trace-backend --no-pager -l | head -20\r"
+expect "# "
+
+# Test the test-reports API
+send "curl -s http://127.0.0.1:8080/api/enterprise/test-reports 2>&1 | head -5\r"
+expect "# "
+
+send "exit\r"
+expect eof
+
+puts "\n>>> Deploy complete!"

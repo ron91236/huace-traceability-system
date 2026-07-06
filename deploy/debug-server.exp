@@ -1,0 +1,22 @@
+#!/usr/bin/expect -f
+set timeout 30
+
+spawn ssh -o StrictHostKeyChecking=no root@8.152.162.118
+expect "password:"
+send "Rango2025=\r"
+expect "# "
+
+# Check if port 8080 is listening
+send "ss -tlnp | grep 8080\r"
+expect "# "
+
+# Check service logs
+send "journalctl -u trace-backend --no-pager -n 30\r"
+expect "# "
+
+# Try raw curl to see what we get
+send "curl -v http://127.0.0.1:8080/api/auth/login -X POST -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"admin123\",\"loginType\":\"admin\"}' 2>&1 | head -30\r"
+expect "# "
+
+send "exit\r"
+expect eof

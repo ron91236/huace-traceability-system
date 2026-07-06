@@ -1,0 +1,31 @@
+#!/usr/bin/expect -f
+set timeout 60
+set server_ip "8.152.162.118"
+set password "Rango2025="
+
+spawn ssh root@$server_ip
+expect {
+    "yes/no" { send "yes\r"; exp_continue }
+    "password:" { send "$password\r" }
+}
+
+expect "#"
+
+# 检查服务器上的Java版本
+send "java -version 2>&1\r"
+expect "#"
+
+# 检查Maven
+send "mvn --version 2>&1 | head -5\r"
+expect "#"
+
+# 检查/opt/trace-system目录
+send "ls /opt/trace-system/trace-backend/pom.xml 2>&1\r"
+expect "#"
+
+# 检查当前jar
+send "ls -la /opt/trace-backend/*.jar 2>&1\r"
+expect "#"
+
+send "exit\r"
+expect eof

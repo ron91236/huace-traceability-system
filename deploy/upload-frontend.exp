@@ -1,0 +1,44 @@
+#!/usr/bin/expect -f
+set timeout 60
+set server_ip "8.152.162.118"
+set password "Rango2025="
+
+# 先打包本地 dist
+puts "打包本地前端构建文件..."
+cd /Users/ron/Qoder/trace-system/trace-frontend
+exec tar czf /tmp/frontend-dist.tar.gz dist/
+
+# 上传到服务器
+puts "上传到服务器..."
+spawn scp /tmp/frontend-dist.tar.gz root@$server_ip:/tmp/
+expect {
+    "yes/no" { send "yes\r"; exp_continue }
+    "password:" { send "$password\r" }
+}
+expect eof
+
+# SSH 登录并解压
+puts "在服务器上解压并替换..."
+spawn ssh root@$server_ip
+expect {
+    "yes/no" { send "yes\r"; exp_continue }
+    "password:" { send "$password\r" }
+}
+
+expect "#"
+send "rm -rf /opt/trace-system/trace-frontend/dist && cd /opt/trace-system/trace-frontend && tar xzf /tmp/frontend-dist.tar.gz && rm /tmp/frontend-dist.tar.gz\r"
+expect "#"
+
+send "ls -la dist/ | head -10\r"
+expect "#"
+
+send "systemctl restart nginx\r"
+expect "#"
+
+send "curl -I http://localhost 2>&1 | head -5\r"
+expect "#"
+
+send "exit\r"
+expect eof
+
+puts "\n✅ 前端文件已更新！"

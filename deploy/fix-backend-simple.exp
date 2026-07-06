@@ -1,0 +1,33 @@
+#!/usr/bin/expect -f
+set timeout 300
+set server_ip "8.152.162.118"
+set password "Rango2025="
+
+spawn ssh root@$server_ip
+expect {
+    "yes/no" { send "yes\r"; exp_continue }
+    "password:" { send "$password\r" }
+}
+
+expect "#"
+
+send "java -version 2>&1 | head -3\r"
+expect "#"
+
+send "cd /opt/trace-system/trace-backend && mvn clean package -DskipTests 2>&1 | tail -50\r"
+expect "#"
+
+send "ls -lh target/*.jar 2>&1\r"
+expect "#"
+
+send "systemctl restart trace-backend && sleep 10\r"
+expect "#"
+
+send "systemctl status trace-backend --no-pager | head -20\r"
+expect "#"
+
+send "curl -s http://localhost:8080/api/auth/login -X POST -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"admin123\"}' 2>&1\r"
+expect "#"
+
+send "exit\r"
+expect eof

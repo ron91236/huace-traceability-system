@@ -1,0 +1,21 @@
+#!/usr/bin/expect -f
+set timeout 30
+
+spawn ssh -o StrictHostKeyChecking=no root@8.152.162.118
+expect "password:"
+send "Rango2025=\r"
+expect "# "
+
+# Check recent error logs
+send "journalctl -u trace-backend --no-pager -n 80 --since '3 min ago' 2>&1 | tail -80\r"
+expect "# "
+
+# Try MySQL with different passwords
+send "mysql -u root -proot trace_system -e 'SELECT COUNT(*) as cnt FROM sys_user;' 2>&1\r"
+expect "# "
+
+send "mysql -u root -pTrace@2024 trace_system -e 'SELECT 1;' 2>&1\r"
+expect "# "
+
+send "exit\r"
+expect eof

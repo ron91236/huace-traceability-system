@@ -1,0 +1,33 @@
+#!/usr/bin/expect -f
+set timeout 600
+set server_ip "8.152.162.118"
+set password "Rango2025="
+
+puts "========================================"
+puts "  配置 Podman Compose 自动部署"
+puts "========================================"
+
+spawn ssh root@$server_ip
+expect {
+    "yes/no" { send "yes\r"; exp_continue }
+    "password:" { send "$password\r" }
+}
+
+expect "#"
+
+# 检查 podman-compose 是否已安装
+send "podman-compose --version 2>&1 || echo 'not installed'\r"
+expect "#"
+
+# 安装 podman-compose（如果未安装）
+send "if ! command -v podman-compose &>/dev/null; then dnf install -y podman-compose 2>/dev/null || pip3 install podman-compose; fi\r"
+expect "#"
+
+# 验证安装
+send "podman --version && podman-compose --version 2>&1 | head -1\r"
+expect "#"
+
+send "exit\r"
+expect eof
+
+puts "\n✅ Podman 环境准备完成"

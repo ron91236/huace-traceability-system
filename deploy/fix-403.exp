@@ -1,0 +1,47 @@
+#!/usr/bin/expect -f
+set timeout 60
+set server_ip "8.152.162.118"
+set password "Rango2025="
+
+puts "========================================"
+puts "  修复前端 403 问题"
+puts "========================================"
+
+spawn ssh root@$server_ip
+expect "password:" { send "$password\r" }
+expect "#"
+
+# 检查前端 dist 目录内容
+puts "\n[1] 检查前端构建文件..."
+send "ls -la /opt/trace-system/trace-frontend/dist/\r"
+expect "#"
+
+# 检查是否有 index.html
+send "test -f /opt/trace-system/trace-frontend/dist/index.html && echo 'index.html exists' || echo 'index.html NOT found'\r"
+expect "#"
+
+# 如果没有 index.html，需要重新构建前端
+send "echo '=== 重新构建前端 ===' && cd /opt/trace-system/trace-frontend && npm run build 2>&1 | tail -20\r"
+expect "#"
+
+# 检查 Nginx 配置
+puts "\n[2] 检查 Nginx 配置..."
+send "cat /etc/nginx/conf.d/trace.conf | head -30\r"
+expect "#"
+
+# 检查 Nginx 错误日志
+puts "\n[3] 查看 Nginx 错误日志..."
+send "tail -20 /var/log/nginx/error.log\r"
+expect "#"
+
+# 重启 Nginx
+puts "\n[4] 重启 Nginx..."
+send "systemctl restart nginx && echo 'Nginx restarted successfully'\r"
+expect "#"
+
+send "exit\r"
+expect eof
+
+puts "\n========================================"
+puts "  ✅ 修复完成"
+puts "========================================"

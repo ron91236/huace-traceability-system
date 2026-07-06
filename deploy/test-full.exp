@@ -1,0 +1,54 @@
+#!/usr/bin/expect -f
+set timeout 60
+
+spawn ssh -o StrictHostKeyChecking=no root@8.152.162.118
+expect "password:"
+send "Rango2025=\r"
+expect "# "
+
+# Get admin token
+send "ADMIN_TOKEN=\$(curl -s -X POST http://127.0.0.1:8080/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"admin123\",\"loginType\":\"admin\"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)\[\"data\"\]\[\"token\"\])')\r"
+expect "# "
+send "echo ADMIN_TOKEN_LEN=\${#ADMIN_TOKEN}\r"
+expect "# "
+
+# Check enterprise users
+send "mysql -u root -proot trace_system -e 'SELECT id,login_account,enterprise_id FROM enterprise LIMIT 10;' 2>&1\r"
+expect "# "
+
+# Check sys_user table
+send "mysql -u root -proot trace_system -e 'SELECT id,username,login_type,status FROM sys_user;' 2>&1\r"
+expect "# "
+
+# Admin API tests
+send "echo '=== admin/enterprises ===' && curl -s -H \"Authorization: Bearer \$ADMIN_TOKEN\" 'http://127.0.0.1:8080/api/admin/enterprises?page=1&size=10' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"total:\",d.get(\"data\",{}).get(\"total\",\"N/A\") if isinstance(d.get(\"data\"),dict) else d.get(\"msg\"))'\r"
+expect "# "
+
+send "echo '=== admin/products ===' && curl -s -H \"Authorization: Bearer \$ADMIN_TOKEN\" 'http://127.0.0.1:8080/api/admin/products?page=1&size=10' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"total:\",d.get(\"data\",{}).get(\"total\",\"N/A\") if isinstance(d.get(\"data\"),dict) else d.get(\"msg\"))'\r"
+expect "# "
+
+send "echo '=== admin/cert-types ===' && curl -s -H \"Authorization: Bearer \$ADMIN_TOKEN\" 'http://127.0.0.1:8080/api/admin/cert-types?page=1&size=10' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"total:\",d.get(\"data\",{}).get(\"total\",\"N/A\") if isinstance(d.get(\"data\"),dict) else d.get(\"msg\"))'\r"
+expect "# "
+
+send "echo '=== admin/dashboard ===' && curl -s -H \"Authorization: Bearer \$ADMIN_TOKEN\" 'http://127.0.0.1:8080/api/admin/dashboard' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"data:\",str(d.get(\"data\",\"\"))[:100])'\r"
+expect "# "
+
+send "echo '=== admin/notices ===' && curl -s -H \"Authorization: Bearer \$ADMIN_TOKEN\" 'http://127.0.0.1:8080/api/admin/notices?page=1&size=10' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"total:\",d.get(\"data\",{}).get(\"total\",\"N/A\") if isinstance(d.get(\"data\"),dict) else d.get(\"msg\"))'\r"
+expect "# "
+
+# Try enterprise login
+send "echo '=== enterprise login test ===' && curl -s -X POST http://127.0.0.1:8080/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"enterprise1\",\"password\":\"123456\",\"loginType\":\"enterprise\"}'\r"
+expect "# "
+
+send "echo ''\r"
+expect "# "
+
+# Public API tests
+send "echo '=== trace/templates ===' && curl -s 'http://127.0.0.1:8080/api/trace/templates' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"code:\",d.get(\"code\"),\"msg:\",d.get(\"msg\",\"\"),\"data:\",str(d.get(\"data\",\"\"))[:100])'\r"
+expect "# "
+
+send "echo '=== nginx proxy ===' && curl -s -o /dev/null -w 'HTTP %{http_code}' http://8.152.162.118/ && echo ''\r"
+expect "# "
+
+send "exit\r"
+expect eof

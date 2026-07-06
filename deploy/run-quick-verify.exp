@@ -1,0 +1,14 @@
+#!/usr/bin/expect -f
+set timeout 30
+
+# Upload script
+spawn scp -o StrictHostKeyChecking=no /Users/ron/Qoder/trace-system/deploy/quick-verify.sh root@8.152.162.118:/tmp/quick-verify.sh
+expect "password:"
+send "Rango2025=\r"
+expect eof
+
+# Run script
+spawn ssh -o StrictHostKeyChecking=no root@8.152.162.118 "bash /tmp/quick-verify.sh"
+expect "password:"
+send "Rango2025=\r"
+expect eof

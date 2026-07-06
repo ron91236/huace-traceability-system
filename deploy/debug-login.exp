@@ -1,0 +1,27 @@
+#!/usr/bin/expect -f
+set timeout 30
+
+spawn ssh -o StrictHostKeyChecking=no root@8.152.162.118
+expect "password:"
+send "Rango2025=\r"
+expect "# "
+
+# Test login raw response
+send "echo '=== admin login ===' && curl -s -X POST http://127.0.0.1:8080/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"admin123\",\"loginType\":\"admin\"}'\r"
+expect "# "
+
+send "echo ''\r"
+expect "# "
+
+send "echo '=== enterprise login ===' && curl -s -X POST http://127.0.0.1:8080/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"test_enterprise\",\"password\":\"test123\",\"loginType\":\"enterprise\"}'\r"
+expect "# "
+
+send "echo ''\r"
+expect "# "
+
+# Check users in DB
+send "mysql -u root -pTrace@2024 trace_system -e 'SELECT id,username,login_type,status FROM sys_user LIMIT 20;'\r"
+expect "# "
+
+send "exit\r"
+expect eof

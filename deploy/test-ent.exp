@@ -1,0 +1,78 @@
+#!/usr/bin/expect -f
+set timeout 60
+
+spawn ssh -o StrictHostKeyChecking=no root@8.152.162.118
+expect "password:"
+send "Rango2025=\r"
+expect "# "
+
+# Generate hash using the existing gen_hash.py pattern
+send "HASH=$(python3 -c 'from passlib.hash import bcrypt; print(bcrypt.hash(\"test123\"))')\r"
+expect "# "
+
+# Update enterprise id=11 (test_enterprise) with new password
+send "mysql -uroot -proot trace_system -e \"UPDATE enterprise SET login_password_hash='$HASH', status=1 WHERE login_account='test_enterprise';\"\r"
+expect "# "
+
+# Also update all enterprises password
+send "mysql -uroot -proot trace_system -e \"UPDATE enterprise SET login_password_hash='$HASH', status=1;\"\r"
+expect "# "
+
+# Test login
+send "curl -s -X POST http://127.0.0.1:8080/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"test_enterprise\",\"password\":\"test123\",\"loginType\":\"enterprise\"}' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"LOGIN:\",d.get(\"code\"),d.get(\"msg\",\"\"))'\r"
+expect "# "
+
+# Get token
+send "ENT_TOKEN=$(curl -s -X POST http://127.0.0.1:8080/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"test_enterprise\",\"password\":\"test123\",\"loginType\":\"enterprise\"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)\[\"data\"\]\[\"token\"\])')\r"
+expect "# "
+send "echo ENT_TOKEN_LEN=${#ENT_TOKEN}\r"
+expect "# "
+
+# Test all enterprise APIs
+send "EH=\"Authorization: Bearer $ENT_TOKEN\"\r"
+expect "# "
+
+send "for ep in test-reports test-reports/all batches certs bases goods addresses orders notices dashboard/stats order-codes code-usages data-screen/all; do curl -s http://127.0.0.1:8080/api/enterprise/$ep -H \"$EH\" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"enterprise/$ep:\",d.get(\"code\"),d.get(\"msg\",\"\")[:50])' 2>/dev/null; done\r"
+expect "# "
+
+# CRUD tests
+send "curl -s -X POST http://127.0.0.1:8080/api/enterprise/test-reports -H \"$EH\" -H 'Content-Type: application/json' -d '{\"reportName\":\"API测试报告\",\"testCode\":\"TEST-001\",\"testOrg\":\"测试机构\",\"testTime\":\"2026-01-01\",\"testMethod\":\"标准方法\",\"testBasis\":\"GB/T 12345\",\"testType\":\"型式检验\",\"testResult\":\"合格\"}' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"create_report:\",d.get(\"code\"),\"id=\",d.get(\"data\",{}).get(\"id\",\"?\"))'\r"
+expect "# "
+
+send "REPORT_ID=$(curl -s -X POST http://127.0.0.1:8080/api/enterprise/test-reports -H \"$EH\" -H 'Content-Type: application/json' -d '{\"reportName\":\"报告2\",\"testCode\":\"TEST-002\",\"testOrg\":\"机构2\",\"testTime\":\"2026-02-01\",\"testMethod\":\"方法2\",\"testBasis\":\"GB/T 999\",\"testType\":\"出厂检验\",\"testResult\":\"合格\"}' | python3 -c 'import sys,json; print(json.load(sys.stdin).get(\"data\",{}).get(\"id\",\"\"))')\r"
+expect "# "
+send "echo REPORT_ID=$REPORT_ID\r"
+expect "# "
+
+# Update report
+send "if test -n \"$REPORT_ID\"; then curl -s -X PUT http://127.0.0.1:8080/api/enterprise/test-reports/$REPORT_ID -H \"$EH\" -H 'Content-Type: application/json' -d '{\"reportName\":\"报告2-已更新\"}' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"update_report:\",d.get(\"code\"))'; fi\r"
+expect "# "
+
+# Delete report
+send "if test -n \"$REPORT_ID\"; then curl -s -X DELETE http://127.0.0.1:8080/api/enterprise/test-reports/$REPORT_ID -H \"$EH\" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"delete_report:\",d.get(\"code\"))'; fi\r"
+expect "# "
+
+# Create batch
+send "curl -s -X POST http://127.0.0.1:8080/api/enterprise/batches -H \"$EH\" -H 'Content-Type: application/json' -d '{\"name\":\"测试批次\",\"goodsSpec\":\"500g\"}' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"create_batch:\",d.get(\"code\"),\"id=\",d.get(\"data\",{}).get(\"id\",\"?\"),d.get(\"msg\",\"\")[:50])'\r"
+expect "# "
+
+# Create goods
+send "curl -s -X POST http://127.0.0.1:8080/api/enterprise/goods -H \"$EH\" -H 'Content-Type: application/json' -d '{\"name\":\"测试商品\",\"spec\":\"250g\",\"unit\":\"瓶\"}' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"create_goods:\",d.get(\"code\"),\"id=\",d.get(\"data\",{}).get(\"id\",\"?\"),d.get(\"msg\",\"\")[:50])'\r"
+expect "# "
+
+# Create address
+send "curl -s -X POST http://127.0.0.1:8080/api/enterprise/addresses -H \"$EH\" -H 'Content-Type: application/json' -d '{\"contactName\":\"张三\",\"phone\":\"13900139000\",\"province\":\"广东省\",\"city\":\"深圳市\",\"address\":\"测试路1号\",\"isDefault\":0}' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"create_address:\",d.get(\"code\"),\"id=\",d.get(\"data\",{}).get(\"id\",\"?\"),d.get(\"msg\",\"\")[:50])'\r"
+expect "# "
+
+# Create order
+send "curl -s -X POST http://127.0.0.1:8080/api/enterprise/orders -H \"$EH\" -H 'Content-Type: application/json' -d '{\"certTypeId\":1,\"productId\":1,\"quantity\":100,\"remark\":\"测试\"}' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"create_order:\",d.get(\"code\"),\"id=\",d.get(\"data\",{}).get(\"id\",\"?\"),d.get(\"msg\",\"\")[:50])'\r"
+expect "# "
+
+# Check errors
+send "echo '=== ERRORS ==='\r"
+expect "# "
+send "journalctl -u trace-backend --no-pager -n 30 2>/dev/null | grep -iE 'error|exception' | tail -10\r"
+expect "# "
+
+send "exit\r"
+expect eof

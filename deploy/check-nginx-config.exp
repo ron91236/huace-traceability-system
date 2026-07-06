@@ -1,0 +1,31 @@
+#!/usr/bin/expect -f
+set timeout 30
+set server_ip "8.152.162.118"
+set password "Rango2025="
+
+spawn ssh root@$server_ip
+expect {
+    "yes/no" { send "yes\r"; exp_continue }
+    "password:" { send "$password\r" }
+}
+
+expect "#"
+
+# 查看当前使用的 Nginx 配置文件
+send "nginx -t 2>&1 | head -5\r"
+expect "#"
+
+# 查看 /etc/nginx/conf.d/trace.conf 内容
+send "cat /etc/nginx/conf.d/trace.conf 2>/dev/null || echo 'File not found'\r"
+expect "#"
+
+# 测试 API 请求
+send "curl -s http://localhost:80/api/enterprise/test-reports/all 2>&1 | head -20\r"
+expect "#"
+
+# 查看后端日志中的相关错误
+send "journalctl -u trace-backend -n 30 --no-pager | grep -i 'test-report\\|404\\|No static' | tail -10\r"
+expect "#"
+
+send "exit\r"
+expect eof

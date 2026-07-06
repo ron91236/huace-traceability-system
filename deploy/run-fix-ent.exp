@@ -1,0 +1,19 @@
+#!/usr/bin/expect -f
+set timeout 60
+
+# SCP the script
+spawn scp -o StrictHostKeyChecking=no /Users/ron/Qoder/trace-system/deploy/fix-ent-login.sh root@8.152.162.118:/tmp/fix-ent-login.sh
+expect "password:"
+send "Rango2025=\r"
+expect eof
+
+# Run it
+spawn ssh -o StrictHostKeyChecking=no root@8.152.162.118
+expect "password:"
+send "Rango2025=\r"
+expect "# "
+send "bash /tmp/fix-ent-login.sh 2>&1\r"
+expect "ALLEND"
+expect "# "
+send "exit\r"
+expect eof

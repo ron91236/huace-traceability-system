@@ -1,0 +1,26 @@
+#!/usr/bin/expect -f
+set timeout 60
+
+spawn ssh -o StrictHostKeyChecking=no root@8.152.162.118
+expect {
+    "password:" { send "Rango2025=\r" }
+}
+expect "# "
+
+# Check file sizes and line counts
+send "wc -l /opt/trace-system/trace-backend/src/main/java/com/huace/trace/service/CertTypeService.java /opt/trace-system/trace-backend/src/main/java/com/huace/trace/service/DashboardService.java\r"
+expect "# "
+
+# Show last 20 lines of each file
+send "tail -20 /opt/trace-system/trace-backend/src/main/java/com/huace/trace/service/CertTypeService.java\r"
+expect "# "
+
+send "tail -20 /opt/trace-system/trace-backend/src/main/java/com/huace/trace/service/DashboardService.java\r"
+expect "# "
+
+# Check if post-receive hook is overwriting files
+send "cat /opt/git-repos/trace-system.git/hooks/post-receive 2>/dev/null | head -20\r"
+expect "# "
+
+send "exit\r"
+expect eof
