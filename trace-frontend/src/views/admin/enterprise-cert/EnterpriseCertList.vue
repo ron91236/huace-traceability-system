@@ -19,9 +19,12 @@
           <template #default="{ row }"><el-tag size="small">{{ row.certTypeName || '-' }}</el-tag></template>
         </el-table-column>
         <el-table-column prop="certName" label="证书名称" min-width="140" />
+        <el-table-column prop="certNo" label="证书编号" width="140">
+          <template #default="{ row }">{{ row.certNo || '-' }}</template>
+        </el-table-column>
         <el-table-column prop="enterpriseName" label="所属企业" width="140" />
-        <el-table-column prop="productName" label="产品名称" width="120">
-          <template #default="{ row }"><el-tag v-if="row.productName" size="small" type="success">{{ row.productName }}</el-tag><span v-else>-</span></template>
+        <el-table-column prop="labelSpecName" label="标签规格" width="120">
+          <template #default="{ row }">{{ row.labelSpecName || '-' }}</template>
         </el-table-column>
         <el-table-column label="有效期" width="200">
           <template #default="{ row }"><span class="date-range">{{ row.startDate }} ~ {{ row.endDate }}</span></template>
@@ -60,7 +63,12 @@
           </el-select>
         </el-form-item>
         <el-form-item label="证书名称" prop="certName"><el-input v-model="form.certName" placeholder="如：有机认证证书" /></el-form-item>
-        <el-form-item label="产品名称"><el-input v-model="form.productName" placeholder="如：有机大米" /></el-form-item>
+        <el-form-item label="证书编号"><el-input v-model="form.certNo" placeholder="如：150KZS2600010" /></el-form-item>
+        <el-form-item label="标签规格">
+          <el-select v-model="form.labelSpecId" placeholder="请选择标签规格" clearable filterable style="width:100%">
+            <el-option v-for="ls in labelSpecs" :key="ls.id" :label="ls.specName" :value="ls.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="有效期开始"><el-date-picker v-model="form.startDate" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item>
         <el-form-item label="有效期结束"><el-date-picker v-model="form.endDate" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item>
         <el-form-item label="是否作废"><el-switch v-model="form.isVoid" :active-value="1" :inactive-value="0" /></el-form-item>
@@ -167,7 +175,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Plus, Upload } from '@element-plus/icons-vue'
-import { getEnterpriseCerts, createEnterpriseCert, updateEnterpriseCert, deleteEnterpriseCert, getCertQrcode, getAllEnterprises, getCertProducts, addCertProduct, removeCertProduct } from '@/api/admin'
+import { getEnterpriseCerts, createEnterpriseCert, updateEnterpriseCert, deleteEnterpriseCert, getCertQrcode, getAllEnterprises, getCertProducts, addCertProduct, removeCertProduct, getLabelSpecs } from '@/api/admin'
 import { getCertTypeOptions, getProductOptions, uploadFile } from '@/api/common'
 
 const loading = ref(false)
@@ -186,6 +194,7 @@ const search = reactive({ certName: '', enterpriseId: null as number | null })
 const certTypes = ref<any[]>([])
 const enterprises = ref<any[]>([])
 const productOptions = ref<any[]>([])
+const labelSpecs = ref<any[]>([])
 
 // 证书产品相关
 const certProductVisible = ref(false)
@@ -201,7 +210,7 @@ const previewUrl = ref('')
 const imageFileListKey = ref(0)
 
 const form = reactive<any>({
-  certTypeId: null, enterpriseId: null, certName: '', productName: '',
+  certTypeId: null, enterpriseId: null, certName: '', certNo: '', labelSpecId: null,
   startDate: '', endDate: '', isVoid: 0,
   certImage: '', certPdf: '',
 })
@@ -227,10 +236,11 @@ const rules = {
 }
 
 onMounted(async () => {
-  const [ct, ent, prods] = await Promise.all([getCertTypeOptions(), getAllEnterprises(), getProductOptions()])
+  const [ct, ent, prods, ls] = await Promise.all([getCertTypeOptions(), getAllEnterprises(), getProductOptions(), getLabelSpecs({ page: 1, size: 200 })])
   certTypes.value = ct.data || []
   enterprises.value = ent.data || []
   productOptions.value = prods.data || []
+  labelSpecs.value = ls.data?.list || ls.data || []
   loadData()
 })
 

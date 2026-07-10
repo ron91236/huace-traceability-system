@@ -48,6 +48,12 @@
           </template>
           <el-table :data="orderCodes" border stripe size="small">
             <el-table-column prop="productName" label="产品名称" min-width="100" />
+            <el-table-column prop="productDescription" label="产品描述" min-width="100">
+              <template #default="{ row }">{{ row.productDescription || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="goodsName" label="商品名称" min-width="100">
+              <template #default="{ row }">{{ row.goodsName || '-' }}</template>
+            </el-table-column>
             <el-table-column prop="labelSpecName" label="标签规格" width="100" />
             <el-table-column prop="serialStart" label="开始码" width="100" />
             <el-table-column prop="serialEnd" label="结束码" width="100" />

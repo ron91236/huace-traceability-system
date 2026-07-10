@@ -47,6 +47,21 @@ export const getAdminOrders = (params: any) => request.get('/admin/orders', { pa
 export const getAdminOrderDetail = (id: number) => request.get(`/admin/orders/${id}`)
 export const approveOrder = (id: number, data?: any) => request.post(`/admin/orders/${id}/approve`, data)
 export const rejectOrder = (id: number, data: any) => request.post(`/admin/orders/${id}/reject`, data)
+export const exportOrders = async (params: any) => {
+  const userStore = useUserStore()
+  const query = new URLSearchParams(params).toString()
+  const res = await fetch(`/api/admin/orders/export?${query}`, {
+    headers: { Authorization: `Bearer ${userStore.token}` }
+  })
+  if (!res.ok) throw new Error('导出失败')
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = '订单数据.xlsx'
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 // 订单条码绑定
 export const getOrderCodes = (orderId: number) => request.get(`/admin/orders/${orderId}/codes`)

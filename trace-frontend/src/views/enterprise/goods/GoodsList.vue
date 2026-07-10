@@ -22,6 +22,9 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
+        <el-table-column prop="traceTemplateName" label="溯源模板" width="140">
+          <template #default="{ row }">{{ row.traceTemplateName || '-' }}</template>
+        </el-table-column>
         <el-table-column prop="packageSpec" label="包装规格" width="100" />
         <el-table-column prop="weightSpec" label="重量规格" width="100" />
         <el-table-column prop="createdAt" label="创建时间" width="170" />
@@ -45,6 +48,11 @@
           <el-select v-model="form.productId" filterable style="width:100%"><el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.id" /></el-select>
         </el-form-item>
         <el-form-item label="商品名称" prop="name"><el-input v-model="form.name" /></el-form-item>
+        <el-form-item label="溯源模板">
+          <el-select v-model="form.traceTemplateId" placeholder="请选择溯源模板" clearable filterable style="width:100%">
+            <el-option v-for="t in traceTemplates" :key="t.id" :label="t.templateName" :value="t.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="包装规格"><el-input v-model="form.packageSpec" /></el-form-item>
         <el-form-item label="重量规格"><el-input v-model="form.weightSpec" /></el-form-item>
         <el-form-item label="储存方式"><el-input v-model="form.storageMethod" /></el-form-item>
@@ -78,7 +86,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { getGoods, createGoods, updateGoods, deleteGoods } from '@/api/enterprise'
-import { getProductOptions, uploadFile } from '@/api/common'
+import { getProductOptions, uploadFile, getTraceTemplateOptions } from '@/api/common'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -91,10 +99,11 @@ const dialogVisible = ref(false)
 const editId = ref<number | null>(null)
 const formRef = ref()
 const products = ref<any[]>([])
+const traceTemplates = ref<any[]>([])
 
-const form = reactive<any>({ productId: null, name: '', packageSpec: '', weightSpec: '', storageMethod: '', eatingMethod: '', introduction: '', sampleImage: '', promoImage: '' })
+const form = reactive<any>({ productId: null, name: '', packageSpec: '', weightSpec: '', storageMethod: '', eatingMethod: '', introduction: '', sampleImage: '', promoImage: '', traceTemplateId: null })
 
-onMounted(async () => { const res = await getProductOptions(); products.value = res.data || []; loadData() })
+onMounted(async () => { const [prodRes, tplRes] = await Promise.all([getProductOptions(), getTraceTemplateOptions()]); products.value = prodRes.data || []; traceTemplates.value = tplRes.data || []; loadData() })
 
 async function loadData() {
   loading.value = true

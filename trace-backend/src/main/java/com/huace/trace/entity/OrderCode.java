@@ -33,4 +33,16 @@ public class OrderCode {
     private String labelSpecName;
     @TableField(exist = false)
     private String batchName;
+    @TableField(exist = false)
+    private String productDescription;
+    @TableField(exist = false)
+    private String goodsName;
+    @TableField(exist = false)
+    private String enterpriseName;
+    @TableField(exist = false)
+    private String certNo;
+    @TableField(exist = false)
+    private String goodsPackageSpec;
+    @TableField(exist = false)
+    private String goodsWeightSpec;
 }

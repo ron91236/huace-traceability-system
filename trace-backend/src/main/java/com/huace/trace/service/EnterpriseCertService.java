@@ -10,6 +10,8 @@ import com.huace.trace.entity.EnterpriseCert;
 import com.huace.trace.mapper.CertTypeMapper;
 import com.huace.trace.mapper.EnterpriseCertMapper;
 import com.huace.trace.mapper.EnterpriseMapper;
+import com.huace.trace.mapper.LabelSpecMapper;
+import com.huace.trace.entity.LabelSpec;
 import com.huace.trace.util.QrCodeUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,7 @@ public class EnterpriseCertService {
     private final EnterpriseCertMapper certMapper;
     private final EnterpriseMapper enterpriseMapper;
     private final CertTypeMapper certTypeMapper;
+    private final LabelSpecMapper labelSpecMapper;
 
     public PageResult<EnterpriseCert> list(int page, int size, String keyword, Long enterpriseId) {
         LambdaQueryWrapper<EnterpriseCert> wrapper = new LambdaQueryWrapper<>();
@@ -47,6 +50,10 @@ public class EnterpriseCertService {
             if (cert.getEnterpriseId() != null) {
                 Enterprise e = enterpriseMapper.selectById(cert.getEnterpriseId());
                 if (e != null) cert.setEnterpriseName(e.getName());
+            }
+            if (cert.getLabelSpecId() != null) {
+                LabelSpec ls = labelSpecMapper.selectById(cert.getLabelSpecId());
+                if (ls != null) cert.setLabelSpecName(ls.getSpecName());
             }
         });
         return new PageResult<>(result.getRecords(), result.getTotal());

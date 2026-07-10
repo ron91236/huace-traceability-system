@@ -21,9 +21,15 @@ public class Goods extends BaseEntity {
     private String eatingMethod;
     private String promoImage;
     private String promoVideo;
+    private Long traceTemplateId;
 
     @TableField(exist = false)
     private String productName;
     @TableField(exist = false)
     private String enterpriseName;
+    @TableField(exist = false)
+    private String traceTemplateName;
+}
+    @TableField(exist = false)
+    private String traceTemplateName;
 }

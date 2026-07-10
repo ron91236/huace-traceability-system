@@ -14,6 +14,8 @@ public class EnterpriseCert {
     private Long enterpriseId;
     private String certName;
     private String productName;
+    private String certNo;
+    private Long labelSpecId;
     private LocalDate startDate;
     private LocalDate endDate;
     private Integer isVoid;
@@ -27,4 +29,6 @@ public class EnterpriseCert {
     private String certTypeName;
     @TableField(exist = false)
     private String enterpriseName;
+    @TableField(exist = false)
+    private String labelSpecName;
 }

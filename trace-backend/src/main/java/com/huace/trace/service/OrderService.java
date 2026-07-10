@@ -49,6 +49,20 @@ public class OrderService {
                 EnterpriseCert c = certMapper.selectById(o.getCertId());
                 if (c != null) o.setCertName(c.getCertName());
             }
+            // 计算条码统计
+            List<OrderCode> codes = orderCodeMapper.selectList(
+                    new LambdaQueryWrapper<OrderCode>().eq(OrderCode::getOrderId, o.getId()));
+            int totalBarcode = codes.stream().mapToInt(c -> c.getQuantity() != null ? c.getQuantity() : 0).sum();
+            int allocatedBarcode = codes.stream().mapToInt(c -> c.getBindCount() != null ? c.getBindCount() : 0).sum();
+            o.setTotalBarcodeCount(totalBarcode);
+            o.setAllocatedBarcodeCount(allocatedBarcode);
+            // 计算总价
+            List<OrderItem> items = orderItemMapper.selectList(
+                    new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, o.getId()));
+            BigDecimal total = items.stream()
+                    .map(i -> i.getTotalPrice() != null ? i.getTotalPrice() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            o.setTotalPrice(total);
         });
         return new PageResult<>(r.getRecords(), r.getTotal());
     }
@@ -193,9 +207,29 @@ public class OrderService {
     }
 
     public List<OrderCode> getOrderCodes(Long orderId) {
-        return orderCodeMapper.selectList(
+        List<OrderCode> codes = orderCodeMapper.selectList(
                 new LambdaQueryWrapper<OrderCode>()
                         .eq(OrderCode::getOrderId, orderId));
+        // 填充关联字段
+        List<OrderItem> items = orderItemMapper.selectList(
+                new LambdaQueryWrapper<OrderItem>()
+                        .eq(OrderItem::getOrderId, orderId));
+        codes.forEach(code -> {
+            if (code.getLabelSpecId() != null) {
+                items.stream()
+                        .filter(i -> code.getLabelSpecId().equals(i.getLabelSpecId()))
+                        .findFirst()
+                        .ifPresent(i -> {
+                            code.setGoodsName(i.getGoodsName());
+                            // productDescription 取自 OrderCode.productName 或 OrderItem 关联的 Product
+                            if (i.getGoodsId() != null) {
+                                Goods g = goodsMapper.selectById(i.getGoodsId());
+                                if (g != null) code.setProductDescription(g.getIntroduction());
+                            }
+                        });
+            }
+        });
+        return codes;
     }
 
     public List<OrderItem> getOrderItems(Long orderId) {

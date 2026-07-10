@@ -9,6 +9,8 @@ import com.huace.trace.mapper.*;
 import com.huace.trace.security.UserPrincipal;
 import com.huace.trace.service.*;
 import jakarta.servlet.http.HttpServletResponse;
+import com.alibaba.excel.EasyExcel;
+import com.huace.trace.dto.OrderExportDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -315,6 +317,77 @@ public class AdminController {
                                      @RequestBody Map<String, String> body) {
         orderService.reject(id, principal, body.get("note"));
         return Result.ok();
+    }
+
+    @GetMapping("/orders/export")
+    public void exportOrders(@RequestParam(required = false) String keyword,
+                             @RequestParam(required = false) String status,
+                             HttpServletResponse response) throws Exception {
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment;filename=orders.xlsx");
+        PageResult<Order> pageResult = orderService.list(1, 10000, keyword, null, status);
+        java.util.List<OrderExportDTO> exportList = new java.util.ArrayList<>();
+        for (Order o : pageResult.getList()) {
+            Enterprise ent = enterpriseService.getById(o.getEnterpriseId());
+            String entName = ent != null ? ent.getName() : "";
+            String certNoStr = "";
+            if (o.getCertId() != null) {
+                EnterpriseCert c = enterpriseCertMapper.selectById(o.getCertId());
+                if (c != null) certNoStr = c.getCertNo() != null ? c.getCertNo() : "";
+            }
+            List<OrderItem> items = orderItemMapper.selectList(
+                    new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, o.getId()));
+            List<OrderCode> codes = orderCodeMapper.selectList(
+                    new LambdaQueryWrapper<OrderCode>().eq(OrderCode::getOrderId, o.getId()));
+            final String entNameFinal = entName;
+            final String certNoFinal = certNoStr;
+            if (codes.isEmpty()) {
+                for (OrderItem oi : items) {
+                    OrderExportDTO dto = new OrderExportDTO();
+                    dto.setOrderNo(o.getOrderNo());
+                    dto.setEnterpriseName(entNameFinal);
+                    dto.setCertNo(certNoFinal);
+                    dto.setGoodsName(oi.getGoodsName());
+                    dto.setLabelSpecName(oi.getLabelSpecName());
+                    dto.setUnitPrice(oi.getPrice() != null ? oi.getPrice().toPlainString() : "");
+                    dto.setQuantity(oi.getQuantity());
+                    dto.setTotalPrice(oi.getTotalPrice() != null ? oi.getTotalPrice().toPlainString() : "");
+                    if (oi.getGoodsId() != null) {
+                        Goods g = goodsMapper.selectById(oi.getGoodsId());
+                        if (g != null) { dto.setProductDescription(g.getIntroduction()); dto.setPackageSpec(g.getPackageSpec()); dto.setWeightSpec(g.getWeightSpec()); }
+                    }
+                    exportList.add(dto);
+                }
+            } else {
+                for (OrderCode oc : codes) {
+                    OrderExportDTO dto = new OrderExportDTO();
+                    dto.setOrderNo(o.getOrderNo());
+                    dto.setEnterpriseName(entNameFinal);
+                    dto.setCertNo(certNoFinal);
+                    dto.setProductName(oc.getProductName());
+                    dto.setSerialStart(oc.getSerialStart());
+                    dto.setSerialEnd(oc.getSerialEnd());
+                    dto.setQuantity(oc.getQuantity());
+                    dto.setUnitPrice(oc.getPrice() != null ? oc.getPrice().toPlainString() : "");
+                    if (oc.getLabelSpecId() != null) {
+                        LabelSpec ls = labelSpecService.getById(oc.getLabelSpecId());
+                        if (ls != null) dto.setLabelSpecName(ls.getSpecName());
+                    }
+                    if (oc.getLabelSpecId() != null) {
+                        items.stream().filter(i -> oc.getLabelSpecId().equals(i.getLabelSpecId())).findFirst().ifPresent(oi -> {
+                            dto.setGoodsName(oi.getGoodsName());
+                            dto.setTotalPrice(oi.getTotalPrice() != null ? oi.getTotalPrice().toPlainString() : "");
+                            if (oi.getGoodsId() != null) {
+                                Goods g = goodsMapper.selectById(oi.getGoodsId());
+                                if (g != null) { dto.setProductDescription(g.getIntroduction()); dto.setPackageSpec(g.getPackageSpec()); dto.setWeightSpec(g.getWeightSpec()); }
+                            }
+                        });
+                    }
+                    exportList.add(dto);
+                }
+            }
+        }
+        EasyExcel.write(response.getOutputStream(), OrderExportDTO.class).sheet("订单数据").doWrite(exportList);
     }
 
     // ==================== 码包管理 ====================
@@ -713,45 +786,72 @@ public class AdminController {
 
     // ==================== 溯源码发放管理 ====================
     @GetMapping("/code-distribution")
-    public Result<PageResult<CodePackageItem>> listCodeDistribution(
+    public Result<PageResult<OrderCode>> listCodeDistribution(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long enterpriseId,
             @RequestParam(required = false) String orderNo,
-            @RequestParam(required = false) String serialNo) {
-        LambdaQueryWrapper<CodePackageItem> w = new LambdaQueryWrapper<>();
-        w.eq(CodePackageItem::getBindStatus, "BOUND");
-        if (enterpriseId != null) w.eq(CodePackageItem::getEnterpriseId, enterpriseId);
-        if (serialNo != null && !serialNo.isEmpty()) w.like(CodePackageItem::getSerialNo, serialNo);
-        w.orderByDesc(CodePackageItem::getBindTime);
-        Page<CodePackageItem> r = codePackageItemMapper.selectPage(new Page<>(page, size), w);
+            @RequestParam(required = false) String certNo) {
+        LambdaQueryWrapper<OrderCode> w = new LambdaQueryWrapper<>();
+        w.orderByDesc(OrderCode::getId);
+        Page<OrderCode> r = orderCodeMapper.selectPage(new Page<>(page, size), w);
         // 填充关联信息
-        r.getRecords().forEach(item -> {
-            if (item.getEnterpriseId() != null) {
-                Enterprise e = enterpriseMapper.selectById(item.getEnterpriseId());
-                item.setEnterpriseName(e != null ? e.getName() : "");
+        r.getRecords().forEach(oc -> {
+            if (oc.getOrderId() != null) {
+                Order o = orderMapper.selectById(oc.getOrderId());
+                if (o != null) {
+                    oc.setOrderNo(o.getOrderNo());
+                    if (o.getEnterpriseId() != null) {
+                        Enterprise e = enterpriseMapper.selectById(o.getEnterpriseId());
+                        if (e != null) oc.setEnterpriseName(e.getName());
+                    }
+                    if (o.getCertId() != null) {
+                        EnterpriseCert c = enterpriseCertMapper.selectById(o.getCertId());
+                        if (c != null) oc.setCertNo(c.getCertNo());
+                    }
+                }
             }
-            if (item.getGoodsId() != null) {
-                Goods g = goodsMapper.selectById(item.getGoodsId());
-                item.setGoodsName(g != null ? g.getName() : "");
+            if (oc.getLabelSpecId() != null) {
+                LabelSpec ls = labelSpecService.getById(oc.getLabelSpecId());
+                if (ls != null) oc.setLabelSpecName(ls.getSpecName());
             }
-            if (item.getCertId() != null) {
-                EnterpriseCert c = enterpriseCertMapper.selectById(item.getCertId());
-                item.setCertName(c != null ? c.getCertName() : "");
-            }
-            if (item.getBatchId() != null) {
-                Batch b = batchMapper.selectById(item.getBatchId());
-                item.setBatchName(b != null ? b.getName() : "");
-            }
-            if (item.getOrderCodeId() != null) {
-                OrderCode oc = orderCodeMapper.selectById(item.getOrderCodeId());
-                if (oc != null && oc.getOrderId() != null) {
-                    Order o = orderMapper.selectById(oc.getOrderId());
-                    item.setOrderNo(o != null ? o.getOrderNo() : "");
+            // 从订单明细获取商品信息
+            if (oc.getOrderId() != null && oc.getLabelSpecId() != null) {
+                OrderItem oi = orderItemMapper.selectOne(
+                        new LambdaQueryWrapper<OrderItem>()
+                                .eq(OrderItem::getOrderId, oc.getOrderId())
+                                .eq(OrderItem::getLabelSpecId, oc.getLabelSpecId())
+                                .last("LIMIT 1"));
+                if (oi != null) {
+                    oc.setGoodsName(oi.getGoodsName());
+                    if (oi.getGoodsId() != null) {
+                        Goods g = goodsMapper.selectById(oi.getGoodsId());
+                        if (g != null) {
+                            oc.setProductDescription(g.getIntroduction());
+                            oc.setGoodsPackageSpec(g.getPackageSpec());
+                            oc.setGoodsWeightSpec(g.getWeightSpec());
+                        }
+                    }
                 }
             }
         });
-        return Result.ok(new PageResult<>(r.getRecords(), r.getTotal()));
+        // 前端筛选
+        java.util.List<OrderCode> filtered = r.getRecords();
+        if (enterpriseId != null) {
+            filtered = filtered.stream().filter(oc -> {
+                if (oc.getOrderId() == null) return false;
+                Order o = orderMapper.selectById(oc.getOrderId());
+                return o != null && enterpriseId.equals(o.getEnterpriseId());
+            }).collect(java.util.stream.Collectors.toList());
+        }
+        if (orderNo != null && !orderNo.isEmpty()) {
+            String kw = orderNo;
+            filtered = filtered.stream().filter(oc -> oc.getOrderNo() != null && oc.getOrderNo().contains(kw)).collect(java.util.stream.Collectors.toList());
+        }
+        if (certNo != null && !certNo.isEmpty()) {
+            String kw = certNo;
+            filtered = filtered.stream().filter(oc -> oc.getCertNo() != null && oc.getCertNo().contains(kw)).collect(java.util.stream.Collectors.toList());
+        }
+        return Result.ok(new PageResult<>(filtered, r.getTotal()));
     }
 }
