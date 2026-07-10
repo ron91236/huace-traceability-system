@@ -33,4 +33,6 @@ public class CodePackageItem {
     private String certName;
     @TableField(exist = false)
     private String batchName;
+    @TableField(exist = false)
+    private String orderNo;
 }

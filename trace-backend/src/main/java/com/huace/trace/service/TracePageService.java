@@ -13,9 +13,12 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class TracePageService {
 
     private final CodePackageItemMapper codePackageItemMapper;
@@ -51,7 +54,16 @@ public class TracePageService {
                                 .eq(CodePackageItem::getBindStatus, "BOUND")));
 
         if (item == null) {
-            throw new BusinessException("未找到该流水号的溯源信息");
+            // 尝试查找是否存在但非BOUND状态
+            CodePackageItem anyItem = codePackageItemMapper.selectOne(
+                    new LambdaQueryWrapper<CodePackageItem>()
+                            .eq(CodePackageItem::getSerialNo, serialNo));
+            if (anyItem != null) {
+                log.warn("溯源码 {} 存在但状态为 {}，非BOUND", serialNo, anyItem.getBindStatus());
+                throw new BusinessException("该溯源码尚未激活绑定，流水号：" + serialNo);
+            }
+            log.warn("溯源码 {} 在 MongoDB 和 MySQL 中均未找到", serialNo);
+            throw new BusinessException("未找到该流水号的溯源信息，流水号：" + serialNo);
         }
 
         // 写入扫码记录(非阻塞)
@@ -377,7 +389,13 @@ public class TracePageService {
             Goods goods = goodsMapper.selectById(item.getGoodsId());
             result.put("productName", goods != null ? goods.getName() : "");
         }
+        // 查询认证机构
+        if (item.getCertId() != null) {
+            EnterpriseCert cert = certMapper.selectById(item.getCertId());
+            result.put("certName", cert != null ? cert.getCertName() : "");
+        }
         result.put("serialNo", item.getSerialNo());
+        result.put("queryTime", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")));
         return result;
     }
 
@@ -416,6 +434,12 @@ public class TracePageService {
             Goods goods = goodsMapper.selectById(item.getGoodsId());
             result.put("productName", goods != null ? goods.getName() : "");
         }
+        // 查询认证机构
+        if (item.getCertId() != null) {
+            EnterpriseCert cert = certMapper.selectById(item.getCertId());
+            result.put("certName", cert != null ? cert.getCertName() : "");
+        }
+        result.put("queryTime", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")));
         return result;
     }
 

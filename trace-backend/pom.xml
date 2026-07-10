@@ -131,6 +131,13 @@
             <version>3.3.4</version>
         </dependency>
 
+        <!-- PDF转图片 -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.4</version>
+        </dependency>
+
         <!-- Swagger -->
         <dependency>
             <groupId>org.springdoc</groupId>

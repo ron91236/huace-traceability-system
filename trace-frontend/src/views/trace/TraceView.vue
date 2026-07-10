@@ -3,7 +3,10 @@
     :style="pageBackgroundStyle">
     <div v-if="error" class="error-container">
       <el-result icon="error" title="查询失败" :sub-title="error">
-        <template #extra><el-button type="primary" @click="loadTrace">重新查询</el-button></template>
+        <template #extra>
+          <el-button type="primary" @click="loadTrace">重新查询</el-button>
+          <p style="font-size:12px;color:#999;margin-top:12px">流水号：{{ isBatchMode ? 'batch-' + batchId : serialNo }}</p>
+        </template>
       </el-result>
     </div>
 
@@ -20,7 +23,9 @@
         <div class="dv-details">
           <p v-if="directVerifyResult.enterpriseName">企业：{{ directVerifyResult.enterpriseName }}</p>
           <p v-if="directVerifyResult.productName">产品：{{ directVerifyResult.productName }}</p>
+          <p v-if="directVerifyResult.certName">认证机构：{{ directVerifyResult.certName }}</p>
           <p>查询次数：第 <strong>{{ directVerifyResult.scanCount }}</strong> 次</p>
+          <p style="font-size:12px;color:#999">查询时间：{{ directVerifyResult.queryTime || '' }}</p>
         </div>
         <div v-if="qrCodeDataUrl" class="dv-qrcode">
           <img :src="qrCodeDataUrl" alt="防伪二维码" />
@@ -120,9 +125,11 @@
                 <div class="af-result-icon">{{ verifyResult.verified ? '✅' : '❌' }}</div>
                 <div class="af-result-info">
                   <p class="af-result-msg">{{ verifyResult.message }}</p>
-                  <p v-if="verifyResult.enterpriseName" class="af-result-detail">认证企业：{{ verifyResult.enterpriseName }}</p>
+                  <p v-if="verifyResult.enterpriseName" class="af-result-detail">生产企业：{{ verifyResult.enterpriseName }}</p>
                   <p v-if="verifyResult.productName" class="af-result-detail">产品名称：{{ verifyResult.productName }}</p>
-                  <p class="af-result-detail">扫码次数：{{ verifyResult.scanCount || 1 }}</p>
+                  <p v-if="verifyResult.certName" class="af-result-detail">认证机构：{{ verifyResult.certName }}</p>
+                  <p class="af-result-detail">扫码次数：第 <strong>{{ verifyResult.scanCount || 1 }}</strong> 次</p>
+                  <p class="af-result-detail af-time">查询时间：{{ verifyResult.queryTime || '' }}</p>
                 </div>
               </div>
             </div>
@@ -217,16 +224,15 @@
             <div class="af-result-icon">{{ verifyResult.verified ? '✅' : '❌' }}</div>
             <div class="af-result-info">
               <p class="af-result-msg">{{ verifyResult.message }}</p>
-              <p v-if="verifyResult.enterpriseName" class="af-result-detail">认证企业：{{ verifyResult.enterpriseName }}</p>
+              <p v-if="verifyResult.enterpriseName" class="af-result-detail">生产企业：{{ verifyResult.enterpriseName }}</p>
               <p v-if="verifyResult.productName" class="af-result-detail">产品名称：{{ verifyResult.productName }}</p>
-              <p class="af-result-detail">扫码次数：{{ verifyResult.scanCount || 1 }}</p>
+              <p v-if="verifyResult.certName" class="af-result-detail">认证机构：{{ verifyResult.certName }}</p>
+              <p class="af-result-detail">扫码次数：第 <strong>{{ verifyResult.scanCount || 1 }}</strong> 次</p>
+              <p class="af-result-detail af-time">查询时间：{{ verifyResult.queryTime || '' }}</p>
             </div>
           </div>
-          <div v-else class="section-content">
-            <div class="field-item">
-              <span class="field-label">防伪码：</span>
-              <span class="field-value anti-fake-code">{{ traceData.antiFakeCode || '暂无' }}</span>
-            </div>
+          <div v-else class="section-content" style="text-align:center;color:#999;font-size:13px;padding:8px 0">
+            请输入防伪码进行验证
           </div>
         </div>
 
@@ -282,13 +288,17 @@
 
   <!-- 检测报告详情弹窗 -->
   <el-dialog v-model="reportDetailVisible" :title="currentReport?.reportName || '检测详情'" width="92%" top="3vh" :close-on-click-modal="true" class="report-detail-dialog" destroy-on-close>
-    <div v-if="currentReport?.reportPdf" class="pdf-viewer-wrap">
-      <iframe :src="currentReport.reportPdf" style="width:100%;height:75vh;border:none;border-radius:8px;" />
+    <div v-if="reportImagesLoading" style="text-align:center;padding:40px 0">
+      <el-icon class="is-loading" :size="32" color="#1890ff"><Loading /></el-icon>
+      <p style="color:#999;margin-top:12px">正在加载报告图片...</p>
     </div>
     <div v-else-if="currentReportImages.length > 0" class="image-gallery-wrap">
       <div v-for="(img, idx) in currentReportImages" :key="idx" class="gallery-item">
-        <el-image :src="img" fit="contain" style="width:100%;max-height:80vh;border-radius:8px;" :preview-src-list="currentReportImages" :initial-index="idx" />
+        <el-image :src="img" fit="contain" style="width:100%;border-radius:8px;" :preview-src-list="currentReportImages" :initial-index="idx" />
       </div>
+    </div>
+    <div v-else-if="currentReport?.reportPdf" class="pdf-viewer-wrap">
+      <iframe :src="currentReport.reportPdf" style="width:100%;height:75vh;border:none;border-radius:8px;" />
     </div>
     <div v-else class="no-file">暂无报告文件</div>
   </el-dialog>
@@ -297,7 +307,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { getTraceInfo, getBatchTraceInfo, getTraceTemplate, verifyAntiFake, directVerify, getTraceVideos, getTraceIotLatest, getTraceTemperature, getTraceGpsTrack, getBatchVideos, getBatchIotLatest } from '@/api/common'
+import { getTraceInfo, getBatchTraceInfo, getTraceTemplate, verifyAntiFake, directVerify, getTraceVideos, getTraceIotLatest, getTraceTemperature, getTraceGpsTrack, getBatchVideos, getBatchIotLatest, convertPdfToImages } from '@/api/common'
 import LiveVideoElement from '@/components/trace/LiveVideoElement.vue'
 import IotSensorElement from '@/components/trace/IotSensorElement.vue'
 import IotChartElement from '@/components/trace/IotChartElement.vue'
@@ -460,15 +470,37 @@ const groupedReports = computed(() => {
 // 报告详情弹窗
 const reportDetailVisible = ref(false)
 const currentReport = ref<any>(null)
-const currentReportImages = computed(() => {
+const currentReportImages = ref<string[]>([])
+const reportImagesLoading = ref(false)
+
+const existingReportImages = computed(() => {
   if (!currentReport.value?.reportImages) return []
   if (Array.isArray(currentReport.value.reportImages)) return currentReport.value.reportImages
   return String(currentReport.value.reportImages).split(',').filter(Boolean)
 })
 
-function openReportDetail(report: any) {
+async function openReportDetail(report: any) {
   currentReport.value = report
   reportDetailVisible.value = true
+  // 如果已有图片直接使用
+  if (existingReportImages.value.length > 0) {
+    currentReportImages.value = existingReportImages.value
+    return
+  }
+  // 如果有PDF，转换为图片
+  if (report.reportPdf) {
+    reportImagesLoading.value = true
+    currentReportImages.value = []
+    try {
+      const res = await convertPdfToImages(report.reportPdf)
+      currentReportImages.value = res.data || []
+    } catch (e) {
+      console.warn('PDF转图片失败，回退iframe模式')
+      currentReportImages.value = []
+    } finally {
+      reportImagesLoading.value = false
+    }
+  }
 }
 
 const customFields = computed(() => {

@@ -11,6 +11,7 @@ import com.huace.trace.service.TracePageService;
 import com.huace.trace.service.TraceTemplateService;
 import com.huace.trace.service.VideoSourceService;
 import com.huace.trace.service.IotDataService;
+import com.huace.trace.service.PdfConvertService;
 import com.huace.trace.util.FileUploadUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class TracePageController {
     private final SysFileMapper sysFileMapper;
     private final VideoSourceService videoSourceService;
     private final IotDataService iotDataService;
+    private final PdfConvertService pdfConvertService;
 
     /**
      * C端批次溯源查询 - 通过批次ID查询溯源信息
@@ -173,6 +175,14 @@ public class TracePageController {
         Map<String, Object> traceData = tracePageService.queryByBatchId(batchId);
         Long enterpriseId = toLong(traceData.get("_enterpriseId"));
         return Result.ok(iotDataService.getLatestReadings(enterpriseId, null));
+    }
+
+    /**
+     * PDF转图片 - 将检测报告PDF转换为图片列表
+     */
+    @GetMapping("/api/trace/pdf-images")
+    public Result<List<String>> convertPdfToImages(@RequestParam String url) {
+        return Result.ok(pdfConvertService.convertPdfToImages(url));
     }
 
     private Long toLong(Object obj) {

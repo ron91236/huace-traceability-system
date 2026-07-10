@@ -91,8 +91,12 @@
       <el-form :model="bindForm" label-width="100px">
         <el-form-item label="条码库" required>
           <el-select v-model="bindForm.codePackageId" placeholder="请选择条码库" style="width:100%" @change="onPackageChange">
-            <el-option v-for="cp in codePackages" :key="cp.id"
-              :label="`${cp.packageNo} - 可用${cp.available}枚`" :value="cp.id" />
+            <el-option v-for="cp in codePackages" :key="cp.id" :value="cp.id">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span>{{ cp.ruleName || cp.packageNo }}</span>
+                <span style="font-size:12px;color:#999">可用 {{ cp.available }} 枚</span>
+              </div>
+            </el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="订单标签号">

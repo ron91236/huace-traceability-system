@@ -60,6 +60,7 @@ export const previewOrderCodeQrcode = (id: number) => request.get(`/admin/order-
 // 码包管理
 export const getCodePackages = (params: any) => request.get('/admin/code-packages', { params })
 export const getAllCodePackages = () => request.get('/admin/code-packages/all')
+export const getCodeDistribution = (params: any) => request.get('/admin/code-distribution', { params })
 export const importCodePackage = (file: File) => {
   const formData = new FormData()
   formData.append('file', file)

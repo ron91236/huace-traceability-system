@@ -1,6 +1,7 @@
 package com.huace.trace.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.huace.trace.common.PageResult;
 import com.huace.trace.common.Result;
 import com.huace.trace.entity.*;
@@ -52,6 +53,8 @@ public class AdminController {
     private final VideoSourceService videoSourceService;
     private final IotDeviceService iotDeviceService;
     private final com.huace.trace.mapper.IotAlertRecordMapper alertRecordMapper;
+    private final BatchMapper batchMapper;
+    private final EnterpriseCertMapper enterpriseCertMapper;
 
     // ==================== 证书类型 ====================
     @GetMapping("/cert-types")
@@ -568,7 +571,13 @@ public class AdminController {
             item.put("available", available);
             item.put("serialStart", cp.getSerialStart());
             item.put("serialEnd", cp.getSerialEnd());
+            item.put("serialDigits", cp.getSerialDigits());
             item.put("labelSpecId", cp.getLabelSpecId());
+            // 生成生码规则名称
+            String ruleName = (cp.getSerialDigits() != null && cp.getSerialDigits() > 0)
+                    ? cp.getSerialDigits() + "位身份码条码库"
+                    : "通用条码库";
+            item.put("ruleName", ruleName);
             if (cp.getLabelSpecId() != null) {
                 LabelSpec ls = labelSpecService.getById(cp.getLabelSpecId());
                 item.put("labelSpecName", ls != null ? ls.getSpecName() : "");
@@ -698,5 +707,49 @@ public class AdminController {
                 new LambdaQueryWrapper<IotAlertRecord>()
                         .orderByDesc(IotAlertRecord::getCreatedAt)
                         .last("LIMIT 200")));
+    }
+
+    // ==================== 溯源码发放管理 ====================
+    @GetMapping("/code-distribution")
+    public Result<PageResult<CodePackageItem>> listCodeDistribution(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long enterpriseId,
+            @RequestParam(required = false) String orderNo,
+            @RequestParam(required = false) String serialNo) {
+        LambdaQueryWrapper<CodePackageItem> w = new LambdaQueryWrapper<>();
+        w.eq(CodePackageItem::getBindStatus, "BOUND");
+        if (enterpriseId != null) w.eq(CodePackageItem::getEnterpriseId, enterpriseId);
+        if (serialNo != null && !serialNo.isEmpty()) w.like(CodePackageItem::getSerialNo, serialNo);
+        w.orderByDesc(CodePackageItem::getBindTime);
+        Page<CodePackageItem> r = codePackageItemMapper.selectPage(new Page<>(page, size), w);
+        // 填充关联信息
+        r.getRecords().forEach(item -> {
+            if (item.getEnterpriseId() != null) {
+                Enterprise e = enterpriseMapper.selectById(item.getEnterpriseId());
+                item.setEnterpriseName(e != null ? e.getName() : "");
+            }
+            if (item.getGoodsId() != null) {
+                Goods g = goodsMapper.selectById(item.getGoodsId());
+                item.setGoodsName(g != null ? g.getName() : "");
+            }
+            if (item.getCertId() != null) {
+                EnterpriseCert c = enterpriseCertMapper.selectById(item.getCertId());
+                item.setCertName(c != null ? c.getCertName() : "");
+            }
+            if (item.getBatchId() != null) {
+                Batch b = batchMapper.selectById(item.getBatchId());
+                item.setBatchName(b != null ? b.getName() : "");
+            }
+            if (item.getOrderCodeId() != null) {
+                OrderCode oc = orderCodeMapper.selectById(item.getOrderCodeId());
+                if (oc != null && oc.getOrderId() != null) {
+                    Order o = orderMapper.selectById(oc.getOrderId());
+                    item.setOrderNo(o != null ? o.getOrderNo() : "");
+                }
+            }
+        });
+        return Result.ok(new PageResult<>(r.getRecords(), r.getTotal()));
     }
 }

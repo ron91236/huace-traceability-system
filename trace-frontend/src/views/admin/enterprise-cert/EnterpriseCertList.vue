@@ -66,6 +66,7 @@
         <el-form-item label="是否作废"><el-switch v-model="form.isVoid" :active-value="1" :inactive-value="0" /></el-form-item>
         <el-form-item label="证书图片">
           <el-upload
+            :key="imageFileListKey"
             :file-list="imageFileList"
             list-type="picture-card"
             :http-request="handleImageUpload"
@@ -197,6 +198,7 @@ const certProductForm = reactive({ productId: null as number | null, totalProduc
 
 const previewVisible = ref(false)
 const previewUrl = ref('')
+const imageFileListKey = ref(0)
 
 const form = reactive<any>({
   certTypeId: null, enterpriseId: null, certName: '', productName: '',
@@ -244,6 +246,7 @@ async function loadData() {
 function openForm(row?: any) {
   editId.value = row?.id || null
   Object.keys(form).forEach(k => { form[k] = row?.[k] ?? (k === 'isVoid' ? 0 : null) })
+  imageFileListKey.value++
   dialogVisible.value = true
 }
 

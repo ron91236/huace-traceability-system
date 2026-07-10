@@ -51,6 +51,7 @@
             <el-menu-item index="/admin/code-platform">码中台</el-menu-item>
             <el-menu-item index="/admin/code-package">码包管理</el-menu-item>
             <el-menu-item index="/admin/code-void">溯源码作废</el-menu-item>
+            <el-menu-item index="/admin/code-distribution">发放管理</el-menu-item>
           </el-sub-menu>
           <el-menu-item index="/admin/trace-template">
             <el-icon><PictureFilled /></el-icon>

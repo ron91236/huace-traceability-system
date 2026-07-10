@@ -28,3 +28,6 @@ export const getTraceTemperature = (serialNo: string) => request.get(`/trace/${s
 export const getTraceGpsTrack = (serialNo: string) => request.get(`/trace/${serialNo}/iot/gps-track`)
 export const getBatchVideos = (batchId: number) => request.get(`/trace/batch/${batchId}/videos`)
 export const getBatchIotLatest = (batchId: number) => request.get(`/trace/batch/${batchId}/iot/latest`)
+
+// PDF转图片
+export const convertPdfToImages = (url: string) => request.get(`/trace/pdf-images`, { params: { url } })

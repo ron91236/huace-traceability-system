@@ -17,6 +17,7 @@ const adminRoutes: RouteRecordRaw[] = [
   { path: 'code-platform', name: 'AdminCodePlatform', component: () => import('@/views/admin/code-platform/CodePlatformView.vue'), meta: { title: '码中台' } },
   { path: 'code-package', name: 'AdminCodePackage', component: () => import('@/views/admin/code-package/CodePackageList.vue'), meta: { title: '码包管理' } },
   { path: 'code-void', name: 'AdminCodeVoid', component: () => import('@/views/admin/code-void/CodeVoidList.vue'), meta: { title: '溯源码作废' } },
+  { path: 'code-distribution', name: 'AdminCodeDistribution', component: () => import('@/views/admin/code-distribution/DistributionList.vue'), meta: { title: '发放管理' } },
   { path: 'trace-template', name: 'AdminTraceTemplate', component: () => import('@/views/admin/trace-template/TemplateList.vue'), meta: { title: '溯源模板管理' } },
   { path: 'notice', name: 'AdminNotice', component: () => import('@/views/admin/notice/NoticeList.vue'), meta: { title: '公告管理' } },
   { path: 'system/user', name: 'AdminUser', component: () => import('@/views/admin/system/UserList.vue'), meta: { title: '用户管理' } },

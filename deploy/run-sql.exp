@@ -1,24 +1,20 @@
 #!/usr/bin/expect -f
-set timeout 120
+set timeout 30
 
 spawn ssh root@8.152.162.118
 expect {
     "password:" { send "Rango2025=\r" }
-    timeout { puts "SSH连接超时"; exit 1 }
+    timeout { puts "SSH超时"; exit 1 }
 }
 
 expect "# "
 
-# Wait longer for backend startup
-send "sleep 30\r"
+# Check password hashes
+send "mysql -u root -proot trace_system -e \"SELECT id, login_account, LEFT(login_password_hash, 30) as pwd_hash FROM enterprise WHERE login_account IN ('aliceshi','mu','test_enterprise','farm_001')\" 2>/dev/null | grep -v Warning\r"
 expect "# "
 
-# Check status
-send "curl -s -o /dev/null -w 'HTTP %{http_code}' http://127.0.0.1:8080/api/auth/login && echo\r"
-expect "# "
-
-# Check recent logs
-send "journalctl -u trace-backend --no-pager -n 30 --since '2 min ago' 2>&1 | tail -30\r"
+# Set password for test_enterprise to admin123 BCrypt hash
+send "mysql -u root -proot trace_system -e \"UPDATE enterprise SET login_password_hash = '\$2a\$10\$MKCpT2hj0K/1j4.8WKliXufYyCP/97.Wy0UURoJXiDUnjlZ9mVYja' WHERE login_account = 'test_enterprise'\" 2>/dev/null && echo 'PWD SET OK'\r"
 expect "# "
 
 send "exit\r"
