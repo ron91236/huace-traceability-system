@@ -68,6 +68,20 @@ export const getOrderCodes = (orderId: number) => request.get(`/admin/orders/${o
 export const bindOrderCode = (orderId: number, data: any) => request.post(`/admin/orders/${orderId}/codes`, data)
 export const deleteOrderCode = (id: number) => request.delete(`/admin/order-codes/${id}`)
 export const getLastSerial = (orderId: number) => request.get(`/admin/orders/${orderId}/last-serial`)
+export const exportOrderBarcodes = async (orderId: number) => {
+  const userStore = useUserStore()
+  const res = await fetch(`/api/admin/orders/${orderId}/codes/export`, {
+    headers: { Authorization: `Bearer ${userStore.token}` }
+  })
+  if (!res.ok) throw new Error('导出失败')
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `订单条码_${orderId}.xlsx`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 // 预览码
 export const previewOrderCodeQrcode = (id: number) => request.get(`/admin/order-codes/${id}/preview-qrcode`)

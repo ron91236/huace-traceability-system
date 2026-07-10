@@ -24,6 +24,7 @@ public class OrderCode {
     private String serialEnd;
     private Integer wasteCount;     // 作废数量
     private Integer bindCount;      // 实际绑定数量(总数-作废数)
+    private LocalDateTime productionTime; // 生产时间
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

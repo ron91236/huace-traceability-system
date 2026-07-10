@@ -11,6 +11,7 @@ import com.huace.trace.service.*;
 import jakarta.servlet.http.HttpServletResponse;
 import com.alibaba.excel.EasyExcel;
 import com.huace.trace.dto.OrderExportDTO;
+import com.huace.trace.dto.OrderBarcodeExportDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -352,6 +353,10 @@ public class AdminController {
                     dto.setUnitPrice(oi.getPrice() != null ? oi.getPrice().toPlainString() : "");
                     dto.setQuantity(oi.getQuantity());
                     dto.setTotalPrice(oi.getTotalPrice() != null ? oi.getTotalPrice().toPlainString() : "");
+                    if (oi.getBatchId() != null) {
+                        Batch b = batchMapper.selectById(oi.getBatchId());
+                        if (b != null) dto.setProductBatch(b.getName());
+                    }
                     if (oi.getGoodsId() != null) {
                         Goods g = goodsMapper.selectById(oi.getGoodsId());
                         if (g != null) { dto.setProductDescription(g.getIntroduction()); dto.setPackageSpec(g.getPackageSpec()); dto.setWeightSpec(g.getWeightSpec()); }
@@ -369,6 +374,13 @@ public class AdminController {
                     dto.setSerialEnd(oc.getSerialEnd());
                     dto.setQuantity(oc.getQuantity());
                     dto.setUnitPrice(oc.getPrice() != null ? oc.getPrice().toPlainString() : "");
+                    if (oc.getProductionTime() != null) {
+                        dto.setProductionTime(oc.getProductionTime().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+                    }
+                    if (oc.getBatchId() != null) {
+                        Batch b = batchMapper.selectById(oc.getBatchId());
+                        if (b != null) dto.setProductBatch(b.getName());
+                    }
                     if (oc.getLabelSpecId() != null) {
                         LabelSpec ls = labelSpecService.getById(oc.getLabelSpecId());
                         if (ls != null) dto.setLabelSpecName(ls.getSpecName());
@@ -388,6 +400,42 @@ public class AdminController {
             }
         }
         EasyExcel.write(response.getOutputStream(), OrderExportDTO.class).sheet("订单数据").doWrite(exportList);
+    }
+
+    @GetMapping("/orders/{id}/codes/export")
+    public void exportOrderBarcodes(@PathVariable Long id, HttpServletResponse response) throws Exception {
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment;filename=order_barcodes.xlsx");
+        Order order = orderMapper.selectById(id);
+        if (order == null) throw new BusinessException("订单不存在");
+        Enterprise ent = enterpriseService.getById(order.getEnterpriseId());
+        String entName = ent != null ? ent.getName() : "";
+        List<OrderCode> codes = orderService.getOrderCodes(id);
+        List<OrderItem> items = orderService.getOrderItems(id);
+        java.util.List<OrderBarcodeExportDTO> exportList = new java.util.ArrayList<>();
+        for (OrderCode oc : codes) {
+            OrderBarcodeExportDTO dto = new OrderBarcodeExportDTO();
+            dto.setOrderNo(order.getOrderNo());
+            dto.setEnterpriseName(entName);
+            dto.setProductName(oc.getProductName());
+            dto.setProductDescription(oc.getProductDescription());
+            dto.setGoodsName(oc.getGoodsName());
+            dto.setLabelSpecName(oc.getLabelSpecName());
+            dto.setSerialStart(oc.getSerialStart());
+            dto.setSerialEnd(oc.getSerialEnd());
+            dto.setQuantity(oc.getQuantity());
+            dto.setWasteCount(oc.getWasteCount());
+            dto.setBindCount(oc.getBindCount());
+            if (oc.getProductionTime() != null) {
+                dto.setProductionTime(oc.getProductionTime().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            }
+            if (oc.getBatchId() != null) {
+                Batch b = batchMapper.selectById(oc.getBatchId());
+                if (b != null) dto.setProductionBatch(b.getName());
+            }
+            exportList.add(dto);
+        }
+        EasyExcel.write(response.getOutputStream(), OrderBarcodeExportDTO.class).sheet("订单条码").doWrite(exportList);
     }
 
     // ==================== 码包管理 ====================

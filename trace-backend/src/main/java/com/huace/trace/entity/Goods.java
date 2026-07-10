@@ -30,6 +30,3 @@ public class Goods extends BaseEntity {
     @TableField(exist = false)
     private String traceTemplateName;
 }
-    @TableField(exist = false)
-    private String traceTemplateName;
-}

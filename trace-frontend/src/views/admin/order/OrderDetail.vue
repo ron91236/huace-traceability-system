@@ -43,7 +43,10 @@
           <template #header>
             <div style="display:flex;justify-content:space-between;align-items:center">
               <span>条码信息</span>
-              <el-button type="primary" size="small" @click="openBindDialog">绑定条码</el-button>
+              <div>
+                <el-button type="success" size="small" @click="handleExportBarcodes" :loading="exportingBarcodes">导出条码</el-button>
+                <el-button type="primary" size="small" @click="openBindDialog">绑定条码</el-button>
+              </div>
             </div>
           </template>
           <el-table :data="orderCodes" border stripe size="small">
@@ -60,6 +63,9 @@
             <el-table-column prop="quantity" label="数量" width="70" />
             <el-table-column prop="wasteCount" label="作废" width="60" />
             <el-table-column prop="bindCount" label="绑定数" width="70" />
+            <el-table-column prop="productionTime" label="生产时间" width="160">
+              <template #default="{ row }">{{ row.productionTime || '-' }}</template>
+            </el-table-column>
             <el-table-column prop="traceTemplate" label="溯源模板" width="100" />
             <el-table-column label="预览码" width="80">
               <template #default="{ row }">
@@ -137,6 +143,9 @@
               :label="tpl.templateName" :value="tpl.templateKey" />
           </el-select>
         </el-form-item>
+        <el-form-item label="生产时间">
+          <el-date-picker v-model="bindForm.productionTime" type="datetime" placeholder="请选择生产时间" style="width:100%" value-format="YYYY-MM-DD HH:mm:ss" />
+        </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="bindForm.remark" type="textarea" :rows="2" placeholder="请输入备注" />
         </el-form-item>
@@ -162,7 +171,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getAdminOrderDetail, getOrderCodes, bindOrderCode, deleteOrderCode, getAllCodePackages, getVoidedCount, previewOrderCodeQrcode, getLastSerial } from '@/api/admin'
+import { getAdminOrderDetail, getOrderCodes, bindOrderCode, deleteOrderCode, getAllCodePackages, getVoidedCount, previewOrderCodeQrcode, getLastSerial, exportOrderBarcodes } from '@/api/admin'
 import { getTraceTemplateOptions } from '@/api/common'
 import { orderStatusMap } from '@/utils/constants'
 
@@ -177,6 +186,7 @@ const traceTemplates = ref<any[]>([])
 const calcResult = ref({ totalCount: 0, voidedCount: 0, bindCount: 0 })
 const previewQrVisible = ref(false)
 const previewQrData = ref<any>({})
+const exportingBarcodes = ref(false)
 
 // 绑定表单
 const showBindDialog = ref(false)
@@ -189,6 +199,7 @@ const bindForm = ref<any>({
   wasteCount: 0,
   productName: '',
   traceTemplate: '',
+  productionTime: '',
   remark: ''
 })
 
@@ -280,7 +291,7 @@ async function handleBindCode() {
     orderCodes.value = codeRes.data || []
     const pkgRes = await getAllCodePackages()
     codePackages.value = pkgRes.data || []
-    bindForm.value = { codePackageId: null, labelSpecId: null, serialStart: '', serialEnd: '', productName: '', traceTemplate: '', remark: '' }
+    bindForm.value = { codePackageId: null, labelSpecId: null, serialStart: '', serialEnd: '', productName: '', traceTemplate: '', productionTime: '', remark: '' }
     calcResult.value = { totalCount: 0, voidedCount: 0, bindCount: 0 }
   } catch (e) {
     ElMessage.error('绑定失败')
@@ -320,6 +331,19 @@ async function showPreviewQrcode(row: any) {
     previewQrVisible.value = true
   } catch (e) {
     ElMessage.error('获取预览码失败')
+  }
+}
+
+async function handleExportBarcodes() {
+  exportingBarcodes.value = true
+  try {
+    const id = Number(route.params.id)
+    await exportOrderBarcodes(id)
+    ElMessage.success('导出成功')
+  } catch (e) {
+    ElMessage.error('导出失败')
+  } finally {
+    exportingBarcodes.value = false
   }
 }
 </script>
