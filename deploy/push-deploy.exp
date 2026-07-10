@@ -1,5 +1,5 @@
 #!/usr/bin/expect -f
-set timeout 120
+set timeout 300
 
 # Push to deploy remote
 spawn git push deploy master

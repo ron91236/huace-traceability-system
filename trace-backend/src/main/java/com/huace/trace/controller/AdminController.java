@@ -55,6 +55,8 @@ public class AdminController {
     private final com.huace.trace.mapper.IotAlertRecordMapper alertRecordMapper;
     private final BatchMapper batchMapper;
     private final EnterpriseCertMapper enterpriseCertMapper;
+    private final EnterpriseMapper enterpriseMapper;
+    private final GoodsMapper goodsMapper;
 
     // ==================== 证书类型 ====================
     @GetMapping("/cert-types")
