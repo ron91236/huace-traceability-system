@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import com.alibaba.excel.EasyExcel;
 import com.huace.trace.dto.OrderExportDTO;
 import com.huace.trace.dto.OrderBarcodeExportDTO;
+import org.apache.poi.xssf.usermodel.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -60,6 +61,7 @@ public class AdminController {
     private final EnterpriseCertMapper enterpriseCertMapper;
     private final EnterpriseMapper enterpriseMapper;
     private final GoodsMapper goodsMapper;
+    private final AddressMapper addressMapper;
 
     // ==================== 证书类型 ====================
     @GetMapping("/cert-types")
@@ -436,6 +438,159 @@ public class AdminController {
             exportList.add(dto);
         }
         EasyExcel.write(response.getOutputStream(), OrderBarcodeExportDTO.class).sheet("订单条码").doWrite(exportList);
+    }
+
+    @GetMapping("/orders/{id}/export-single")
+    public void exportSingleOrder(@PathVariable Long id, HttpServletResponse response) throws Exception {
+        Order order = orderMapper.selectById(id);
+        if (order == null) throw new BusinessException("订单不存在");
+        Enterprise ent = enterpriseService.getById(order.getEnterpriseId());
+        String entName = ent != null ? ent.getName() : "";
+        String certNoStr = "";
+        if (order.getCertId() != null) {
+            EnterpriseCert c = enterpriseCertMapper.selectById(order.getCertId());
+            if (c != null) certNoStr = c.getCertNo() != null ? c.getCertNo() : "";
+        }
+        // 获取收货地址
+        Address addr = null;
+        if (order.getAddressId() != null) {
+            addr = addressMapper.selectById(order.getAddressId());
+        }
+        String addressStr = addr != null ? addr.getAddress() : "";
+        String contactStr = addr != null ? addr.getContact() : "";
+        String phoneStr = addr != null ? addr.getPhone() : "";
+
+        List<OrderItem> items = orderItemMapper.selectList(
+                new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, id));
+        List<OrderCode> codes = orderCodeMapper.selectList(
+                new LambdaQueryWrapper<OrderCode>().eq(OrderCode::getOrderId, id));
+
+        // 计算标签总数量和订购总价
+        int totalLabels = codes.stream().mapToInt(c -> c.getQuantity() != null ? c.getQuantity() : 0).sum();
+        if (totalLabels == 0) totalLabels = items.stream().mapToInt(i -> i.getQuantity() != null ? i.getQuantity() : 0).sum();
+        BigDecimal totalPrice = items.stream()
+                .map(i -> i.getTotalPrice() != null ? i.getTotalPrice() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 构建 XLSX
+        XSSFWorkbook wb = new XSSFWorkbook();
+        XSSFSheet sheet = wb.createSheet("订单");
+        XSSFCellStyle headerStyle = wb.createCellStyle();
+        XSSFFont headerFont = wb.createFont();
+        headerFont.setBold(true); headerFont.setFontHeightInPoints((short) 14);
+        headerStyle.setFont(headerFont); headerStyle.setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER);
+
+        XSSFCellStyle boldStyle = wb.createCellStyle();
+        XSSFFont boldFont = wb.createFont(); boldFont.setBold(true);
+        boldStyle.setFont(boldFont);
+
+        // Row 0: 标题
+        XSSFRow r0 = sheet.createRow(0);
+        XSSFCell c0 = r0.createCell(0); c0.setCellValue("北京华测食农认证服务有限公司 — 产品防伪追溯标志订单"); c0.setCellStyle(headerStyle);
+        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(0, 0, 0, 13));
+
+        // Row 1: 订单编号 + 企业名称
+        XSSFRow r1 = sheet.createRow(1);
+        r1.createCell(0).setCellValue("订单编号"); r1.getCell(0).setCellStyle(boldStyle);
+        r1.createCell(1).setCellValue(order.getOrderNo());
+        r1.createCell(3).setCellValue("企业名称"); r1.getCell(3).setCellStyle(boldStyle);
+        r1.createCell(4).setCellValue(entName);
+
+        // Row 2: 收货地址 + 联系人
+        XSSFRow r2 = sheet.createRow(2);
+        r2.createCell(0).setCellValue("收货地址"); r2.getCell(0).setCellStyle(boldStyle);
+        r2.createCell(1).setCellValue(addressStr);
+        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(2, 2, 1, 2));
+        r2.createCell(3).setCellValue("联系人"); r2.getCell(3).setCellStyle(boldStyle);
+        r2.createCell(4).setCellValue(contactStr);
+
+        // Row 3: 联系电话 + 标签总数量 + 订购总价
+        XSSFRow r3 = sheet.createRow(3);
+        r3.createCell(0).setCellValue("联系电话"); r3.getCell(0).setCellStyle(boldStyle);
+        r3.createCell(1).setCellValue(phoneStr);
+        r3.createCell(3).setCellValue("标签总数量"); r3.getCell(3).setCellStyle(boldStyle);
+        r3.createCell(4).setCellValue(totalLabels);
+        r3.createCell(5).setCellValue("订购总价（元）"); r3.getCell(5).setCellStyle(boldStyle);
+        r3.createCell(6).setCellValue(totalPrice.doubleValue());
+
+        // Row 5: 表头
+        String[] headers = {"子订单编号", "证书编号", "产品名称", "产品描述", "商品名称", "包装规格", "重量规格", "标签规格", "订购产量", "单价(元)", "订购数量(枚)", "总价(元)", "起始身份码", "结束身份码"};
+        XSSFRow rh = sheet.createRow(5);
+        for (int i = 0; i < headers.length; i++) {
+            XSSFCell cell = rh.createCell(i); cell.setCellValue(headers[i]); cell.setCellStyle(boldStyle);
+        }
+
+        // Row 6+: 明细行
+        int rowNum = 6;
+        BigDecimal totalQuantitySum = BigDecimal.ZERO;
+        int totalQtySum = 0;
+        BigDecimal totalSumSum = BigDecimal.ZERO;
+        int itemIdx = 1;
+        for (OrderItem oi : items) {
+            // 查找匹配的 order codes
+            List<OrderCode> matchedCodes = new java.util.ArrayList<>();
+            if (oi.getLabelSpecId() != null) {
+                for (OrderCode oc : codes) {
+                    if (oi.getLabelSpecId().equals(oc.getLabelSpecId())) matchedCodes.add(oc);
+                }
+            }
+            Goods g = null;
+            if (oi.getGoodsId() != null) g = goodsMapper.selectById(oi.getGoodsId());
+
+            if (matchedCodes.isEmpty()) {
+                XSSFRow row = sheet.createRow(rowNum++);
+                row.createCell(0).setCellValue(order.getOrderNo() + "-" + itemIdx);
+                row.createCell(1).setCellValue(certNoStr);
+                row.createCell(2).setCellValue(g != null ? (g.getProductName() != null ? g.getProductName() : "") : "");
+                row.createCell(3).setCellValue(g != null ? (g.getIntroduction() != null ? g.getIntroduction() : "") : "");
+                row.createCell(4).setCellValue(oi.getGoodsName() != null ? oi.getGoodsName() : "");
+                row.createCell(5).setCellValue(g != null ? (g.getPackageSpec() != null ? g.getPackageSpec() : "") : "");
+                row.createCell(6).setCellValue(g != null ? (g.getWeightSpec() != null ? g.getWeightSpec() : "") : "");
+                row.createCell(7).setCellValue(oi.getLabelSpecName() != null ? oi.getLabelSpecName() : "");
+                row.createCell(10).setCellValue(oi.getQuantity() != null ? oi.getQuantity() : 0);
+                row.createCell(9).setCellValue(oi.getPrice() != null ? oi.getPrice().doubleValue() : 0);
+                row.createCell(11).setCellValue(oi.getTotalPrice() != null ? oi.getTotalPrice().doubleValue() : 0);
+                totalQtySum += oi.getQuantity() != null ? oi.getQuantity() : 0;
+                totalSumSum = totalSumSum.add(oi.getTotalPrice() != null ? oi.getTotalPrice() : BigDecimal.ZERO);
+            } else {
+                for (OrderCode oc : matchedCodes) {
+                    XSSFRow row = sheet.createRow(rowNum++);
+                    row.createCell(0).setCellValue(order.getOrderNo() + "-" + itemIdx);
+                    row.createCell(1).setCellValue(certNoStr);
+                    row.createCell(2).setCellValue(oc.getProductName() != null ? oc.getProductName() : "");
+                    row.createCell(3).setCellValue(g != null ? (g.getIntroduction() != null ? g.getIntroduction() : "") : "");
+                    row.createCell(4).setCellValue(oi.getGoodsName() != null ? oi.getGoodsName() : "");
+                    row.createCell(5).setCellValue(g != null ? (g.getPackageSpec() != null ? g.getPackageSpec() : "") : "");
+                    row.createCell(6).setCellValue(g != null ? (g.getWeightSpec() != null ? g.getWeightSpec() : "") : "");
+                    row.createCell(7).setCellValue(oc.getLabelSpecName() != null ? oc.getLabelSpecName() : "");
+                    row.createCell(10).setCellValue(oc.getQuantity() != null ? oc.getQuantity() : 0);
+                    row.createCell(9).setCellValue(oc.getPrice() != null ? oc.getPrice().doubleValue() : 0);
+                    row.createCell(11).setCellValue(oi.getTotalPrice() != null ? oi.getTotalPrice().doubleValue() : 0);
+                    row.createCell(12).setCellValue(oc.getSerialStart() != null ? oc.getSerialStart() : "");
+                    row.createCell(13).setCellValue(oc.getSerialEnd() != null ? oc.getSerialEnd() : "");
+                    totalQtySum += oc.getQuantity() != null ? oc.getQuantity() : 0;
+                    totalSumSum = totalSumSum.add(oi.getTotalPrice() != null ? oi.getTotalPrice() : BigDecimal.ZERO);
+                }
+            }
+            itemIdx++;
+        }
+
+        // 合计行
+        XSSFRow totalRow = sheet.createRow(rowNum);
+        XSSFCellStyle totalStyle = wb.createCellStyle();
+        XSSFFont totalFont = wb.createFont(); totalFont.setBold(true);
+        totalStyle.setFont(totalFont);
+        totalRow.createCell(0).setCellValue("合计"); totalRow.getCell(0).setCellStyle(totalStyle);
+        totalRow.createCell(10).setCellValue(totalQtySum); totalRow.getCell(10).setCellStyle(totalStyle);
+        totalRow.createCell(11).setCellValue(totalSumSum.doubleValue()); totalRow.getCell(11).setCellStyle(totalStyle);
+
+        // 自动列宽
+        for (int i = 0; i < headers.length; i++) sheet.autoSizeColumn(i);
+
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment;filename=order_" + order.getOrderNo() + ".xlsx");
+        wb.write(response.getOutputStream());
+        wb.close();
     }
 
     // ==================== 码包管理 ====================

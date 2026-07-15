@@ -13,7 +13,7 @@
           </div>
         </div>
       </template>
-      <el-table :data="list" v-loading="loading" stripe row-key="id">
+      <el-table :data="list" v-loading="loading" stripe row-key="id" @expand-change="handleExpandChange">
         <el-table-column type="expand">
           <template #default="{ row }">
             <div style="padding:12px 24px">
@@ -76,9 +76,9 @@
         <el-table-column prop="createdAt" label="创建时间" width="170">
           <template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T',' ').substring(0,19) : '' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" type="primary" link @click="toggleExpand(row)">{{ row._expanded ? '收起' : '查看' }}</el-button>
+            <el-button size="small" type="success" link @click="handleExportSingle(row)" :loading="row._exporting">导出</el-button>
             <el-button v-if="row.status === 'PENDING'" size="small" type="success" link @click="handleApprove(row)">通过</el-button>
             <el-button v-if="row.status === 'PENDING'" size="small" type="danger" link @click="openReject(row)">驳回</el-button>
           </template>
@@ -103,7 +103,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Download } from '@element-plus/icons-vue'
-import { getAdminOrders, approveOrder, rejectOrder, exportOrders, getAdminOrderDetail } from '@/api/admin'
+import { getAdminOrders, approveOrder, rejectOrder, exportOrders, exportSingleOrder, getAdminOrderDetail } from '@/api/admin'
 import { orderStatusMap } from '@/utils/constants'
 
 const statusMap = orderStatusMap
@@ -130,11 +130,10 @@ async function loadData() {
   } finally { loading.value = false }
 }
 
-async function toggleExpand(row: any) {
-  if (row._expanded) {
-    row._expanded = false
-    return
-  }
+async function handleExpandChange(row: any, expandedRows: any[]) {
+  const isExpanded = expandedRows.some((r: any) => r.id === row.id)
+  if (!isExpanded) return
+  if (row._expanded) return // 已加载过
   row._expanding = true
   try {
     const res = await getAdminOrderDetail(row.id)
@@ -146,6 +145,18 @@ async function toggleExpand(row: any) {
     ElMessage.error('加载明细失败')
   } finally {
     row._expanding = false
+  }
+}
+
+async function handleExportSingle(row: any) {
+  row._exporting = true
+  try {
+    await exportSingleOrder(row.id)
+    ElMessage.success('导出成功')
+  } catch (e) {
+    ElMessage.error('导出失败')
+  } finally {
+    row._exporting = false
   }
 }
 

@@ -63,6 +63,21 @@ export const exportOrders = async (params: any) => {
   URL.revokeObjectURL(url)
 }
 
+export const exportSingleOrder = async (orderId: number) => {
+  const userStore = useUserStore()
+  const res = await fetch(`/api/admin/orders/${orderId}/export-single`, {
+    headers: { Authorization: `Bearer ${userStore.token}` }
+  })
+  if (!res.ok) throw new Error('导出失败')
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `订单_${orderId}.xlsx`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 // 订单条码绑定
 export const getOrderCodes = (orderId: number) => request.get(`/admin/orders/${orderId}/codes`)
 export const bindOrderCode = (orderId: number, data: any) => request.post(`/admin/orders/${orderId}/codes`, data)

@@ -132,10 +132,12 @@
         <el-table-column prop="productDescription" label="产品描述" min-width="120">
           <template #default="{ row }">{{ row.productDescription || '-' }}</template>
         </el-table-column>
-        <el-table-column prop="totalProduction" label="总产量(吨)" width="110" />
+        <el-table-column prop="totalProduction" label="总产量(吨)" width="110">
+          <template #default="{ row }">{{ row.totalProduction != null ? Number(row.totalProduction).toFixed(4) : '-' }}</template>
+        </el-table-column>
         <el-table-column prop="remainingProduction" label="剩余产量(吨)" width="120">
           <template #default="{ row }">
-            <el-tag :type="row.remainingProduction > 0 ? 'success' : 'danger'" size="small">{{ row.remainingProduction }}</el-tag>
+            <el-tag :type="row.remainingProduction > 0 ? 'success' : 'danger'" size="small">{{ row.remainingProduction != null ? Number(row.remainingProduction).toFixed(4) : '0.0000' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="80">
