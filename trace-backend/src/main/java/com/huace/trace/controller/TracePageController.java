@@ -12,6 +12,8 @@ import com.huace.trace.service.TraceTemplateService;
 import com.huace.trace.service.VideoSourceService;
 import com.huace.trace.service.IotDataService;
 import com.huace.trace.service.PdfConvertService;
+import com.huace.trace.service.VrPanoramaService;
+import com.huace.trace.entity.VrScene;
 import com.huace.trace.util.FileUploadUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,7 @@ public class TracePageController {
     private final VideoSourceService videoSourceService;
     private final IotDataService iotDataService;
     private final PdfConvertService pdfConvertService;
+    private final VrPanoramaService vrPanoramaService;
 
     /**
      * C端批次溯源查询 - 通过批次ID查询溯源信息
@@ -188,5 +191,27 @@ public class TracePageController {
     private Long toLong(Object obj) {
         if (obj instanceof Number) return ((Number) obj).longValue();
         return null;
+    }
+
+    /**
+     * 获取VR全景导览数据（通过serialNo）
+     */
+    @GetMapping("/api/trace/{serialNo}/vr")
+    public Result<List<VrScene>> getTraceVr(@PathVariable String serialNo) {
+        Map<String, Object> traceData = tracePageService.queryBySerialNo(serialNo);
+        Long enterpriseId = toLong(traceData.get("_enterpriseId"));
+        Long baseId = toLong(traceData.get("_baseId"));
+        return Result.ok(vrPanoramaService.listForTrace(enterpriseId, baseId));
+    }
+
+    /**
+     * 获取VR全景导览数据（通过batchId）
+     */
+    @GetMapping("/api/trace/batch/{batchId}/vr")
+    public Result<List<VrScene>> getBatchTraceVr(@PathVariable Long batchId) {
+        Map<String, Object> traceData = tracePageService.queryByBatchId(batchId);
+        Long enterpriseId = toLong(traceData.get("_enterpriseId"));
+        Long baseId = toLong(traceData.get("_baseId"));
+        return Result.ok(vrPanoramaService.listForTrace(enterpriseId, baseId));
     }
 }

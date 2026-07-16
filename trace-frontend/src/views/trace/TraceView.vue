@@ -66,6 +66,8 @@
             <IotChartElement v-else-if="el.type === 'iot-chart'" :label="el.label" :series="temperatureSeries" />
             <!-- 运输车辆轨迹 -->
             <VehicleTrackElement v-else-if="el.type === 'vehicle-track'" :label="el.label" :points="gpsTrackPoints" :trackInfo="gpsTrackInfo" />
+            <!-- VR全景导览 -->
+            <VrPanoramaElement v-else-if="el.type === 'vr-panorama'" :config="el" :trace-data="traceData" />
             <!-- 信息模块 -->
             <div v-else-if="isInfoSection(el.type)" :class="['trace-section', 'modern-section', el.style?.cardStyle ? 'card-' + el.style.cardStyle : '']" :style="{ backgroundColor: el.style?.backgroundColor || '', borderRadius: (el.style?.borderRadius || 0) + 'px', padding: el.style?.padding || '', boxShadow: el.style?.boxShadow || '' }">
               <div class="section-header">
@@ -312,6 +314,7 @@ import LiveVideoElement from '@/components/trace/LiveVideoElement.vue'
 import IotSensorElement from '@/components/trace/IotSensorElement.vue'
 import IotChartElement from '@/components/trace/IotChartElement.vue'
 import VehicleTrackElement from '@/components/trace/VehicleTrackElement.vue'
+import VrPanoramaElement from '@/components/trace/VrPanoramaElement.vue'
 import QRCode from 'qrcode'
 import DOMPurify from 'dompurify'
 import { SECTION_FIELDS, SECTION_TYPE_MAP, isInfoSection, getSectionAllFields, getSectionDataPrefix } from '@/constants/section-fields'

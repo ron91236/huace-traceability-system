@@ -181,3 +181,12 @@ export const getAdminIotDevices = (params: any) => request.get('/admin/iot-devic
 
 // IoT告警总览
 export const getAdminIotAlerts = (params: any) => request.get('/admin/iot-alerts', { params })
+
+// VR全景管理
+export const getVrScenes = (params?: any) => request.get('/admin/vr-scenes', { params })
+export const createVrScene = (data: any) => request.post('/admin/vr-scenes', data)
+export const updateVrScene = (id: number, data: any) => request.put(`/admin/vr-scenes/${id}`, data)
+export const deleteVrScene = (id: number) => request.delete(`/admin/vr-scenes/${id}`)
+export const createVrHotspot = (data: any) => request.post('/admin/vr-hotspots', data)
+export const updateVrHotspot = (id: number, data: any) => request.put(`/admin/vr-hotspots/${id}`, data)
+export const deleteVrHotspot = (id: number) => request.delete(`/admin/vr-hotspots/${id}`)

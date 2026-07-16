@@ -28,6 +28,7 @@ export const SECTION_TYPE_MAP: Record<string, string> = {
   'cutting-record': 'cutting',
   'video-monitor': 'videoSources',
   'iot-environment': 'iotReadings',
+  'vr-panorama': 'vrScenes',
 }
 
 /** 信息模块字段定义（编辑器 + 渲染共用） */
@@ -105,6 +106,9 @@ export const SECTION_FIELDS: Record<string, SectionDefinition> = {
     { field: 'iotReadings.humidity', label: '湿度' },
     { field: 'iotReadings.soilMoisture', label: '土壤湿度' },
     { field: 'iotReadings.ph', label: 'pH值' },
+  ]},
+  'vr-panorama': { title: 'VR全景导览', fields: [
+    { field: 'vrScenes.scenes', label: '全景场景', type: 'vr-panorama' },
   ]},
 }
 

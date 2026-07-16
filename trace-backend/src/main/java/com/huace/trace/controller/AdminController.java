@@ -68,6 +68,7 @@ public class AdminController {
     private final EnterpriseMapper enterpriseMapper;
     private final GoodsMapper goodsMapper;
     private final AddressMapper addressMapper;
+    private final VrPanoramaService vrPanoramaService;
 
     // ==================== 证书类型 ====================
     @GetMapping("/cert-types")
@@ -1145,5 +1146,43 @@ public class AdminController {
             filtered = filtered.stream().filter(oc -> oc.getCertNo() != null && oc.getCertNo().contains(kw)).collect(java.util.stream.Collectors.toList());
         }
         return Result.ok(new PageResult<>(filtered, r.getTotal()));
+    }
+
+    // ==================== VR全景管理 ====================
+    @GetMapping("/vr-scenes")
+    public Result<List<VrScene>> listVrScenes(@RequestParam(required = false) Long enterpriseId) {
+        return Result.ok(vrPanoramaService.listScenes(enterpriseId));
+    }
+
+    @PostMapping("/vr-scenes")
+    public Result<VrScene> createVrScene(@RequestBody VrScene scene) {
+        return Result.ok(vrPanoramaService.createScene(scene));
+    }
+
+    @PutMapping("/vr-scenes/{id}")
+    public Result<VrScene> updateVrScene(@PathVariable Long id, @RequestBody VrScene scene) {
+        return Result.ok(vrPanoramaService.updateScene(id, scene));
+    }
+
+    @DeleteMapping("/vr-scenes/{id}")
+    public Result<Void> deleteVrScene(@PathVariable Long id) {
+        vrPanoramaService.deleteScene(id);
+        return Result.ok();
+    }
+
+    @PostMapping("/vr-hotspots")
+    public Result<VrHotspot> createVrHotspot(@RequestBody VrHotspot hotspot) {
+        return Result.ok(vrPanoramaService.createHotspot(hotspot));
+    }
+
+    @PutMapping("/vr-hotspots/{id}")
+    public Result<VrHotspot> updateVrHotspot(@PathVariable Long id, @RequestBody VrHotspot hotspot) {
+        return Result.ok(vrPanoramaService.updateHotspot(id, hotspot));
+    }
+
+    @DeleteMapping("/vr-hotspots/{id}")
+    public Result<Void> deleteVrHotspot(@PathVariable Long id) {
+        vrPanoramaService.deleteHotspot(id);
+        return Result.ok();
     }
 }
