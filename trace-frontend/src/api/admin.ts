@@ -73,7 +73,14 @@ export const exportSingleOrder = async (orderId: number) => {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `订单_${orderId}.xlsx`
+  // 从 Content-Disposition 头获取文件名
+  const disposition = res.headers.get('Content-Disposition')
+  let fileName = `订单_${orderId}.xlsx`
+  if (disposition) {
+    const match = disposition.match(/filename\*?=(?:UTF-8''|\"?)([^\";]+)\"?/i)
+    if (match) fileName = decodeURIComponent(match[1])
+  }
+  a.download = fileName
   a.click()
   URL.revokeObjectURL(url)
 }

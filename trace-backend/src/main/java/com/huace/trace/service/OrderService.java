@@ -16,7 +16,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
@@ -311,9 +310,13 @@ public class OrderService {
         auditLogMapper.insert(log);
     }
 
-    private String generateOrderNo() {
-        String date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-        int rand = ThreadLocalRandom.current().nextInt(1000, 9999);
-        return "ORD" + date + rand;
+    private synchronized String generateOrderNo() {
+        String today = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        // 查询今天已创建的订单数
+        Long count = orderMapper.selectCount(
+                new LambdaQueryWrapper<Order>()
+                        .likeRight(Order::getOrderNo, today));
+        int n = (count != null ? count.intValue() : 0) + 1;
+        return today + "-" + n;
     }
 }
