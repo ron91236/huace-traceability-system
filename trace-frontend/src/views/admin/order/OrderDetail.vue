@@ -157,11 +157,11 @@
     </el-dialog>
 
     <!-- 预览码弹窗 -->
-    <el-dialog v-model="previewQrVisible" title="预览溯源二维码" width="360px" align-center>
+    <el-dialog v-model="previewQrVisible" title="预览溯源二维码" width="460px" align-center>
       <div style="text-align:center">
-        <img v-if="previewQrData.qrcode" :src="previewQrData.qrcode" style="width:200px;height:200px" />
-        <p v-if="previewQrData.traceUrl" style="margin-top:12px;font-size:13px;color:#666">溯源链接：{{ previewQrData.traceUrl }}</p>
-        <p v-if="previewQrData.serialNo" style="font-size:12px;color:#999">流水号：{{ previewQrData.serialNo }}</p>
+        <img v-if="previewQrData.qrcode" :src="previewQrData.qrcode" style="width:300px;height:300px" />
+        <p v-if="previewQrData.traceUrl" style="margin-top:16px;font-size:13px;color:#666;word-break:break-all">溯源链接：{{ previewQrData.traceUrl }}</p>
+        <p v-if="previewQrData.serialNo" style="font-size:12px;color:#999;margin-top:4px">流水号：{{ previewQrData.serialNo }}</p>
       </div>
     </el-dialog>
   </div>

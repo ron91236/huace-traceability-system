@@ -32,11 +32,11 @@
         <el-button type="primary" @click="handleSave">保存</el-button>
       </template>
     </el-dialog>
-    <el-dialog v-model="previewVisible" title="预览溯源二维码" width="360px" align-center>
+    <el-dialog v-model="previewVisible" title="预览溯源二维码" width="460px" align-center>
       <div style="text-align:center">
-        <img v-if="previewUrl" :src="previewUrl" style="width:200px;height:200px" />
-        <p v-if="traceUrl" style="margin-top:12px;font-size:13px;color:#666">溯源链接：{{ traceUrl }}</p>
-        <p v-if="serialNoText" style="font-size:12px;color:#999">流水号：{{ serialNoText }}</p>
+        <img v-if="previewUrl" :src="previewUrl" style="width:300px;height:300px" />
+        <p v-if="traceUrl" style="margin-top:16px;font-size:13px;color:#666;word-break:break-all">溯源链接：{{ traceUrl }}</p>
+        <p v-if="serialNoText" style="font-size:12px;color:#999;margin-top:4px">流水号：{{ serialNoText }}</p>
       </div>
     </el-dialog>
   </div>

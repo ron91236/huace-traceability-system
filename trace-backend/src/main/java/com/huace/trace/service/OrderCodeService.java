@@ -86,7 +86,7 @@ public class OrderCodeService {
 
         // 生成URL型QR码：扫码跳转到溯源页
         String traceUrl = baseUrl + "/trace/" + oc.getSerialStart();
-        String qrcode = QrCodeUtil.generateBase64(traceUrl, 300, 300);
+        String qrcode = QrCodeUtil.generateBase64(traceUrl, 400, 400);
 
         Map<String, Object> result = new HashMap<>();
         result.put("orderCode", oc);
