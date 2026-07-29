@@ -946,6 +946,8 @@ onMounted(async () => {
     background: var(--trace-report-bg, rgba(240, 253, 244, 0.4));
     border-radius: 8px;
     line-height: 1.5;
+    min-width: 0;
+    overflow: hidden;
 
     &.field-item-block {
       grid-column: 1 / -1;
@@ -986,6 +988,8 @@ onMounted(async () => {
     &.field-text {
       line-height: 1.7;
       white-space: pre-wrap;
+      word-break: break-word;
+      overflow-wrap: break-word;
     }
   }
 

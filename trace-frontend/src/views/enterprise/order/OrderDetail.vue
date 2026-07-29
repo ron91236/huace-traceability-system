@@ -152,8 +152,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getOrderDetail, getAuditHistory, addOrderItem, updateOrderItem, deleteOrderItem, getGoods, getBatches } from '@/api/enterprise'
-import { getLabelSpecOptions } from '@/api/common'
+import { getOrderDetail, getAuditHistory, addOrderItem, updateOrderItem, deleteOrderItem, getGoods, getBatches, getEnterpriseLabelSpecs } from '@/api/enterprise'
 import { orderStatusMap } from '@/utils/constants'
 
 const statusMap = orderStatusMap
@@ -291,7 +290,7 @@ async function loadDetail() {
 onMounted(async () => {
   const [gRes, lsRes, bRes] = await Promise.all([
     getGoods({ page: 1, size: 200 }),
-    getLabelSpecOptions(),
+    getEnterpriseLabelSpecs(),
     getBatches({ page: 1, size: 200 })
   ])
   goodsList.value = gRes.data?.list || []

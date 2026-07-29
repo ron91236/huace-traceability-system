@@ -43,4 +43,5 @@ public class Enterprise extends BaseEntity {
     private String qualifications;
     private String sealImage;
     private String promoVideo;
+    private String assignedTemplateIds;
 }

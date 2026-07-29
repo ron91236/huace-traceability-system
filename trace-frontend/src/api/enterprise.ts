@@ -86,3 +86,9 @@ export const getIotAlerts = (params: any) => request.get('/enterprise/iot-alerts
 export const handleIotAlert = (id: number, data: any) => request.put(`/enterprise/iot-alerts/${id}/handle`, data)
 export const getIotAlertRules = (params: any) => request.get('/enterprise/iot-alert-rules', { params })
 export const createIotAlertRule = (data: any) => request.post('/enterprise/iot-alert-rules', data)
+
+// 企业分配的溯源模板
+export const getAssignedTemplates = () => request.get('/enterprise/assigned-templates')
+
+// 企业可用标签规格（按证书类型过滤）
+export const getEnterpriseLabelSpecs = () => request.get('/enterprise/label-specs')

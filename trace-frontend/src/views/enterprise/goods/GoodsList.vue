@@ -10,15 +10,19 @@
       <el-table :data="list" v-loading="loading" border stripe>
         <el-table-column prop="productName" label="产品名称" width="120" />
         <el-table-column prop="name" label="商品名称" min-width="140" />
-        <el-table-column label="样品图" width="80" align="center">
+        <el-table-column label="样品图" width="120" align="center">
           <template #default="{ row }">
-            <el-image v-if="row.sampleImage" :src="row.sampleImage" fit="cover" style="width:48px;height:48px;border-radius:4px" :preview-src-list="[row.sampleImage]" />
+            <template v-if="row.sampleImage">
+              <el-image v-for="(url, idx) in row.sampleImage.split(',').filter(Boolean)" :key="idx" :src="url" fit="cover" style="width:36px;height:36px;border-radius:4px;margin:2px" :preview-src-list="row.sampleImage.split(',').filter(Boolean)" />
+            </template>
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column label="宣传图" width="80" align="center">
+        <el-table-column label="宣传图" width="120" align="center">
           <template #default="{ row }">
-            <el-image v-if="row.promoImage" :src="row.promoImage" fit="cover" style="width:48px;height:48px;border-radius:4px" :preview-src-list="[row.promoImage]" />
+            <template v-if="row.promoImage">
+              <el-image v-for="(url, idx) in row.promoImage.split(',').filter(Boolean)" :key="idx" :src="url" fit="cover" style="width:36px;height:36px;border-radius:4px;margin:2px" :preview-src-list="row.promoImage.split(',').filter(Boolean)" />
+            </template>
             <span v-else>-</span>
           </template>
         </el-table-column>
@@ -53,24 +57,52 @@
             <el-option v-for="t in traceTemplates" :key="t.id" :label="t.templateName" :value="t.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="包装规格"><el-input v-model="form.packageSpec" /></el-form-item>
-        <el-form-item label="重量规格"><el-input v-model="form.weightSpec" /></el-form-item>
+        <el-form-item label="包装规格">
+          <el-input v-model="form.packageSpec" placeholder="如 500g/袋、1kg/盒">
+            <template #append>
+              <el-select v-model="form.packageSpecUnit" style="width:90px">
+                <el-option label="g/袋" value="g/袋" />
+                <el-option label="kg/袋" value="kg/袋" />
+                <el-option label="g/盒" value="g/盒" />
+                <el-option label="kg/盒" value="kg/盒" />
+                <el-option label="g/包" value="g/包" />
+                <el-option label="kg/箱" value="kg/箱" />
+                <el-option label="自定义" value="" />
+              </el-select>
+            </template>
+          </el-input>
+        </el-form-item>
+        <el-form-item label="重量规格">
+          <el-input v-model="form.weightSpec" placeholder="请输入重量，单位为kg">
+            <template #append>kg</template>
+          </el-input>
+        </el-form-item>
         <el-form-item label="储存方式"><el-input v-model="form.storageMethod" /></el-form-item>
         <el-form-item label="食用方式"><el-input v-model="form.eatingMethod" /></el-form-item>
         <el-form-item label="商品介绍"><el-input v-model="form.introduction" type="textarea" :rows="3" /></el-form-item>
         <el-form-item label="样品图">
-          <el-upload :show-file-list="false" :http-request="(opt: any) => handleImageUpload(opt, 'sampleImage')" accept="image/*">
-            <el-image v-if="form.sampleImage" :src="form.sampleImage" fit="cover" style="width:100px;height:100px;border-radius:8px" />
-            <el-icon v-else :size="28" color="#8c939d"><Plus /></el-icon>
+          <el-upload
+            :file-list="sampleFileList"
+            list-type="picture-card"
+            accept="image/*"
+            :http-request="(opt: any) => handleMultiImageUpload(opt, 'sampleImage', 'sampleFileList')"
+            :on-remove="(file: any) => handleImageRemove(file, 'sampleImage', 'sampleFileList')"
+            :on-preview="(file: any) => previewImage(file.url)"
+          >
+            <el-icon :size="28" color="#8c939d"><Plus /></el-icon>
           </el-upload>
-          <el-button v-if="form.sampleImage" link type="danger" style="margin-left:8px" @click="form.sampleImage = ''">移除</el-button>
         </el-form-item>
         <el-form-item label="宣传图">
-          <el-upload :show-file-list="false" :http-request="(opt: any) => handleImageUpload(opt, 'promoImage')" accept="image/*">
-            <el-image v-if="form.promoImage" :src="form.promoImage" fit="cover" style="width:100px;height:100px;border-radius:8px" />
-            <el-icon v-else :size="28" color="#8c939d"><Plus /></el-icon>
+          <el-upload
+            :file-list="promoFileList"
+            list-type="picture-card"
+            accept="image/*"
+            :http-request="(opt: any) => handleMultiImageUpload(opt, 'promoImage', 'promoFileList')"
+            :on-remove="(file: any) => handleImageRemove(file, 'promoImage', 'promoFileList')"
+            :on-preview="(file: any) => previewImage(file.url)"
+          >
+            <el-icon :size="28" color="#8c939d"><Plus /></el-icon>
           </el-upload>
-          <el-button v-if="form.promoImage" link type="danger" style="margin-left:8px" @click="form.promoImage = ''">移除</el-button>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -85,8 +117,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getGoods, createGoods, updateGoods, deleteGoods } from '@/api/enterprise'
-import { getProductOptions, uploadFile, getTraceTemplateOptions } from '@/api/common'
+import { getGoods, createGoods, updateGoods, deleteGoods, getAssignedTemplates } from '@/api/enterprise'
+import { getProductOptions, uploadFile } from '@/api/common'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -100,34 +132,82 @@ const editId = ref<number | null>(null)
 const formRef = ref()
 const products = ref<any[]>([])
 const traceTemplates = ref<any[]>([])
+const sampleFileList = ref<any[]>([])
+const promoFileList = ref<any[]>([])
 
-const form = reactive<any>({ productId: null, name: '', packageSpec: '', weightSpec: '', storageMethod: '', eatingMethod: '', introduction: '', sampleImage: '', promoImage: '', traceTemplateId: null })
+const form = reactive<any>({ productId: null, name: '', packageSpec: '', packageSpecUnit: '', weightSpec: '', storageMethod: '', eatingMethod: '', introduction: '', sampleImage: '', promoImage: '', traceTemplateId: null })
 
-onMounted(async () => { const [prodRes, tplRes] = await Promise.all([getProductOptions(), getTraceTemplateOptions()]); products.value = prodRes.data || []; traceTemplates.value = tplRes.data || []; loadData() })
+onMounted(async () => { const [prodRes, tplRes] = await Promise.all([getProductOptions(), getAssignedTemplates()]); products.value = prodRes.data || []; traceTemplates.value = tplRes.data || []; loadData() })
 
 async function loadData() {
   loading.value = true
   try { const res = await getGoods({ page: page.value, size: size.value, keyword: keyword.value }); list.value = res.data?.list || []; total.value = res.data?.total || 0 } finally { loading.value = false }
 }
 
-function openForm(row?: any) { editId.value = row?.id || null; Object.keys(form).forEach(k => { form[k] = row?.[k] ?? null }); dialogVisible.value = true }
+function urlsToFileList(urls: string) {
+  if (!urls) return []
+  return urls.split(',').filter(Boolean).map((url, i) => ({ name: `image-${i}`, url }))
+}
 
-async function handleImageUpload(options: any, field: string) {
+function openForm(row?: any) {
+  editId.value = row?.id || null
+  Object.keys(form).forEach(k => {
+    if (k === 'packageSpecUnit') form[k] = ''
+    else form[k] = row?.[k] ?? null
+  })
+  // Parse package spec unit if it matches a known unit
+  if (form.packageSpec) {
+    const unitMatch = form.packageSpec.match(/(g\/袋|kg\/袋|g\/盒|kg\/盒|g\/包|kg\/箱)$/)
+    if (unitMatch) {
+      form.packageSpecUnit = unitMatch[1]
+      form.packageSpec = form.packageSpec.replace(unitMatch[1], '').trim()
+    }
+  }
+  sampleFileList.value = urlsToFileList(form.sampleImage || '')
+  promoFileList.value = urlsToFileList(form.promoImage || '')
+  dialogVisible.value = true
+}
+
+async function handleMultiImageUpload(options: any, field: string, listName: string) {
   try {
     const res = await uploadFile(options.file)
     const url = res.data?.url || res.data || ''
-    form[field] = url
+    const fileListRef = listName === 'sampleFileList' ? sampleFileList : promoFileList
+    fileListRef.value.push({ name: options.file.name, url })
+    form[field] = fileListRef.value.map((f: any) => f.url).join(',')
     ElMessage.success('图片上传成功')
   } catch (e) {
     ElMessage.error('图片上传失败')
   }
 }
 
+function handleImageRemove(file: any, field: string, listName: string) {
+  const fileListRef = listName === 'sampleFileList' ? sampleFileList : promoFileList
+  fileListRef.value = fileListRef.value.filter((f: any) => f.url !== file.url)
+  form[field] = fileListRef.value.map((f: any) => f.url).join(',')
+}
+
+function previewImage(url: string) {
+  window.open(url, '_blank')
+}
+
 async function handleSubmit() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
   submitting.value = true
-  try { if (editId.value) await updateGoods(editId.value, form); else await createGoods(form); ElMessage.success(editId.value ? '编辑成功' : '新增成功'); dialogVisible.value = false; loadData() } finally { submitting.value = false }
+  try {
+    const submitData = { ...form }
+    // Append unit to packageSpec if selected
+    if (submitData.packageSpecUnit) {
+      submitData.packageSpec = (submitData.packageSpec || '') + submitData.packageSpecUnit
+    }
+    delete submitData.packageSpecUnit
+    if (editId.value) await updateGoods(editId.value, submitData)
+    else await createGoods(submitData)
+    ElMessage.success(editId.value ? '编辑成功' : '新增成功')
+    dialogVisible.value = false
+    loadData()
+  } finally { submitting.value = false }
 }
 
 async function handleDelete(id: number) { await deleteGoods(id); ElMessage.success('删除成功'); loadData() }

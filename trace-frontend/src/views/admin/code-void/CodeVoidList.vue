@@ -20,7 +20,7 @@
         <el-table-column prop="packageNo" label="条码库" min-width="140" />
         <el-table-column prop="serialStart" label="开始身份码" width="140" />
         <el-table-column prop="serialEnd" label="结束身份码" width="140" />
-        <el-table-column prop="count" label="标签数量" width="100" />
+        <el-table-column prop="count" label="作废数量" width="100" />
         <el-table-column prop="remark" label="备注" min-width="120" />
         <el-table-column prop="createdAt" label="创建时间" width="170">
           <template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T',' ').substring(0,19) : '' }}</template>
@@ -50,6 +50,9 @@
         <el-form-item label="结束身份码" required>
           <el-input v-model="addForm.serialEnd" placeholder="请输入结束身份码" />
         </el-form-item>
+        <el-form-item label="作废数量" v-if="computedVoidCount > 0">
+          <el-input :model-value="computedVoidCount.toLocaleString()" disabled />
+        </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="addForm.remark" type="textarea" :rows="2" placeholder="请输入备注" />
         </el-form-item>
@@ -63,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getVoidedCodeRanges, batchImportVoidedCodeRanges, deleteVoidedCodeRange } from '@/api/admin'
 import * as XLSX from 'xlsx'
@@ -84,6 +87,15 @@ const addForm = reactive({
 })
 
 onMounted(() => loadData())
+
+const computedVoidCount = computed(() => {
+  const start = addForm.serialStart
+  const end = addForm.serialEnd
+  if (!start || !end || !/^\d+$/.test(start) || !/^\d+$/.test(end)) return 0
+  const s = parseInt(start)
+  const e = parseInt(end)
+  return e >= s ? e - s + 1 : 0
+})
 
 async function loadData() {
   loading.value = true

@@ -3,8 +3,13 @@ package com.huace.trace.controller;
 import com.huace.trace.common.PageResult;
 import com.huace.trace.common.Result;
 import com.huace.trace.entity.*;
+import com.huace.trace.mapper.EnterpriseMapper;
+import com.huace.trace.mapper.TraceTemplateMapper;
+import com.huace.trace.mapper.LabelSpecMapper;
+import com.huace.trace.mapper.EnterpriseCertMapper;
 import com.huace.trace.security.UserPrincipal;
 import com.huace.trace.service.*;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -35,6 +40,10 @@ public class EnterpriseController {
     private final IotDataService iotDataService;
     private final com.huace.trace.mapper.IotAlertRuleMapper alertRuleMapper;
     private final com.huace.trace.mapper.IotAlertRecordMapper alertRecordMapper;
+    private final EnterpriseMapper enterpriseMapper;
+    private final TraceTemplateMapper traceTemplateMapper;
+    private final LabelSpecMapper labelSpecMapper;
+    private final EnterpriseCertMapper enterpriseCertMapper;
 
     /**
      * 解析企业ID列表 — 支持集团母账号聚合查看
@@ -485,5 +494,55 @@ public class EnterpriseController {
         rule.setEnterpriseId(principal.getUserId());
         alertRuleMapper.insert(rule);
         return Result.ok(null);
+    }
+
+    // ==================== 企业可用标签规格（按证书类型过滤） ====================
+    @GetMapping("/label-specs")
+    public Result<List<LabelSpec>> getEnterpriseLabelSpecs(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        // Get the enterprise's cert type IDs from their certs
+        List<Long> certTypeIds = enterpriseCertMapper.selectList(
+                new LambdaQueryWrapper<EnterpriseCert>()
+                        .eq(EnterpriseCert::getEnterpriseId, principal.getUserId())
+                        .isNotNull(EnterpriseCert::getCertTypeId))
+                .stream()
+                .map(EnterpriseCert::getCertTypeId)
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+
+        LambdaQueryWrapper<LabelSpec> qw = new LambdaQueryWrapper<LabelSpec>()
+                .eq(LabelSpec::getIsVoid, 0);
+
+        if (!certTypeIds.isEmpty()) {
+            // Show specs matching enterprise's cert types + universal specs (certTypeId=null)
+            qw.and(w -> w.in(LabelSpec::getCertTypeId, certTypeIds)
+                    .or().isNull(LabelSpec::getCertTypeId));
+        }
+        return Result.ok(labelSpecMapper.selectList(qw.orderByDesc(LabelSpec::getId)));
+    }
+
+    // ==================== 企业分配的溯源模板 ====================
+    @GetMapping("/assigned-templates")
+    public Result<List<TraceTemplate>> getAssignedTemplates(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Enterprise enterprise = enterpriseMapper.selectById(principal.getUserId());
+        if (enterprise == null || enterprise.getAssignedTemplateIds() == null || enterprise.getAssignedTemplateIds().isBlank()) {
+            // 未分配模板时返回所有启用的模板
+            return Result.ok(traceTemplateMapper.selectList(
+                    new LambdaQueryWrapper<TraceTemplate>()
+                            .eq(TraceTemplate::getStatus, 1)
+                            .orderByAsc(TraceTemplate::getId)));
+        }
+        List<Long> ids = List.of(enterprise.getAssignedTemplateIds().split(","))
+                .stream().map(String::trim).filter(s -> !s.isEmpty()).map(Long::parseLong).toList();
+        if (ids.isEmpty()) {
+            return Result.ok(List.of());
+        }
+        return Result.ok(traceTemplateMapper.selectList(
+                new LambdaQueryWrapper<TraceTemplate>()
+                        .in(TraceTemplate::getId, ids)
+                        .eq(TraceTemplate::getStatus, 1)
+                        .orderByAsc(TraceTemplate::getId)));
     }
 }

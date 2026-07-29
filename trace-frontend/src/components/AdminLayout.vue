@@ -15,7 +15,11 @@
         >
           <el-menu-item index="/admin/dashboard">
             <el-icon><DataBoard /></el-icon>
-            <span>控制台</span>
+            <span>数据中心</span>
+          </el-menu-item>
+          <el-menu-item index="/admin/notice">
+            <el-icon><Bell /></el-icon>
+            <span>公告管理</span>
           </el-menu-item>
           <el-sub-menu index="enterprise-mgmt">
             <template #title>
@@ -57,10 +61,6 @@
             <el-icon><PictureFilled /></el-icon>
             <span>溯源模板</span>
           </el-menu-item>
-          <el-menu-item index="/admin/notice">
-            <el-icon><Bell /></el-icon>
-            <span>公告管理</span>
-          </el-menu-item>
           <el-sub-menu index="iot-video-mgmt">
             <template #title>
               <el-icon><Monitor /></el-icon>
@@ -70,10 +70,6 @@
             <el-menu-item index="/admin/iot-device">IoT设备总览</el-menu-item>
             <el-menu-item index="/admin/vr-manage">VR全景管理</el-menu-item>
           </el-sub-menu>
-          <el-menu-item index="/screen/admin">
-            <el-icon><TrendCharts /></el-icon>
-            <span>数据大屏</span>
-          </el-menu-item>
         </el-menu>
       </el-scrollbar>
     </el-aside>

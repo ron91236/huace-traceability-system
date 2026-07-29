@@ -17,6 +17,7 @@ public class LabelSpec {
     private Integer supportManualAssign;
     private Integer isVoid;
     private String labelImage;
+    private Long certTypeId;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 }

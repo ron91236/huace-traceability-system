@@ -32,6 +32,12 @@
             <el-tag :type="row.supportManualAssign ? 'success' : 'info'" size="small">{{ row.supportManualAssign ? '支持' : '不支持' }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="所属证书" width="120">
+          <template #default="{ row }">
+            <el-tag v-if="row.certTypeId" size="small" type="warning">{{ certTypes.find((c: any) => c.id === row.certTypeId)?.name || '-' }}</el-tag>
+            <el-tag v-else size="small" type="info">通用</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="80">
           <template #default="{ row }">
             <el-tag :type="row.isVoid ? 'danger' : 'success'" size="small">{{ row.isVoid ? '作废' : '有效' }}</el-tag>
@@ -67,6 +73,11 @@
           </el-select>
         </el-form-item>
         <el-form-item label="支持手动流水号"><el-switch v-model="form.supportManualAssign" :active-value="1" :inactive-value="0" /></el-form-item>
+        <el-form-item label="所属证书类型">
+          <el-select v-model="form.certTypeId" placeholder="不选则为通用" clearable style="width:100%">
+            <el-option v-for="c in certTypes" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="是否作废"><el-switch v-model="form.isVoid" :active-value="1" :inactive-value="0" /></el-form-item>
       </el-form>
       <template #footer>
@@ -82,6 +93,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
 import { getLabelSpecs, createLabelSpec, updateLabelSpec, deleteLabelSpec } from '@/api/admin'
+import { getCertTypeOptions } from '@/api/common'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -93,7 +105,8 @@ const keyword = ref('')
 const dialogVisible = ref(false)
 const editId = ref<number | null>(null)
 const formRef = ref()
-const defaultForm: Record<string, any> = { specName: '', material: '', price: 0, usageMethod: '贴标', supportManualAssign: 0, isVoid: 0 }
+const certTypes = ref<any[]>([])
+const defaultForm: Record<string, any> = { specName: '', material: '', price: 0, usageMethod: '贴标', supportManualAssign: 0, isVoid: 0, certTypeId: null }
 const form = reactive<Record<string, any>>({ ...defaultForm })
 
 function formatTime(t: string) {
@@ -101,7 +114,10 @@ function formatTime(t: string) {
   return t.replace('T', ' ').substring(0, 19)
 }
 
-onMounted(() => loadData())
+onMounted(async () => {
+  loadData()
+  try { const res = await getCertTypeOptions(); certTypes.value = res.data || [] } catch {}
+})
 
 async function loadData() {
   loading.value = true

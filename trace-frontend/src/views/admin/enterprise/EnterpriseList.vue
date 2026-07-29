@@ -73,6 +73,14 @@
           <el-col :span="12"><el-form-item label="邮编"><el-input v-model="form.zipcode" /></el-form-item></el-col>
           <el-col :span="24"><el-form-item label="详细地址"><el-input v-model="form.address" /></el-form-item></el-col>
           <el-col :span="24"><el-form-item label="企业介绍"><el-input v-model="form.introduction" type="textarea" :rows="3" /></el-form-item></el-col>
+          <el-col :span="24">
+            <el-form-item label="溯源模板">
+              <el-select v-model="form.assignedTemplateIdsList" multiple placeholder="请选择分配的溯源模板" style="width:100%" filterable>
+                <el-option v-for="t in traceTemplates" :key="t.id" :label="t.templateName" :value="t.id" />
+              </el-select>
+              <div style="font-size:12px;color:#909399;margin-top:4px">未选择时企业可使用所有模板</div>
+            </el-form-item>
+          </el-col>
         </el-row>
       </el-form>
       <template #footer>
@@ -106,6 +114,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
 import { getEnterprises, createEnterprise, updateEnterprise, deleteEnterprise, createMasterEnterprise } from '@/api/admin'
+import { getTraceTemplateOptions } from '@/api/common'
 import EnterpriseGroupDialog from './EnterpriseGroupDialog.vue'
 
 const loading = ref(false)
@@ -128,7 +137,11 @@ const form = reactive<any>({
   name: '', nature: '', contact: '', phone: '', email: '', industry: '',
   loginAccount: '', loginPassword: '', creditCode: '', mainType: '',
   province: '', city: '', district: '', zipcode: '', address: '', introduction: '',
+  assignedTemplateIds: '',
+  assignedTemplateIdsList: [],
 })
+
+const traceTemplates = ref<any[]>([])
 
 const masterForm = reactive<any>({
   name: '', contact: '', phone: '', loginAccount: '', loginPassword: '',
@@ -150,7 +163,10 @@ const masterRules = {
   loginPassword: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
 
-onMounted(() => loadData())
+onMounted(async () => {
+  loadData()
+  try { const res = await getTraceTemplateOptions(); traceTemplates.value = res.data || [] } catch {}
+})
 
 async function loadData() {
   loading.value = true
@@ -163,7 +179,15 @@ async function loadData() {
 
 function openForm(row?: any) {
   editId.value = row?.id || null
-  Object.keys(form).forEach(k => { form[k] = row?.[k] || '' })
+  Object.keys(form).forEach(k => {
+    if (k === 'assignedTemplateIdsList') {
+      form[k] = row?.assignedTemplateIds ? row.assignedTemplateIds.split(',').map(Number) : []
+    } else if (k === 'assignedTemplateIds') {
+      form[k] = row?.assignedTemplateIds || ''
+    } else {
+      form[k] = row?.[k] || ''
+    }
+  })
   dialogVisible.value = true
 }
 
@@ -182,8 +206,12 @@ async function handleSubmit() {
   if (!valid) return
   submitting.value = true
   try {
-    if (editId.value) await updateEnterprise(editId.value, form)
-    else await createEnterprise(form)
+    const submitData = { ...form }
+    // Convert selected template IDs array to comma-separated string
+    submitData.assignedTemplateIds = (form.assignedTemplateIdsList || []).join(',')
+    delete submitData.assignedTemplateIdsList
+    if (editId.value) await updateEnterprise(editId.value, submitData)
+    else await createEnterprise(submitData)
     ElMessage.success(editId.value ? '编辑成功' : '新增成功')
     dialogVisible.value = false
     loadData()

@@ -42,7 +42,9 @@
         <el-descriptions-item label="重量规格">{{ detail.weightSpec }}</el-descriptions-item>
         <el-descriptions-item label="储存方式" :span="2">{{ detail.storageMethod }}</el-descriptions-item>
         <el-descriptions-item label="食用方式" :span="2">{{ detail.eatingMethod }}</el-descriptions-item>
-        <el-descriptions-item label="商品介绍" :span="2">{{ detail.introduction }}</el-descriptions-item>
+        <el-descriptions-item label="商品介绍" :span="2">
+          <div class="intro-text">{{ detail.introduction }}</div>
+        </el-descriptions-item>
       </el-descriptions>
     </el-dialog>
   </div>
@@ -84,5 +86,12 @@ function viewDetail(row: any) {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.intro-text {
+  word-break: break-all;
+  white-space: pre-wrap;
+  max-height: 200px;
+  overflow-y: auto;
 }
 </style>

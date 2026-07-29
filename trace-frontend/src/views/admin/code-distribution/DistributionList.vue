@@ -14,7 +14,21 @@
           </div>
         </div>
       </template>
-      <el-table :data="list" v-loading="loading" border stripe size="small">
+      <el-table :data="list" v-loading="loading" border stripe size="small" row-key="id" ref="tableRef">
+        <el-table-column type="expand">
+          <template #default="{ row }">
+            <div style="padding:12px 24px">
+              <el-descriptions :column="3" border size="small">
+                <el-descriptions-item label="生产时间">{{ row.productionTime || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="溯源码模板">{{ row.traceTemplate || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="包装规格">{{ row.goodsPackageSpec || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="重量规格">{{ row.goodsWeightSpec || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="作废数">{{ row.wasteCount || 0 }}</el-descriptions-item>
+                <el-descriptions-item label="绑定时间">{{ row.createdAt ? row.createdAt.replace('T',' ').substring(0,19) : '-' }}</el-descriptions-item>
+              </el-descriptions>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="enterpriseName" label="所属企业" min-width="120">
           <template #default="{ row }">{{ row.enterpriseName || '-' }}</template>
         </el-table-column>
@@ -51,6 +65,14 @@
         <el-table-column prop="createdAt" label="绑定时间" width="170">
           <template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T',' ').substring(0,19) : '-' }}</template>
         </el-table-column>
+        <el-table-column label="操作" width="160" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" type="primary" link @click="toggleDetail(row)">
+              <el-icon style="margin-right:2px"><ArrowRight v-if="!row._showDetail" /><ArrowDown v-else /></el-icon>{{ row._showDetail ? '收起' : '详情' }}
+            </el-button>
+            <el-button v-if="row.orderId" size="small" type="success" link @click="$router.push(`/admin/orders/${row.orderId}`)">分配条码</el-button>
+          </template>
+        </el-table-column>
       </el-table>
       <div class="pagination-wrap">
         <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total" layout="total, sizes, prev, pager, next" :page-sizes="[20, 50, 100]" @change="loadData" />
@@ -61,8 +83,11 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { Search } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { Search, ArrowRight, ArrowDown } from '@element-plus/icons-vue'
 import { getCodeDistribution, getAllEnterprises } from '@/api/admin'
+
+const router = useRouter()
 
 const loading = ref(false)
 const list = ref<any[]>([])
@@ -93,6 +118,12 @@ async function loadData() {
     list.value = res.data?.list || []
     total.value = res.data?.total || 0
   } finally { loading.value = false }
+}
+
+const tableRef = ref()
+
+function toggleDetail(row: any) {
+  tableRef.value?.toggleRowExpansion(row)
 }
 
 function resetSearch() {
