@@ -218,14 +218,23 @@ cat > /etc/systemd/system/trace-backend.service << 'SVC'
 [Unit]
 Description=Trace System Backend
 After=network.target mysqld.service mongod.service redis.service
+Wants=redis.service mongod.service
 
 [Service]
 Type=simple
 User=root
+Environment=JAVA_HOME=/usr/lib/jvm/java-17-openjdk
+Environment=MONGO_URI=mongodb://127.0.0.1:27017/trace_system
+Environment=REDIS_HOST=127.0.0.1
+Environment=DB_URL=jdbc:mysql://127.0.0.1:3306/trace_system?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+Environment=DB_USERNAME=root
+Environment=DB_PASSWORD=Trace@2024
 WorkingDirectory=/opt/trace-system/trace-backend
-ExecStart=/usr/bin/java -jar target/trace-backend-1.0.0.jar --spring.profiles.active=prod
+ExecStart=/usr/bin/java -jar -Xms512m -Xmx2g target/trace-backend-1.0.0.jar
 Restart=always
 RestartSec=10
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
