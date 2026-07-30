@@ -190,3 +190,15 @@ export const deleteVrScene = (id: number) => request.delete(`/admin/vr-scenes/${
 export const createVrHotspot = (data: any) => request.post('/admin/vr-hotspots', data)
 export const updateVrHotspot = (id: number, data: any) => request.put(`/admin/vr-hotspots/${id}`, data)
 export const deleteVrHotspot = (id: number) => request.delete(`/admin/vr-hotspots/${id}`)
+
+// 海报管理
+export const getPosters = (params: any) => request.get('/admin/posters', { params })
+export const uploadPoster = (file: File, title?: string) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (title) formData.append('title', title)
+  return request.post('/admin/posters', formData)
+}
+export const updatePoster = (id: number, data: any) => request.put(`/admin/posters/${id}`, data)
+export const deletePoster = (id: number) => request.delete(`/admin/posters/${id}`)
+export const getPosterQrcode = (id: number) => request.get(`/admin/posters/${id}/qrcode`)

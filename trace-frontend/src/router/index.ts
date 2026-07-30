@@ -24,6 +24,7 @@ const adminRoutes: RouteRecordRaw[] = [
   { path: 'video-source', name: 'AdminVideoSource', component: () => import('@/views/admin/video-source/VideoSourceList.vue'), meta: { title: '视频源总览' } },
   { path: 'iot-device', name: 'AdminIotDevice', component: () => import('@/views/admin/iot-device/IotDeviceList.vue'), meta: { title: 'IoT设备总览' } },
   { path: 'vr-manage', name: 'AdminVrManage', component: () => import('@/views/admin/vr-manage/VrManageList.vue'), meta: { title: 'VR全景管理' } },
+  { path: 'poster', name: 'AdminPoster', component: () => import('@/views/admin/poster/PosterList.vue'), meta: { title: '海报管理' } },
 ]
 
 // 企业端路由

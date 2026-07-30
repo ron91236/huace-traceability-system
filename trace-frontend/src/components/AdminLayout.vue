@@ -70,6 +70,10 @@
             <el-menu-item index="/admin/iot-device">IoT设备总览</el-menu-item>
             <el-menu-item index="/admin/vr-manage">VR全景管理</el-menu-item>
           </el-sub-menu>
+          <el-menu-item index="/admin/poster">
+            <el-icon><PictureFilled /></el-icon>
+            <span>海报管理</span>
+          </el-menu-item>
         </el-menu>
       </el-scrollbar>
     </el-aside>

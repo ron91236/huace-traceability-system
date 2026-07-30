@@ -69,6 +69,7 @@ public class AdminController {
     private final GoodsMapper goodsMapper;
     private final AddressMapper addressMapper;
     private final VrPanoramaService vrPanoramaService;
+    private final PosterService posterService;
 
     // ==================== 证书类型 ====================
     @GetMapping("/cert-types")
@@ -1184,5 +1185,42 @@ public class AdminController {
     public Result<Void> deleteVrHotspot(@PathVariable Long id) {
         vrPanoramaService.deleteHotspot(id);
         return Result.ok();
+    }
+
+    // ==================== 海报管理 ====================
+    @GetMapping("/posters")
+    public Result<PageResult<Poster>> listPosters(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String keyword) {
+        return Result.ok(posterService.list(page, size, keyword));
+    }
+
+    @PostMapping("/posters")
+    public Result<Poster> createPoster(@RequestParam("file") MultipartFile file,
+                                       @RequestParam(required = false) String title) throws Exception {
+        return Result.ok(posterService.create(file, title));
+    }
+
+    @PutMapping("/posters/{id}")
+    public Result<Void> updatePoster(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        String title = body.get("title") != null ? body.get("title").toString() : null;
+        Integer status = body.get("status") != null ? Integer.parseInt(body.get("status").toString()) : null;
+        posterService.update(id, title, status);
+        return Result.ok();
+    }
+
+    @DeleteMapping("/posters/{id}")
+    public Result<Void> deletePoster(@PathVariable Long id) {
+        posterService.delete(id);
+        return Result.ok();
+    }
+
+    @GetMapping("/posters/{id}/qrcode")
+    public Result<Map<String, Object>> getPosterQrcode(@PathVariable Long id) {
+        Poster poster = posterService.getById(id);
+        if (poster == null) throw new BusinessException("海报不存在");
+        String qrCode = posterService.getQrCode(id);
+        return Result.ok(Map.of("qrCode", qrCode, "posterUrl", poster.getPosterUrl()));
     }
 }
