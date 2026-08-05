@@ -189,7 +189,7 @@ server {
     }
 
     # 上传文件访问
-    location /uploads/ {
+    location ^~ /uploads/ {
         alias /data/trace/uploads/;
     }
 
