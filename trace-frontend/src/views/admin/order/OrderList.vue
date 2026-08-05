@@ -222,8 +222,8 @@ let calcTimer: ReturnType<typeof setTimeout> | null = null
 
 const selectedPkgDigits = computed(() => {
   if (!bindForm.value.codePackageId) return 0
-  const pkg = codePackages.value.find((p: any) => p.id === bindForm.value.codePackageId)
-  return pkg?.serialDigits || 0
+  const pkg = codePackages.value.find((p: any) => Number(p.id) === Number(bindForm.value.codePackageId))
+  return pkg?.serialDigits ?? 0
 })
 
 // 预览码相关
@@ -321,7 +321,8 @@ function triggerCalc() {
 }
 
 async function calcBindCount() {
-  const { serialStart, serialEnd } = bindForm.value
+  const serialStart = String(bindForm.value.serialStart || '')
+  const serialEnd = String(bindForm.value.serialEnd || '')
   if (!serialStart || !serialEnd || !/^\d+$/.test(serialStart) || !/^\d+$/.test(serialEnd)) {
     calcResult.value = { totalCount: 0, voidedCount: 0, bindCount: 0 }
     return
@@ -335,10 +336,10 @@ async function calcBindCount() {
 }
 
 function onPackageChange(pkgId: number) {
-  const pkg = codePackages.value.find((p: any) => p.id === pkgId)
+  const pkg = codePackages.value.find((p: any) => Number(p.id) === Number(pkgId))
   if (pkg) {
-    bindForm.value.serialStart = pkg.serialStart || ''
-    bindForm.value.serialEnd = pkg.serialEnd || ''
+    bindForm.value.serialStart = String(pkg.serialStart ?? '')
+    bindForm.value.serialEnd = String(pkg.serialEnd ?? '')
   }
 }
 
@@ -355,17 +356,19 @@ async function openBindDialog(row: any) {
   showBindDialog.value = true
   try {
     const res = await getLastSerial(row.id)
-    if (res.data?.nextStart) bindForm.value.serialStart = res.data.nextStart
+    if (res.data?.nextStart) bindForm.value.serialStart = String(res.data.nextStart)
   } catch {}
 }
 
 async function handleBindCode() {
   if (!bindForm.value.codePackageId) return ElMessage.warning('请选择条码库')
-  if (!bindForm.value.serialStart || !bindForm.value.serialEnd) return ElMessage.warning('请输入开始和结束身份码')
+  const startSerial = String(bindForm.value.serialStart || '')
+  const endSerial = String(bindForm.value.serialEnd || '')
+  if (!startSerial || !endSerial) return ElMessage.warning('请输入开始和结束身份码')
   const digits = selectedPkgDigits.value
   if (digits > 0) {
-    if (bindForm.value.serialStart.length !== digits) return ElMessage.warning(`开始身份码必须为 ${digits} 位，当前 ${bindForm.value.serialStart.length} 位`)
-    if (bindForm.value.serialEnd.length !== digits) return ElMessage.warning(`结束身份码必须为 ${digits} 位，当前 ${bindForm.value.serialEnd.length} 位`)
+    if (startSerial.length !== digits) return ElMessage.warning(`开始身份码必须为 ${digits} 位，当前 ${startSerial.length} 位`)
+    if (endSerial.length !== digits) return ElMessage.warning(`结束身份码必须为 ${digits} 位，当前 ${endSerial.length} 位`)
   }
   binding.value = true
   try {
