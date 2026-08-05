@@ -453,7 +453,8 @@ const configButtons = computed(() => templateConfig.value?.buttons || [])
 // 检测报告（兼容新旧数据结构）
 const testReports = computed(() => {
   if (traceData.value?.testReports) return traceData.value.testReports
-  if (traceData.value?.testReport) return [traceData.value.testReport]
+  if (traceData.value?.testReportInfo) return [traceData.value.testReportInfo]
+  if (traceData.value?.testReport && typeof traceData.value.testReport === 'object') return [traceData.value.testReport]
   return []
 })
 

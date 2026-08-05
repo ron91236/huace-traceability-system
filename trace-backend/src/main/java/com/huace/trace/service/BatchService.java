@@ -6,6 +6,7 @@ import com.huace.trace.common.BusinessException;
 import com.huace.trace.common.PageResult;
 import com.huace.trace.entity.*;
 import com.huace.trace.mapper.*;
+import com.huace.trace.mapper.TestReportMapper;
 import com.huace.trace.util.QrCodeUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,6 +20,8 @@ public class BatchService {
     private final GoodsMapper goodsMapper;
     private final EnterpriseBaseMapper baseMapper;
     private final EnterpriseMapper enterpriseMapper;
+    private final TestReportService testReportService;
+    private final TestReportMapper testReportMapper;
 
     @Value("${app.base-url:http://localhost}")
     private String baseUrl;
@@ -42,7 +45,10 @@ public class BatchService {
         return new PageResult<>(r.getRecords(), r.getTotal());
     }
 
-    public void create(Batch b) { batchMapper.insert(b); }
+    public void create(Batch b) {
+        batchMapper.insert(b);
+        syncTestReportBinding(b.getId(), b.getTestReportId(), b.getEnterpriseId());
+    }
     public void update(Long id, Batch b, Long enterpriseId) {
         Batch existing = batchMapper.selectById(id);
         if (existing == null) throw new BusinessException("批次不存在");
@@ -50,6 +56,20 @@ public class BatchService {
         b.setId(id);
         b.setEnterpriseId(enterpriseId);
         batchMapper.updateById(b);
+        syncTestReportBinding(id, b.getTestReportId(), enterpriseId);
+    }
+
+    private void syncTestReportBinding(Long batchId, Long testReportId, Long enterpriseId) {
+        if (testReportId == null) return;
+        testReportService.bindToBatch(batchId, testReportId, enterpriseId);
+        // 同步 batch.testReport 字段为报告PDF路径，供模板直接引用
+        TestReport report = testReportMapper.selectById(testReportId);
+        if (report != null && StringUtils.hasText(report.getReportPdf())) {
+            Batch update = new Batch();
+            update.setId(batchId);
+            update.setTestReport(report.getReportPdf());
+            batchMapper.updateById(update);
+        }
     }
 
     public String generateQrcode(Long id, Long enterpriseId) {

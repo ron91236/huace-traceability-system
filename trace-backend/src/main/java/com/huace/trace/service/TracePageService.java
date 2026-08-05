@@ -167,9 +167,9 @@ public class TracePageService {
                 List<Map<String, Object>> testReports = testReportService.buildReportListForBatch(batch.getId(), batch.getTestReportId());
                 result.put("testReports", testReports);
                 result.put("testReportCount", testReports.size());
-                // 兼容旧前端：保留单报告字段
+                // 兼容旧前端：保留单报告字段（不覆盖 batch.testReport 字符串）
                 if (!testReports.isEmpty()) {
-                    result.put("testReport", testReports.get(0));
+                    result.put("testReportInfo", testReports.get(0));
                 }
 
                 // 6. 查询基地信息（从批次关联）
