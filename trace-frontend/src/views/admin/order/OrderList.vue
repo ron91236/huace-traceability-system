@@ -127,6 +127,7 @@
                 <span style="font-size:12px;color:#999">可用 {{ cp.available }} 枚</span>
               </div>
             </el-option>
+            <template #empty><el-empty description="暂无可用条码库，请先在数码平台生成码包" :image-size="60" /></template>
           </el-select>
         </el-form-item>
         <el-form-item label="订单标签号">

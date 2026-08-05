@@ -27,7 +27,7 @@
     </el-card>
     <el-dialog v-model="dialogVisible" title="新增条码使用记录" width="480px">
       <el-form :model="form" label-width="100px">
-        <el-form-item label="订单条码"><el-select v-model="form.orderCodeId" filterable style="width:100%"><el-option v-for="o in orderCodes" :key="o.id" :label="`${o.orderNo} - ${o.productName}`" :value="o.id" /></el-select></el-form-item>
+        <el-form-item label="订单条码"><el-select v-model="form.codePool" filterable placeholder="请选择" style="width:100%"><el-option v-for="o in orderCodes" :key="o.id" :label="`${o.orderNo} - ${o.productName}`" :value="String(o.id)" /></el-select></el-form-item>
         <el-form-item label="开始流水号"><el-input v-model="form.startSerial" /></el-form-item>
         <el-form-item label="结束流水号"><el-input v-model="form.endSerial" /></el-form-item>
         <el-form-item label="生产时间"><el-date-picker v-model="form.produceTime" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" style="width:100%" /></el-form-item>
@@ -52,7 +52,7 @@ const page = ref(1)
 const size = ref(20)
 const dialogVisible = ref(false)
 const orderCodes = ref<any[]>([])
-const form = reactive({ orderCodeId: null as number | null, startSerial: '', endSerial: '', produceTime: '' })
+const form = reactive({ codePool: '', startSerial: '', endSerial: '', produceTime: '' })
 
 onMounted(async () => { const res = await getOrderCodes({ page: 1, size: 200 }); orderCodes.value = res.data?.list || []; loadData() })
 async function loadData() { loading.value = true; try { const res = await getCodeUsages({ page: page.value, size: size.value }); list.value = res.data?.list || []; total.value = res.data?.total || 0 } finally { loading.value = false } }

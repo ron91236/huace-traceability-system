@@ -13,7 +13,7 @@
         <el-table-column label="样品图" width="120" align="center">
           <template #default="{ row }">
             <template v-if="row.sampleImage">
-              <el-image v-for="(url, idx) in row.sampleImage.split(',').filter(Boolean)" :key="idx" :src="url" fit="cover" style="width:36px;height:36px;border-radius:4px;margin:2px" :preview-src-list="row.sampleImage.split(',').filter(Boolean)" />
+              <el-image v-for="(url, idx) in row.sampleImage.split(',').filter(Boolean)" :key="idx" :src="url" fit="cover" style="width:36px;height:36px;border-radius:4px;margin:2px" :on-preview="() => previewImage(url)" />
             </template>
             <span v-else>-</span>
           </template>
@@ -21,7 +21,7 @@
         <el-table-column label="宣传图" width="120" align="center">
           <template #default="{ row }">
             <template v-if="row.promoImage">
-              <el-image v-for="(url, idx) in row.promoImage.split(',').filter(Boolean)" :key="idx" :src="url" fit="cover" style="width:36px;height:36px;border-radius:4px;margin:2px" :preview-src-list="row.promoImage.split(',').filter(Boolean)" />
+              <el-image v-for="(url, idx) in row.promoImage.split(',').filter(Boolean)" :key="idx" :src="url" fit="cover" style="width:36px;height:36px;border-radius:4px;margin:2px" :on-preview="() => previewImage(url)" />
             </template>
             <span v-else>-</span>
           </template>
@@ -67,7 +67,7 @@
                 <el-option label="kg/盒" value="kg/盒" />
                 <el-option label="g/包" value="g/包" />
                 <el-option label="kg/箱" value="kg/箱" />
-                <el-option label="自定义" value="" />
+                <el-option label="自定义" value="__custom__" />
               </el-select>
             </template>
           </el-input>
@@ -152,7 +152,7 @@ function urlsToFileList(urls: string) {
 function openForm(row?: any) {
   editId.value = row?.id || null
   Object.keys(form).forEach(k => {
-    if (k === 'packageSpecUnit') form[k] = ''
+    if (k === 'packageSpecUnit') form[k] = row?.packageSpecUnit || ''
     else form[k] = row?.[k] ?? null
   })
   // Parse package spec unit if it matches a known unit
@@ -161,6 +161,9 @@ function openForm(row?: any) {
     if (unitMatch) {
       form.packageSpecUnit = unitMatch[1]
       form.packageSpec = form.packageSpec.replace(unitMatch[1], '').trim()
+    } else {
+      // No matching unit means it was custom
+      form.packageSpecUnit = '__custom__'
     }
   }
   sampleFileList.value = urlsToFileList(form.sampleImage || '')
@@ -197,8 +200,8 @@ async function handleSubmit() {
   submitting.value = true
   try {
     const submitData = { ...form }
-    // Append unit to packageSpec if selected
-    if (submitData.packageSpecUnit) {
+    // Append unit to packageSpec if selected (not custom)
+    if (submitData.packageSpecUnit && submitData.packageSpecUnit !== '__custom__') {
       submitData.packageSpec = (submitData.packageSpec || '') + submitData.packageSpecUnit
     }
     delete submitData.packageSpecUnit

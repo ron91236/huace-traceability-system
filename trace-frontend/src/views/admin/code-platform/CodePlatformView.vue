@@ -90,7 +90,8 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="起始流水号">
-              <el-input-number v-model="genForm.serialStart" :min="1" controls-position="right" style="width:200px" />
+              <el-input-number v-model="genForm.serialStart" :min="1" controls-position="right" style="width:200px" disabled />
+              <span style="margin-left:8px;color:#909399;font-size:12px">根据历史码段自动生成</span>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -100,7 +101,8 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="起始数量">
-              <el-input-number v-model="genForm.startQuantity" :min="1" controls-position="right" style="width:200px" />
+              <el-input-number v-model="genForm.startQuantity" :min="1" controls-position="right" style="width:200px" disabled />
+              <span style="margin-left:8px;color:#909399;font-size:12px">根据历史码段自动生成</span>
             </el-form-item>
           </el-col>
           <el-col :span="12">

@@ -1,6 +1,7 @@
 package com.huace.trace.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import java.time.LocalDateTime;
 
@@ -13,6 +14,7 @@ public class TraceInventory {
     private Long labelSpecId;
     private String startSerial;
     private String endSerial;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime produceTime;
     private Long enterpriseId;
     @TableField(fill = FieldFill.INSERT)
