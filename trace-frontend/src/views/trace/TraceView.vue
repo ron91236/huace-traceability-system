@@ -78,7 +78,14 @@
                 <template v-for="field in getElVisibleFields(el)" :key="field.field">
                   <div v-if="field.type === 'image'" class="field-item field-item-block field-media">
                     <div class="field-label">{{ field.label }}</div>
-                    <el-image :src="getFieldValue(field.field)" fit="cover" :preview-src-list="[getFieldValue(field.field)]" />
+                    <template v-if="getImageList(field.field).length > 1">
+                      <el-carousel :interval="4000" indicator-position="outside" height="200px" arrow="always">
+                        <el-carousel-item v-for="(img, idx) in getImageList(field.field)" :key="idx">
+                          <el-image :src="img" fit="cover" style="width:100%;height:100%" :preview-src-list="getImageList(field.field)" :initial-index="idx" />
+                        </el-carousel-item>
+                      </el-carousel>
+                    </template>
+                    <el-image v-else-if="getImageList(field.field).length === 1" :src="getImageList(field.field)[0]" fit="cover" :preview-src-list="getImageList(field.field)" />
                   </div>
                   <div v-else-if="field.type === 'video'" class="field-item field-item-block field-media">
                     <div class="field-label">{{ field.label }}</div>
@@ -743,6 +750,16 @@ function getFieldValue(path: string): any {
     if (val === undefined || val === null) return ''
   }
   return val
+}
+
+function getImageList(path: string): string[] {
+  const val = getFieldValue(path)
+  if (!val) return []
+  if (typeof val === 'string') {
+    return val.split(',').map(s => s.trim()).filter(Boolean)
+  }
+  if (Array.isArray(val)) return val
+  return []
 }
 
 function openButtonLink(btn: any) {

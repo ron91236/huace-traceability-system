@@ -266,6 +266,42 @@ public class OrderService {
         fillFromLabelSpec(item);
         calcTotalPrice(item);
         orderItemMapper.updateById(item);
+        // 同步更新已绑定的 OrderCode 记录
+        syncOrderCodesFromItem(id, item);
+    }
+
+    /**
+     * 同步 OrderCode 记录：当订单明细修改后，更新已绑定码的产品信息
+     */
+    private void syncOrderCodesFromItem(Long orderItemId, OrderItem item) {
+        if (item.getOrderId() == null) return;
+        // 查找与该订单明细 labelSpecId 匹配的所有 OrderCode
+        List<OrderCode> codes = orderCodeMapper.selectList(
+                new LambdaQueryWrapper<OrderCode>()
+                        .eq(OrderCode::getOrderId, item.getOrderId())
+                        .eq(OrderCode::getLabelSpecId, item.getLabelSpecId()));
+        if (codes.isEmpty()) return;
+        // 获取商品名称
+        String productName = "";
+        if (item.getGoodsId() != null) {
+            Goods g = goodsMapper.selectById(item.getGoodsId());
+            if (g != null) productName = g.getName();
+        }
+        // 批量更新 OrderCode
+        for (OrderCode code : codes) {
+            boolean changed = false;
+            if (productName != null && !productName.equals(code.getProductName())) {
+                code.setProductName(productName);
+                changed = true;
+            }
+            if (item.getBatchId() != null && !item.getBatchId().equals(code.getBatchId())) {
+                code.setBatchId(item.getBatchId());
+                changed = true;
+            }
+            if (changed) {
+                orderCodeMapper.updateById(code);
+            }
+        }
     }
 
     private void fillFromLabelSpec(OrderItem item) {
