@@ -108,7 +108,7 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="rejectVisible" title="驳回原因" width="400px">
+    <el-dialog v-model="rejectVisible" title="驳回原因" width="400px" :close-on-click-modal="false">
       <el-input v-model="rejectNote" type="textarea" :rows="3" placeholder="请输入驳回原因" />
       <template #footer>
         <el-button @click="rejectVisible = false">取消</el-button>
@@ -117,7 +117,7 @@
     </el-dialog>
 
     <!-- 绑定条码对话框 -->
-    <el-dialog v-model="showBindDialog" title="绑定条码" width="520px">
+    <el-dialog v-model="showBindDialog" title="绑定条码" width="520px" :close-on-click-modal="false">
       <el-form :model="bindForm" label-width="100px">
         <el-form-item label="条码库" required>
           <el-select v-model="bindForm.codePackageId" placeholder="请选择条码库" style="width:100%" @change="onPackageChange">
@@ -175,7 +175,7 @@
     </el-dialog>
 
     <!-- 预览码弹窗 -->
-    <el-dialog v-model="previewQrVisible" title="预览溯源二维码" width="460px" align-center>
+    <el-dialog v-model="previewQrVisible" title="预览溯源二维码" width="460px" align-center :close-on-click-modal="false">
       <div style="text-align:center">
         <img v-if="previewQrData.qrcode" :src="previewQrData.qrcode" style="width:300px;height:300px" />
         <p v-if="previewQrData.traceUrl" style="margin-top:16px;font-size:13px;color:#666;word-break:break-all">溯源链接：{{ previewQrData.traceUrl }}</p>

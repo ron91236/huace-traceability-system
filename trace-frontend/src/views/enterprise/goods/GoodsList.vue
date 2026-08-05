@@ -46,7 +46,7 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="editId ? '编辑商品' : '新增商品'" width="600px">
+    <el-dialog v-model="dialogVisible" :title="editId ? '编辑商品' : '新增商品'" width="600px" :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" :rules="{ name: [{ required: true, message: '请输入', trigger: 'blur' }], productId: [{ required: true, message: '请选择', trigger: 'change' }] }" label-width="100px">
         <el-form-item label="产品名称" prop="productId">
           <el-select v-model="form.productId" filterable style="width:100%"><el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.id" /></el-select>

@@ -50,7 +50,7 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="editId ? '编辑认证' : '新增认证'" width="560px">
+    <el-dialog v-model="dialogVisible" :title="editId ? '编辑认证' : '新增认证'" width="560px" :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="证书类型" prop="certTypeId">
           <el-select v-model="form.certTypeId" placeholder="请选择" filterable style="width:100%">

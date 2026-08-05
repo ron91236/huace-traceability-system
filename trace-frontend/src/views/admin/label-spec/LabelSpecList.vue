@@ -60,7 +60,7 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="editId ? '编辑标签规格' : '新增标签规格'" width="520px">
+    <el-dialog v-model="dialogVisible" :title="editId ? '编辑标签规格' : '新增标签规格'" width="520px" :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" :rules="{ specName: [{ required: true, message: '请输入规格名称', trigger: 'blur' }] }" label-width="110px">
         <el-form-item label="规格名称" prop="name"><el-input v-model="form.specName" placeholder="如：食品标签A4" /></el-form-item>
         <el-form-item label="材质"><el-input v-model="form.material" placeholder="如：铜版纸" /></el-form-item>

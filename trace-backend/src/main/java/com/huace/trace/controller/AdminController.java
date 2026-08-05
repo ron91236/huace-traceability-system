@@ -579,7 +579,7 @@ public class AdminController {
         sheet.createRow(4).setHeightInPoints(6);
 
         // Row 5: 表头
-        String[] headers = {"子订单编号", "证书编号", "产品名称", "产品描述", "商品名称", "包装规格", "重量规格", "标签规格", "单价(元)", "订购数量(枚)", "总价(元)", "起始身份码", "结束身份码", "备注"};
+        String[] headers = {"子订单编号", "证书编号", "产品名称", "商品介绍", "商品名称", "包装规格", "重量规格", "标签规格", "单价(元)", "订购数量(枚)", "总价(元)", "起始身份码", "结束身份码", "备注"};
         XSSFRow rh = sheet.createRow(5);
         rh.setHeightInPoints(22);
         for (int i = 0; i < headers.length; i++) {

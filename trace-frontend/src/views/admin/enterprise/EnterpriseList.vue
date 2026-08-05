@@ -54,8 +54,8 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="editId ? '编辑企业' : '新增企业'" width="680px" top="5vh">
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
+    <el-dialog v-model="dialogVisible" :title="editId ? '编辑企业' : '新增企业'" width="680px" top="5vh" :close-on-click-modal="false">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="企业名称" prop="name"><el-input v-model="form.name" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="企业性质"><el-input v-model="form.nature" /></el-form-item></el-col>
@@ -90,7 +90,7 @@
     </el-dialog>
 
     <!-- 创建母账号弹窗 -->
-    <el-dialog v-model="masterDialogVisible" title="创建母账号" width="520px">
+    <el-dialog v-model="masterDialogVisible" title="创建母账号" width="520px" :close-on-click-modal="false">
       <el-form ref="masterFormRef" :model="masterForm" :rules="masterRules" label-width="100px">
         <el-form-item label="企业名称" prop="name"><el-input v-model="masterForm.name" /></el-form-item>
         <el-form-item label="联系人" prop="contact"><el-input v-model="masterForm.contact" /></el-form-item>

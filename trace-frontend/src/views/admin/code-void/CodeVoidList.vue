@@ -39,7 +39,7 @@
     </el-card>
 
     <!-- 手动添加对话框 -->
-    <el-dialog v-model="showAddDialog" title="添加作废码" width="480px">
+    <el-dialog v-model="showAddDialog" title="添加作废码" width="480px" :close-on-click-modal="false">
       <el-form :model="addForm" label-width="100px">
         <el-form-item label="流水号位数" required>
           <el-input-number v-model="addForm.serialDigits" :min="6" :max="20" style="width:100%" />

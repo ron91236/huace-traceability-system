@@ -40,7 +40,7 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="editId ? '编辑检测报告' : '新增检测报告'" width="640px" top="5vh">
+    <el-dialog v-model="dialogVisible" :title="editId ? '编辑检测报告' : '新增检测报告'" width="640px" top="5vh" :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" :rules="{ reportName: [{ required: true, message: '请输入报告名称', trigger: 'blur' }] }" label-width="100px">
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="报告名称" prop="reportName"><el-input v-model="form.reportName" /></el-form-item></el-col>

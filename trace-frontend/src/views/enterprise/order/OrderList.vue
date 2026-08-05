@@ -32,7 +32,7 @@
         <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total" layout="total, prev, pager, next" @change="loadData" />
       </div>
     </el-card>
-    <el-dialog v-model="dialogVisible" title="新增订单" width="480px">
+    <el-dialog v-model="dialogVisible" title="新增订单" width="480px" :close-on-click-modal="false">
       <el-form :model="form" label-width="80px">
         <el-form-item label="关联证书"><el-select v-model="form.certId" filterable style="width:100%"><el-option v-for="c in certs" :key="c.id" :label="c.certName" :value="c.id" /></el-select></el-form-item>
         <el-form-item label="收货地址"><el-select v-model="form.addressId" filterable style="width:100%"><el-option v-for="a in addresses" :key="a.id" :label="`${a.contact} - ${a.address}`" :value="a.id" /></el-select></el-form-item>

@@ -26,7 +26,7 @@
     </el-table>
 
     <!-- 添加子企业表单 -->
-    <el-dialog v-model="showAddForm" title="添加子企业" width="520px" append-to-body>
+    <el-dialog v-model="showAddForm" title="添加子企业" width="520px" append-to-body :close-on-click-modal="false">
       <el-form ref="addFormRef" :model="addForm" :rules="addRules" label-width="100px">
         <el-form-item label="企业名称" prop="name"><el-input v-model="addForm.name" /></el-form-item>
         <el-form-item label="联系人" prop="contact"><el-input v-model="addForm.contact" /></el-form-item>

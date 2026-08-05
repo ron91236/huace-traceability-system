@@ -1,6 +1,7 @@
 package com.huace.trace.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -24,6 +25,7 @@ public class OrderCode {
     private String serialEnd;
     private Integer wasteCount;     // 作废数量
     private Integer bindCount;      // 实际绑定数量(总数-作废数)
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime productionTime; // 生产时间
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

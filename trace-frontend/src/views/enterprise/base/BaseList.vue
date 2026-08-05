@@ -19,7 +19,7 @@
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" title="编辑基地" width="620px">
+    <el-dialog v-model="dialogVisible" title="编辑基地" width="620px" :close-on-click-modal="false">
       <el-form :model="form" label-width="100px">
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="基地名称"><el-input v-model="form.name" /></el-form-item></el-col>

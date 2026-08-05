@@ -22,7 +22,7 @@
         <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total" layout="total, prev, pager, next" @change="loadData" />
       </div>
     </el-card>
-    <el-dialog v-model="editVisible" title="编辑订单条码" width="480px">
+    <el-dialog v-model="editVisible" title="编辑订单条码" width="480px" :close-on-click-modal="false">
       <el-form :model="form" label-width="100px">
         <el-form-item label="溯源模板"><el-select v-model="form.traceTemplate" style="width:100%"><el-option v-for="t in templates" :key="t.templateKey" :label="t.templateName" :value="t.templateKey" /></el-select></el-form-item>
         <el-form-item label="数量"><el-input-number v-model="form.quantity" :min="1" style="width:100%" /></el-form-item>

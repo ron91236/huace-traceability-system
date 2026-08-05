@@ -44,7 +44,7 @@
     </el-card>
 
     <!-- 场景编辑弹窗 -->
-    <el-dialog v-model="sceneDialogVisible" :title="editingScene?.id ? '编辑场景' : '新增场景'" width="600px" destroy-on-close>
+    <el-dialog v-model="sceneDialogVisible" :title="editingScene?.id ? '编辑场景' : '新增场景'" width="600px" destroy-on-close :close-on-click-modal="false">
       <el-form :model="sceneForm" label-width="90px">
         <el-form-item label="企业" required>
           <el-select v-model="sceneForm.enterpriseId" placeholder="选择企业" style="width:100%">

@@ -45,7 +45,7 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="editId ? '编辑产品' : '新增产品'" width="520px">
+    <el-dialog v-model="dialogVisible" :title="editId ? '编辑产品' : '新增产品'" width="520px" :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" :rules="{ name: [{ required: true, message: '请输入产品名称', trigger: 'blur' }] }" label-width="90px">
         <el-form-item label="产品名称" prop="name"><el-input v-model="form.name" placeholder="如：有机大米" /></el-form-item>
         <el-form-item label="产品分类">

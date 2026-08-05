@@ -66,7 +66,7 @@
     </el-card>
 
     <!-- 上传海报弹窗 -->
-    <el-dialog v-model="showUploadDialog" title="上传海报" width="500px" destroy-on-close>
+    <el-dialog v-model="showUploadDialog" title="上传海报" width="500px" destroy-on-close :close-on-click-modal="false">
       <el-form label-width="80px">
         <el-form-item label="海报标题">
           <el-input v-model="uploadTitle" placeholder="可选，默认使用文件名" />
@@ -87,7 +87,7 @@
     </el-dialog>
 
     <!-- 二维码预览弹窗 -->
-    <el-dialog v-model="showQrDialog" title="海报二维码" width="460px" destroy-on-close align-center>
+    <el-dialog v-model="showQrDialog" title="海报二维码" width="460px" destroy-on-close align-center :close-on-click-modal="false">
       <div class="qr-preview">
         <div v-loading="qrLoading" class="qr-img-wrap">
           <img v-if="qrData" :src="qrData" class="qr-img" />

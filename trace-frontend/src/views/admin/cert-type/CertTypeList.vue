@@ -29,7 +29,7 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="editId ? '编辑证书类型' : '新增证书类型'" width="480px">
+    <el-dialog v-model="dialogVisible" :title="editId ? '编辑证书类型' : '新增证书类型'" width="480px" :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" :rules="{ name: [{ required: true, message: '请输入证书类型名称', trigger: 'blur' }] }" label-width="110px">
         <el-form-item label="证书类型名称" prop="name">
           <el-input v-model="form.name" placeholder="如：有机认证" />
