@@ -193,35 +193,6 @@
           </div>
         </div>
 
-        <!-- 检测报告 -->
-        <div v-if="testReports.length > 0" class="trace-section test-report-section">
-          <div class="section-title">
-            <span class="test-report-icon">🧪</span>
-            <span>检测报告</span>
-          </div>
-          <div class="test-report-summary">
-            检测概况：本产品共检测 <strong>{{ testReports.length }}</strong> 次
-          </div>
-          <!-- 按月份分组 -->
-          <div v-for="group in groupedReports" :key="group.month" class="month-group">
-            <div class="month-label">{{ group.month }}</div>
-            <div v-for="report in group.reports" :key="report.id" class="report-card">
-              <div class="report-card-header">
-                <span class="report-name">{{ report.reportName }}</span>
-                <el-tag v-if="report.testResult" :type="report.testResult === '合格' ? 'success' : 'danger'" size="small">{{ report.testResult }}</el-tag>
-              </div>
-              <div class="report-card-body">
-                <div v-if="report.testTime" class="report-field"><span class="label">检测时间：</span>{{ report.testTime }}</div>
-                <div v-if="report.testMethod" class="report-field"><span class="label">检测方式：</span>{{ report.testMethod }}</div>
-                <div v-if="report.testOrg" class="report-field"><span class="label">检测机构：</span>{{ report.testOrg }}</div>
-              </div>
-              <div class="report-card-footer">
-                <a class="view-detail-link" @click="openReportDetail(report)">查看详情</a>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- 防伪验证（仅流水号模式） -->
         <div v-if="hasAntiCounterfeit && !isBatchMode" class="anti-fake-section">
           <div class="section-title"><el-icon><Lock /></el-icon><span>防伪验证</span></div>
@@ -287,6 +258,35 @@
         </template>
       </div>
       </Transition>
+
+      <!-- 检测报告（两种模式均显示） -->
+      <div v-if="testReports.length > 0" class="trace-section test-report-section">
+        <div class="section-title">
+          <span class="test-report-icon">🧪</span>
+          <span>检测报告</span>
+        </div>
+        <div class="test-report-summary">
+          检测概况：本产品共检测 <strong>{{ testReports.length }}</strong> 次
+        </div>
+        <!-- 按月份分组 -->
+        <div v-for="group in groupedReports" :key="group.month" class="month-group">
+          <div class="month-label">{{ group.month }}</div>
+          <div v-for="report in group.reports" :key="report.id" class="report-card">
+            <div class="report-card-header">
+              <span class="report-name">{{ report.reportName }}</span>
+              <el-tag v-if="report.testResult" :type="report.testResult === '合格' ? 'success' : 'danger'" size="small">{{ report.testResult }}</el-tag>
+            </div>
+            <div class="report-card-body">
+              <div v-if="report.testTime" class="report-field"><span class="label">检测时间：</span>{{ report.testTime }}</div>
+              <div v-if="report.testMethod" class="report-field"><span class="label">检测方式：</span>{{ report.testMethod }}</div>
+              <div v-if="report.testOrg" class="report-field"><span class="label">检测机构：</span>{{ report.testOrg }}</div>
+            </div>
+            <div class="report-card-footer">
+              <a class="view-detail-link" @click="openReportDetail(report)">查看详情</a>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- 底部信息 -->
       <div class="trace-footer">
