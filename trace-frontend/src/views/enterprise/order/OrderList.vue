@@ -13,11 +13,56 @@
           <el-button type="primary" @click="openForm()">新增订单</el-button>
         </div>
       </template>
-      <el-table :data="list" v-loading="loading" border stripe>
+      <el-table :data="list" v-loading="loading" border stripe row-key="id" @expand-change="handleExpandChange">
+        <el-table-column type="expand">
+          <template #default="{ row }">
+            <div style="padding:12px 24px">
+              <div v-if="row._expanding" style="text-align:center;color:#999">加载中...</div>
+              <div v-else-if="row._expanded">
+                <h4 style="margin:0 0 8px">商品明细</h4>
+                <el-table :data="row._orderItems" border stripe size="small" style="margin-bottom:16px">
+                  <el-table-column prop="batchName" label="批次" min-width="80" />
+                  <el-table-column prop="goodsName" label="商品名称" min-width="100" />
+                  <el-table-column prop="goodsSpec" label="规格" width="80" />
+                  <el-table-column prop="labelSpecName" label="标签规格" width="100" />
+                  <el-table-column prop="price" label="单价(元)" width="80">
+                    <template #default="{ row: ri }">{{ ri.price != null ? Number(ri.price).toFixed(4) : '-' }}</template>
+                  </el-table-column>
+                  <el-table-column prop="quantity" label="数量" width="70" />
+                  <el-table-column prop="totalPrice" label="总价(元)" width="90">
+                    <template #default="{ row: ri }">{{ ri.totalPrice != null ? Number(ri.totalPrice).toFixed(2) : '-' }}</template>
+                  </el-table-column>
+                </el-table>
+                <h4 style="margin:0 0 8px">条码信息</h4>
+                <el-table :data="row._orderCodes" border stripe size="small">
+                  <el-table-column prop="productName" label="产品名称" min-width="100" />
+                  <el-table-column prop="labelSpecName" label="标签规格" width="100" />
+                  <el-table-column prop="serialStart" label="开始码" width="100" />
+                  <el-table-column prop="serialEnd" label="结束码" width="100" />
+                  <el-table-column prop="quantity" label="数量" width="70" />
+                  <el-table-column prop="bindCount" label="绑定数" width="70" />
+                  <el-table-column prop="productionTime" label="生产时间" width="160">
+                    <template #default="{ row: oc }">{{ oc.productionTime || '-' }}</template>
+                  </el-table-column>
+                  <template #empty><el-empty description="暂无条码数据" :image-size="60" /></template>
+                </el-table>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="orderNo" label="订单编号" width="160" />
         <el-table-column prop="certName" label="关联证书" width="140" />
+        <el-table-column prop="totalPrice" label="总价格" width="100">
+          <template #default="{ row }">{{ row.totalPrice != null ? Number(row.totalPrice).toFixed(2) : '0.00' }}</template>
+        </el-table-column>
+        <el-table-column prop="totalBarcodeCount" label="订购标签数量" width="110">
+          <template #default="{ row }">{{ row.totalBarcodeCount || 0 }}</template>
+        </el-table-column>
+        <el-table-column prop="allocatedBarcodeCount" label="绑定标签数量" width="110">
+          <template #default="{ row }">{{ row.allocatedBarcodeCount || 0 }}</template>
+        </el-table-column>
         <el-table-column label="状态" width="100">
-          <template #default="{ row }"><el-tag :type="statusMap[row.status]?.type">{{ statusMap[row.status]?.label }}</el-tag></template>
+          <template #default="{ row }"><el-tag :type="statusMap[row.status]?.type" size="small">{{ statusMap[row.status]?.label }}</el-tag></template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" width="170" />
         <el-table-column label="操作" width="300">
@@ -48,7 +93,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getOrders, createOrder, deleteOrder, submitOrder, getEnterpriseCerts, getAddresses } from '@/api/enterprise'
+import { getOrders, createOrder, deleteOrder, submitOrder, getEnterpriseCerts, getAddresses, getOrderDetail } from '@/api/enterprise'
 import { orderStatusMap } from '@/utils/constants'
 
 const statusMap = orderStatusMap
@@ -68,7 +113,24 @@ onMounted(async () => {
   certs.value = cRes.data?.list || []; addresses.value = aRes.data?.list || []; loadData()
 })
 
-async function loadData() { loading.value = true; try { const res = await getOrders({ page: page.value, size: size.value, ...search }); list.value = res.data?.list || []; total.value = res.data?.total || 0 } finally { loading.value = false } }
+async function loadData() { loading.value = true; try { const res = await getOrders({ page: page.value, size: size.value, ...search }); list.value = (res.data?.list || []).map((item: any) => ({ ...item, _expanded: false, _expanding: false, _orderItems: [], _orderCodes: [] })); total.value = res.data?.total || 0 } finally { loading.value = false } }
+async function handleExpandChange(row: any, expandedRows: any[]) {
+  const isExpanded = expandedRows.some((r: any) => r.id === row.id)
+  if (!isExpanded) return
+  if (row._expanded) return
+  row._expanding = true
+  try {
+    const res = await getOrderDetail(row.id)
+    const d = res.data
+    row._orderItems = d?.orderItems || []
+    row._orderCodes = d?.orderCodes || []
+    row._expanded = true
+  } catch (e) {
+    ElMessage.error('加载明细失败')
+  } finally {
+    row._expanding = false
+  }
+}
 function openForm() { form.certId = null; form.addressId = null; dialogVisible.value = true }
 async function handleCreate() { await createOrder(form); ElMessage.success('新增成功'); dialogVisible.value = false; loadData() }
 async function handleSubmit(row: any) { await submitOrder(row.id); ElMessage.success('已提交审核'); loadData() }
