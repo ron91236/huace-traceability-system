@@ -3,6 +3,8 @@ package com.huace.trace.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.huace.trace.common.BusinessException;
 import com.huace.trace.common.PageResult;
 import com.huace.trace.entity.*;
@@ -32,7 +34,9 @@ public class DigitalLabelService {
     private final DlOperationLogMapper operationLogMapper;
     private final DlLoginLogMapper loginLogMapper;
     private final DlFoodCategoryMapper categoryMapper;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     @Value("${app.base-url:http://localhost}")
     private String baseUrl;
