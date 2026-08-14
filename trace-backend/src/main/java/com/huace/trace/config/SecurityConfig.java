@@ -33,6 +33,7 @@ public class SecurityConfig {
                 // 公开接口
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/trace/**").permitAll()
+                .requestMatchers("/api/dl/**").permitAll()
                 .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers("/poster/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/api-docs/**", "/swagger-ui.html").permitAll()

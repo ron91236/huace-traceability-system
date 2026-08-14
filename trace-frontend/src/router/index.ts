@@ -44,6 +44,18 @@ const enterpriseRoutes: RouteRecordRaw[] = [
   { path: 'video-source', name: 'EntVideoSource', component: () => import('@/views/enterprise/video-source/VideoSourceList.vue'), meta: { title: '视频源管理' } },
   { path: 'iot-device', name: 'EntIotDevice', component: () => import('@/views/enterprise/iot-device/IotDeviceList.vue'), meta: { title: 'IoT设备管理' } },
   { path: 'iot-alert', name: 'EntIotAlert', component: () => import('@/views/enterprise/iot-alert/IotAlertList.vue'), meta: { title: 'IoT告警' } },
+  // 数字标签
+  { path: 'dl/dashboard', name: 'DlDashboard', component: () => import('@/views/enterprise/dl/DlDashboard.vue'), meta: { title: '数字标签首页' } },
+  { path: 'dl/products', name: 'DlProducts', component: () => import('@/views/enterprise/dl/DlProductList.vue'), meta: { title: '商品列表' } },
+  { path: 'dl/products/:id/versions', name: 'DlVersions', component: () => import('@/views/enterprise/dl/DlVersionList.vue'), meta: { title: '标签版本管理' } },
+  { path: 'dl/versions/:id/edit', name: 'DlVersionEdit', component: () => import('@/views/enterprise/dl/DlVersionEdit.vue'), meta: { title: '编辑标签版本' } },
+  { path: 'dl/sync', name: 'DlSync', component: () => import('@/views/enterprise/dl/DlSync.vue'), meta: { title: '商品同步' } },
+  { path: 'dl/analysis/scan', name: 'DlScanAnalysis', component: () => import('@/views/enterprise/dl/DlScanAnalysis.vue'), meta: { title: '扫码分析' } },
+  { path: 'dl/analysis/label', name: 'DlLabelAnalysis', component: () => import('@/views/enterprise/dl/DlLabelAnalysis.vue'), meta: { title: '标签分析' } },
+  { path: 'dl/analysis/product', name: 'DlProductAnalysis', component: () => import('@/views/enterprise/dl/DlProductAnalysis.vue'), meta: { title: '商品分析' } },
+  { path: 'dl/users', name: 'DlUsers', component: () => import('@/views/enterprise/dl/DlUserManage.vue'), meta: { title: '用户管理' } },
+  { path: 'dl/logs/operation', name: 'DlOperationLog', component: () => import('@/views/enterprise/dl/DlOperationLog.vue'), meta: { title: '操作日志' } },
+  { path: 'dl/logs/login', name: 'DlLoginLog', component: () => import('@/views/enterprise/dl/DlLoginLog.vue'), meta: { title: '登录日志' } },
 ]
 
 const routes: RouteRecordRaw[] = [
@@ -68,6 +80,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/trace/:serialNo', name: 'Trace', component: () => import('@/views/trace/TraceView.vue'), meta: { title: '溯源查询', public: true } },
   { path: '/trace/batch/:batchId', name: 'BatchTrace', component: () => import('@/views/trace/TraceView.vue'), meta: { title: '批次溯源', public: true } },
   { path: '/cert/:id', name: 'CertPublic', component: () => import('@/views/cert/CertPublicView.vue'), meta: { title: '证书信息', public: true } },
+  { path: '/dl/scan/:barcode', name: 'DlScanPage', component: () => import('@/views/dl/DlScanPage.vue'), meta: { title: '食品数字标签', public: true } },
   { path: '/403', name: 'Forbidden', component: () => import('@/views/Forbidden.vue'), meta: { title: '无权限', public: true } },
   { path: '/', name: 'Home', component: () => import('@/views/login/LoginView.vue'), meta: { title: '溯源系统', public: true },
     beforeEnter: (to) => {

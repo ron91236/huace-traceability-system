@@ -63,6 +63,33 @@
             <el-menu-item index="/enterprise/iot-device">IoT设备</el-menu-item>
             <el-menu-item index="/enterprise/iot-alert">IoT告警</el-menu-item>
           </el-sub-menu>
+          <el-sub-menu index="dl-mgmt">
+            <template #title>
+              <el-icon><Collection /></el-icon>
+              <span>数字标签</span>
+            </template>
+            <el-menu-item index="/enterprise/dl/dashboard">工作台</el-menu-item>
+            <el-menu-item index="/enterprise/dl/products">商品列表</el-menu-item>
+            <el-menu-item index="/enterprise/dl/sync">商品同步</el-menu-item>
+          </el-sub-menu>
+          <el-sub-menu index="dl-analysis">
+            <template #title>
+              <el-icon><PieChart /></el-icon>
+              <span>数据分析</span>
+            </template>
+            <el-menu-item index="/enterprise/dl/analysis/scan">扫码分析</el-menu-item>
+            <el-menu-item index="/enterprise/dl/analysis/label">标签分析</el-menu-item>
+            <el-menu-item index="/enterprise/dl/analysis/product">商品分析</el-menu-item>
+          </el-sub-menu>
+          <el-sub-menu index="dl-enterprise">
+            <template #title>
+              <el-icon><User /></el-icon>
+              <span>企业管理</span>
+            </template>
+            <el-menu-item index="/enterprise/dl/users">用户管理</el-menu-item>
+            <el-menu-item index="/enterprise/dl/logs/operation">操作日志</el-menu-item>
+            <el-menu-item index="/enterprise/dl/logs/login">登录日志</el-menu-item>
+          </el-sub-menu>
           <el-menu-item index="/screen/enterprise">
             <el-icon><TrendCharts /></el-icon>
             <span>数据大屏</span>
