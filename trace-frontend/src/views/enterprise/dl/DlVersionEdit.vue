@@ -456,8 +456,9 @@ onMounted(async () => {
 
   /* 管理员只读：禁用表单交互 */
   &.readonly .section-card {
+    :deep(.el-button) { display: none; }
     :deep(.el-input__inner), :deep(.el-textarea__inner) { pointer-events: none; }
-    :deep(.el-form-item .el-button) { display: none; }
+    :deep(.el-select), :deep(.el-cascader), :deep(.el-radio-group) { pointer-events: none; }
     :deep(.el-upload) { display: none; }
     .production-actions { display: none; }
   }
