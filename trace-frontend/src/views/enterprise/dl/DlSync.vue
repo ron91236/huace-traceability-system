@@ -4,13 +4,20 @@
       <template #header>
         <div class="table-toolbar">
           <div class="sync-tip">
-            平台会自动为企业同步商品基础信息，企业也可手动触发同步。
+            平台会自动为企业同步商品基础信息{{ isAdmin ? '。' : '，企业也可手动触发同步。' }}
+            <el-select v-if="isAdmin" v-model="entFilter" placeholder="全部企业" clearable
+              style="width:180px;margin-left:12px" @change="loadData">
+              <el-option v-for="e in enterprises" :key="e.id" :label="e.name" :value="e.id" />
+            </el-select>
           </div>
-          <el-button type="primary" @click="syncVisible = true">手动同步</el-button>
+          <el-button v-if="!isAdmin" type="primary" @click="syncVisible = true">手动同步</el-button>
         </div>
       </template>
       <el-table :data="list" v-loading="loading" border stripe>
         <el-table-column type="index" label="序号" width="60" />
+        <el-table-column v-if="isAdmin" label="所属企业" width="150">
+          <template #default="{ row }">{{ entName(row.enterpriseId) }}</template>
+        </el-table-column>
         <el-table-column label="同步类型" width="100">
           <template #default="{ row }">
             <el-tag :type="row.syncType === 'auto' ? 'info' : 'primary'" size="small">
@@ -72,7 +79,9 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getDlSyncRecords, manualDlSync } from '@/api/digital-label'
+import { useDlAdmin } from '@/composables/useDlAdmin'
 
+const { isAdmin, entFilter, enterprises, entName } = useDlAdmin()
 const list = ref<any[]>([])
 const loading = ref(false)
 const syncing = ref(false)
@@ -90,7 +99,7 @@ function rangeText(range: string) {
 async function loadData() {
   loading.value = true
   try {
-    const res = await getDlSyncRecords({ page: page.value, size: size.value })
+    const res = await getDlSyncRecords({ page: page.value, size: size.value, enterpriseId: entFilter.value })
     list.value = res.data?.list || []
     total.value = res.data?.total || 0
   } finally {

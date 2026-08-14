@@ -1,5 +1,10 @@
 <template>
   <div class="page-container">
+    <div v-if="isAdmin" style="margin-bottom:12px">
+      <el-select v-model="entFilter" placeholder="全部企业" clearable style="width:220px" @change="reloadAll">
+        <el-option v-for="e in enterprises" :key="e.id" :label="e.name" :value="e.id" />
+      </el-select>
+    </div>
     <el-tabs v-model="activeTab" type="border-card">
       <!-- 扫码分析 -->
       <el-tab-pane label="扫码分析" name="scan">
@@ -62,7 +67,9 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { getDlScanAnalysis, getDlScanDetail, getDlGeoAnalysis } from '@/api/digital-label'
+import { useDlAdmin } from '@/composables/useDlAdmin'
 
+const { isAdmin, entFilter, enterprises } = useDlAdmin()
 const activeTab = ref('scan')
 const loading = ref(false)
 const keyword = ref('')
@@ -85,7 +92,7 @@ const filteredList = computed(() => {
 async function loadData() {
   loading.value = true
   try {
-    const res = await getDlScanAnalysis()
+    const res = await getDlScanAnalysis(entFilter.value)
     stats.value = res.data?.stats || {}
     list.value = (res.data?.list || []).map((r: any) => ({ ...r, _detail: null, _detailLoading: false }))
     // 展开行时懒加载明细
@@ -116,7 +123,7 @@ function onExpandChange(row: any, expandedRows: any[]) {
 
 async function loadGeo() {
   try {
-    const res = await getDlGeoAnalysis()
+    const res = await getDlGeoAnalysis(entFilter.value)
     geoList.value = res.data || []
     await nextTick()
     renderMap()
@@ -174,6 +181,11 @@ function renderBarFallback() {
 watch(activeTab, tab => {
   if (tab === 'geo') loadGeo()
 })
+
+function reloadAll() {
+  loadData()
+  if (activeTab.value === 'geo') loadGeo()
+}
 
 onMounted(() => {
   loadData()

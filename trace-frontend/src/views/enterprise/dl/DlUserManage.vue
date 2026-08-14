@@ -3,6 +3,9 @@
     <el-card>
       <template #header>
         <div class="table-toolbar">
+          <el-select v-if="isAdmin" v-model="entFilter" placeholder="全部企业" clearable style="width:180px" @change="loadData">
+            <el-option v-for="e in enterprises" :key="e.id" :label="e.name" :value="e.id" />
+          </el-select>
           <el-input v-model="keyword" placeholder="用户名/手机号" clearable style="width:200px"
             @keyup.enter="loadData" @clear="loadData" />
           <el-button type="primary" @click="loadData">搜索</el-button>
@@ -19,6 +22,9 @@
         </el-table-column>
         <el-table-column prop="email" label="邮箱" min-width="180">
           <template #default="{ row }">{{ row.email || '-' }}</template>
+        </el-table-column>
+        <el-table-column v-if="isAdmin" label="所属企业" width="150">
+          <template #default="{ row }">{{ entName(row.enterpriseId) }}</template>
         </el-table-column>
         <el-table-column label="账号级别" width="110" align="center">
           <template #default="{ row }">
@@ -63,7 +69,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { getDlUsers } from '@/api/digital-label'
+import { useDlAdmin } from '@/composables/useDlAdmin'
 
+const { isAdmin, entFilter, enterprises, entName } = useDlAdmin()
 const list = ref<any[]>([])
 const loading = ref(false)
 const keyword = ref('')
@@ -76,7 +84,7 @@ const detail = ref<any>(null)
 async function loadData() {
   loading.value = true
   try {
-    const res = await getDlUsers({ page: page.value, size: size.value, keyword: keyword.value || undefined })
+    const res = await getDlUsers({ page: page.value, size: size.value, keyword: keyword.value || undefined, enterpriseId: entFilter.value })
     list.value = res.data?.list || []
     total.value = res.data?.total || 0
   } finally {

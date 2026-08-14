@@ -44,18 +44,21 @@ const enterpriseRoutes: RouteRecordRaw[] = [
   { path: 'video-source', name: 'EntVideoSource', component: () => import('@/views/enterprise/video-source/VideoSourceList.vue'), meta: { title: '视频源管理' } },
   { path: 'iot-device', name: 'EntIotDevice', component: () => import('@/views/enterprise/iot-device/IotDeviceList.vue'), meta: { title: 'IoT设备管理' } },
   { path: 'iot-alert', name: 'EntIotAlert', component: () => import('@/views/enterprise/iot-alert/IotAlertList.vue'), meta: { title: 'IoT告警' } },
-  // 数字标签
-  { path: 'dl/dashboard', name: 'DlDashboard', component: () => import('@/views/enterprise/dl/DlDashboard.vue'), meta: { title: '数字标签首页' } },
-  { path: 'dl/products', name: 'DlProducts', component: () => import('@/views/enterprise/dl/DlProductList.vue'), meta: { title: '商品列表' } },
-  { path: 'dl/products/:id/versions', name: 'DlVersions', component: () => import('@/views/enterprise/dl/DlVersionList.vue'), meta: { title: '标签版本管理' } },
-  { path: 'dl/versions/:id/edit', name: 'DlVersionEdit', component: () => import('@/views/enterprise/dl/DlVersionEdit.vue'), meta: { title: '编辑标签版本' } },
-  { path: 'dl/sync', name: 'DlSync', component: () => import('@/views/enterprise/dl/DlSync.vue'), meta: { title: '商品同步' } },
-  { path: 'dl/analysis/scan', name: 'DlScanAnalysis', component: () => import('@/views/enterprise/dl/DlScanAnalysis.vue'), meta: { title: '扫码分析' } },
-  { path: 'dl/analysis/label', name: 'DlLabelAnalysis', component: () => import('@/views/enterprise/dl/DlLabelAnalysis.vue'), meta: { title: '标签分析' } },
-  { path: 'dl/analysis/product', name: 'DlProductAnalysis', component: () => import('@/views/enterprise/dl/DlProductAnalysis.vue'), meta: { title: '商品分析' } },
-  { path: 'dl/users', name: 'DlUsers', component: () => import('@/views/enterprise/dl/DlUserManage.vue'), meta: { title: '用户管理' } },
-  { path: 'dl/logs/operation', name: 'DlOperationLog', component: () => import('@/views/enterprise/dl/DlOperationLog.vue'), meta: { title: '操作日志' } },
-  { path: 'dl/logs/login', name: 'DlLoginLog', component: () => import('@/views/enterprise/dl/DlLoginLog.vue'), meta: { title: '登录日志' } },
+]
+
+// 数字标签系统（独立布局，管理员与企业用户均可进入；管理员全局只读查看）
+const dlRoutes: RouteRecordRaw[] = [
+  { path: 'dashboard', name: 'DlDashboard', component: () => import('@/views/enterprise/dl/DlDashboard.vue'), meta: { title: '数字标签工作台' } },
+  { path: 'products', name: 'DlProducts', component: () => import('@/views/enterprise/dl/DlProductList.vue'), meta: { title: '商品管理' } },
+  { path: 'products/:id/versions', name: 'DlVersions', component: () => import('@/views/enterprise/dl/DlVersionList.vue'), meta: { title: '标签版本管理' } },
+  { path: 'versions/:id/edit', name: 'DlVersionEdit', component: () => import('@/views/enterprise/dl/DlVersionEdit.vue'), meta: { title: '编辑标签版本' } },
+  { path: 'sync', name: 'DlSync', component: () => import('@/views/enterprise/dl/DlSync.vue'), meta: { title: '商品同步' } },
+  { path: 'analysis/scan', name: 'DlScanAnalysis', component: () => import('@/views/enterprise/dl/DlScanAnalysis.vue'), meta: { title: '扫码分析' } },
+  { path: 'analysis/label', name: 'DlLabelAnalysis', component: () => import('@/views/enterprise/dl/DlLabelAnalysis.vue'), meta: { title: '标签分析' } },
+  { path: 'analysis/product', name: 'DlProductAnalysis', component: () => import('@/views/enterprise/dl/DlProductAnalysis.vue'), meta: { title: '商品分析' } },
+  { path: 'users', name: 'DlUsers', component: () => import('@/views/enterprise/dl/DlUserManage.vue'), meta: { title: '用户管理' } },
+  { path: 'logs/operation', name: 'DlOperationLog', component: () => import('@/views/enterprise/dl/DlOperationLog.vue'), meta: { title: '操作日志' } },
+  { path: 'logs/login', name: 'DlLoginLog', component: () => import('@/views/enterprise/dl/DlLoginLog.vue'), meta: { title: '登录日志' } },
 ]
 
 const routes: RouteRecordRaw[] = [
@@ -74,6 +77,16 @@ const routes: RouteRecordRaw[] = [
     meta: { requireAuth: true, requireEnterprise: true },
     children: enterpriseRoutes,
   },
+  // 数字标签独立系统
+  {
+    path: '/dl',
+    component: () => import('@/components/DlLayout.vue'),
+    redirect: '/dl/dashboard',
+    meta: { requireAuth: true },
+    children: dlRoutes,
+  },
+  // 旧路径兼容重定向
+  { path: '/enterprise/dl/:rest(.*)*', redirect: (to) => ({ path: '/dl/' + (to.params.rest as string[] || []).join('/') }) },
   // 数据大屏（独立全屏路由，不嵌入Layout）
   { path: '/screen/admin', name: 'AdminScreen', component: () => import('@/views/admin/DataScreenView.vue'), meta: { title: '数据大屏', requireAuth: true, requireAdmin: true } },
   { path: '/screen/enterprise', name: 'EntScreen', component: () => import('@/views/enterprise/DataScreenView.vue'), meta: { title: '数据大屏', requireAuth: true, requireEnterprise: true } },

@@ -24,26 +24,30 @@ public class DlAnalysisService {
     private final DlLabelVersionMapper versionMapper;
     private final DlScanRecordMapper scanRecordMapper;
 
+    /** enterpriseId 为空时返回 null 表示不限企业（避免全表 IN 查询） */
     private List<Long> productIds(Long enterpriseId) {
+        if (enterpriseId == null) return null;
         return productMapper.selectList(new LambdaQueryWrapper<DlProduct>()
                         .eq(DlProduct::getEnterpriseId, enterpriseId).select(DlProduct::getId))
                 .stream().map(DlProduct::getId).collect(Collectors.toList());
     }
 
     private long scanCountSince(List<Long> productIds, LocalDateTime start) {
-        if (productIds.isEmpty()) return 0;
-        Long cnt = scanRecordMapper.selectCount(new LambdaQueryWrapper<DlScanRecord>()
-                .in(DlScanRecord::getProductId, productIds)
-                .ge(DlScanRecord::getScanTime, start));
+        if (productIds != null && productIds.isEmpty()) return 0;
+        LambdaQueryWrapper<DlScanRecord> w = new LambdaQueryWrapper<DlScanRecord>()
+                .ge(DlScanRecord::getScanTime, start);
+        if (productIds != null) w.in(DlScanRecord::getProductId, productIds);
+        Long cnt = scanRecordMapper.selectCount(w);
         return cnt == null ? 0 : cnt;
     }
 
     private long scanCountBetween(List<Long> productIds, LocalDateTime start, LocalDateTime end) {
-        if (productIds.isEmpty()) return 0;
-        Long cnt = scanRecordMapper.selectCount(new LambdaQueryWrapper<DlScanRecord>()
-                .in(DlScanRecord::getProductId, productIds)
+        if (productIds != null && productIds.isEmpty()) return 0;
+        LambdaQueryWrapper<DlScanRecord> w = new LambdaQueryWrapper<DlScanRecord>()
                 .ge(DlScanRecord::getScanTime, start)
-                .lt(DlScanRecord::getScanTime, end));
+                .lt(DlScanRecord::getScanTime, end);
+        if (productIds != null) w.in(DlScanRecord::getProductId, productIds);
+        Long cnt = scanRecordMapper.selectCount(w);
         return cnt == null ? 0 : cnt;
     }
 
@@ -84,22 +88,24 @@ public class DlAnalysisService {
 
     public Map<String, Object> dashboard(Long enterpriseId, int trendDays) {
         List<Long> ids = productIds(enterpriseId);
-        long productCount = productMapper.selectCount(new LambdaQueryWrapper<DlProduct>()
-                .eq(DlProduct::getEnterpriseId, enterpriseId));
+        LambdaQueryWrapper<DlProduct> pw = new LambdaQueryWrapper<>();
+        if (enterpriseId != null) pw.eq(DlProduct::getEnterpriseId, enterpriseId);
+        long productCount = productMapper.selectCount(pw);
         long versionCount = 0, publishedCount = 0;
         Map<String, Long> statusDist = new LinkedHashMap<>();
         statusDist.put("draft", 0L);
         statusDist.put("published", 0L);
         statusDist.put("offline", 0L);
-        if (!ids.isEmpty()) {
-            versionCount = versionMapper.selectCount(new LambdaQueryWrapper<DlLabelVersion>()
-                    .in(DlLabelVersion::getProductId, ids));
+        if (ids == null || !ids.isEmpty()) {
+            LambdaQueryWrapper<DlLabelVersion> vw = new LambdaQueryWrapper<>();
+            if (ids != null) vw.in(DlLabelVersion::getProductId, ids);
+            versionCount = versionMapper.selectCount(vw);
             publishedCount = versionMapper.selectCount(new LambdaQueryWrapper<DlLabelVersion>()
-                    .in(DlLabelVersion::getProductId, ids)
+                    .in(ids != null, DlLabelVersion::getProductId, ids)
                     .eq(DlLabelVersion::getStatus, "published"));
             for (String s : statusDist.keySet()) {
                 statusDist.put(s, versionMapper.selectCount(new LambdaQueryWrapper<DlLabelVersion>()
-                        .in(DlLabelVersion::getProductId, ids)
+                        .in(ids != null, DlLabelVersion::getProductId, ids)
                         .eq(DlLabelVersion::getStatus, s)));
             }
         }
@@ -129,9 +135,10 @@ public class DlAnalysisService {
     }
 
     public List<DlScanRecord> scanDetail(Long enterpriseId, Long versionId) {
-        // 校验归属
+        // 校验归属（管理员不限企业）
         DlLabelVersion v = versionMapper.selectById(versionId);
-        if (v == null || !productIds(enterpriseId).contains(v.getProductId())) {
+        List<Long> ids = productIds(enterpriseId);
+        if (v == null || (ids != null && !ids.contains(v.getProductId()))) {
             return List.of();
         }
         return scanRecordMapper.selectList(new LambdaQueryWrapper<DlScanRecord>()
@@ -155,25 +162,25 @@ public class DlAnalysisService {
         statusDist.put("draft", 0L);
         statusDist.put("published", 0L);
         statusDist.put("offline", 0L);
-        if (!ids.isEmpty()) {
+        if (ids == null || !ids.isEmpty()) {
             LocalDateTime todayStart = LocalDate.now().atStartOfDay();
             versionCount = versionMapper.selectCount(new LambdaQueryWrapper<DlLabelVersion>()
-                    .in(DlLabelVersion::getProductId, ids));
+                    .in(ids != null, DlLabelVersion::getProductId, ids));
             publishedCount = versionMapper.selectCount(new LambdaQueryWrapper<DlLabelVersion>()
-                    .in(DlLabelVersion::getProductId, ids).eq(DlLabelVersion::getStatus, "published"));
+                    .in(ids != null, DlLabelVersion::getProductId, ids).eq(DlLabelVersion::getStatus, "published"));
             newYesterday = versionMapper.selectCount(new LambdaQueryWrapper<DlLabelVersion>()
-                    .in(DlLabelVersion::getProductId, ids)
+                    .in(ids != null, DlLabelVersion::getProductId, ids)
                     .ge(DlLabelVersion::getCreatedAt, todayStart.minusDays(1))
                     .lt(DlLabelVersion::getCreatedAt, todayStart));
             new7d = versionMapper.selectCount(new LambdaQueryWrapper<DlLabelVersion>()
-                    .in(DlLabelVersion::getProductId, ids)
+                    .in(ids != null, DlLabelVersion::getProductId, ids)
                     .ge(DlLabelVersion::getCreatedAt, todayStart.minusDays(6)));
             new30d = versionMapper.selectCount(new LambdaQueryWrapper<DlLabelVersion>()
-                    .in(DlLabelVersion::getProductId, ids)
+                    .in(ids != null, DlLabelVersion::getProductId, ids)
                     .ge(DlLabelVersion::getCreatedAt, todayStart.minusDays(29)));
             for (String s : statusDist.keySet()) {
                 statusDist.put(s, versionMapper.selectCount(new LambdaQueryWrapper<DlLabelVersion>()
-                        .in(DlLabelVersion::getProductId, ids).eq(DlLabelVersion::getStatus, s)));
+                        .in(ids != null, DlLabelVersion::getProductId, ids).eq(DlLabelVersion::getStatus, s)));
             }
         }
         List<Map<String, Object>> trend = buildTrend(trendDays,
@@ -197,19 +204,19 @@ public class DlAnalysisService {
     public Map<String, Object> productAnalysis(Long enterpriseId, int trendDays) {
         LocalDateTime todayStart = LocalDate.now().atStartOfDay();
         long productCount = productMapper.selectCount(new LambdaQueryWrapper<DlProduct>()
-                .eq(DlProduct::getEnterpriseId, enterpriseId));
+                .eq(enterpriseId != null, DlProduct::getEnterpriseId, enterpriseId));
         long newYesterday = productMapper.selectCount(new LambdaQueryWrapper<DlProduct>()
-                .eq(DlProduct::getEnterpriseId, enterpriseId)
+                .eq(enterpriseId != null, DlProduct::getEnterpriseId, enterpriseId)
                 .ge(DlProduct::getCreatedAt, todayStart.minusDays(1))
                 .lt(DlProduct::getCreatedAt, todayStart));
         long new7d = productMapper.selectCount(new LambdaQueryWrapper<DlProduct>()
-                .eq(DlProduct::getEnterpriseId, enterpriseId)
+                .eq(enterpriseId != null, DlProduct::getEnterpriseId, enterpriseId)
                 .ge(DlProduct::getCreatedAt, todayStart.minusDays(6)));
         long new14d = productMapper.selectCount(new LambdaQueryWrapper<DlProduct>()
-                .eq(DlProduct::getEnterpriseId, enterpriseId)
+                .eq(enterpriseId != null, DlProduct::getEnterpriseId, enterpriseId)
                 .ge(DlProduct::getCreatedAt, todayStart.minusDays(13)));
         long new30d = productMapper.selectCount(new LambdaQueryWrapper<DlProduct>()
-                .eq(DlProduct::getEnterpriseId, enterpriseId)
+                .eq(enterpriseId != null, DlProduct::getEnterpriseId, enterpriseId)
                 .ge(DlProduct::getCreatedAt, todayStart.minusDays(29)));
         List<Map<String, Object>> trend = buildTrend(trendDays,
                 productMapper.countByDay(enterpriseId,

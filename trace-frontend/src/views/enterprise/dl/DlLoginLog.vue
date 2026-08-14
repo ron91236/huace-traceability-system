@@ -4,6 +4,9 @@
       <template #header>
         <div class="table-toolbar">
           <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <el-select v-if="isAdmin" v-model="entFilter" placeholder="全部企业" clearable style="width:180px" @change="loadData">
+              <el-option v-for="e in enterprises" :key="e.id" :label="e.name" :value="e.id" />
+            </el-select>
             <el-select v-model="loginType" placeholder="登录类型" clearable style="width:130px">
               <el-option label="PC" value="PC" />
               <el-option label="移动端" value="mobile" />
@@ -18,6 +21,9 @@
       <el-table :data="list" v-loading="loading" border stripe>
         <el-table-column type="index" label="序号" width="60" />
         <el-table-column prop="username" label="用户" width="150" />
+        <el-table-column v-if="isAdmin" label="所属企业" width="140">
+          <template #default="{ row }">{{ row.enterpriseName || entName(row.enterpriseId) }}</template>
+        </el-table-column>
         <el-table-column label="登录类型" width="110" align="center">
           <template #default="{ row }">
             <el-tag :type="row.loginType === 'mobile' ? 'warning' : 'info'" size="small">
@@ -47,7 +53,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { getDlLoginLogs } from '@/api/digital-label'
+import { useDlAdmin } from '@/composables/useDlAdmin'
 
+const { isAdmin, entFilter, enterprises, entName } = useDlAdmin()
 const list = ref<any[]>([])
 const loading = ref(false)
 const page = ref(1)
@@ -64,6 +72,7 @@ async function loadData() {
       loginType: loginType.value || undefined,
       startDate: dateRange.value?.[0] || undefined,
       endDate: dateRange.value?.[1] || undefined,
+      enterpriseId: entFilter.value,
     })
     list.value = res.data?.list || []
     total.value = res.data?.total || 0

@@ -12,10 +12,11 @@ import java.util.Map;
 @Mapper
 public interface DlProductMapper extends BaseMapper<DlProduct> {
 
-    /** 按日期统计新增商品数 */
-    @Select("SELECT DATE(created_at) AS d, COUNT(*) AS cnt FROM dl_product " +
-            "WHERE enterprise_id = #{enterpriseId} AND created_at >= #{startTime} " +
-            "GROUP BY DATE(created_at)")
+    /** 按日期统计新增商品数（enterpriseId 为空时统计全部企业） */
+    @Select("<script>SELECT DATE(created_at) AS d, COUNT(*) AS cnt FROM dl_product " +
+            "WHERE created_at &gt;= #{startTime} " +
+            "<if test='enterpriseId != null'>AND enterprise_id = #{enterpriseId} </if>" +
+            "GROUP BY DATE(created_at)</script>")
     List<Map<String, Object>> countByDay(@Param("enterpriseId") Long enterpriseId,
                                          @Param("startTime") String startTime);
 }

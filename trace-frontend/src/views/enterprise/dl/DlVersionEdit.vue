@@ -1,5 +1,7 @@
 <template>
-  <div class="page-container dl-version-edit" v-loading="loading">
+  <div class="page-container dl-version-edit" :class="{ readonly: isAdmin }" v-loading="loading">
+    <!-- 管理员只读提示 -->
+    <el-alert v-if="isAdmin" title="管理员只读模式：仅可查看标签内容，不可修改" type="warning" :closable="false" show-icon style="margin-bottom:16px" />
     <!-- 基础信息 -->
     <el-card class="section-card">
       <template #header><span class="section-title">基础信息</span></template>
@@ -177,9 +179,11 @@
 
     <!-- 底部操作 -->
     <div class="footer-actions">
-      <el-button @click="$router.back()">取消</el-button>
-      <el-button :loading="saving" @click="handleSave('draft')">存草稿</el-button>
-      <el-button type="primary" :loading="saving" @click="handleSave('publish')">保存并发布</el-button>
+      <el-button @click="$router.back()">{{ isAdmin ? '返回' : '取消' }}</el-button>
+      <template v-if="!isAdmin">
+        <el-button :loading="saving" @click="handleSave('draft')">存草稿</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave('publish')">保存并发布</el-button>
+      </template>
     </div>
 
     <!-- 食品分类选择弹窗 -->
@@ -236,7 +240,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getDlVersion, updateDlVersion, publishDlVersion, getDlCategories } from '@/api/digital-label'
 import { uploadFile } from '@/api/common'
+import { useDlAdmin } from '@/composables/useDlAdmin'
 
+const { isAdmin } = useDlAdmin()
 const route = useRoute()
 const router = useRouter()
 const versionId = Number(route.params.id)
@@ -421,7 +427,7 @@ async function handleSave(action: 'draft' | 'publish') {
     if (action === 'publish') {
       await publishDlVersion(versionId)
       ElMessage.success('保存并发布成功')
-      router.push(`/enterprise/dl/products`)
+      router.push(`/dl/products`)
     } else {
       ElMessage.success('草稿已保存')
       router.back()
@@ -447,6 +453,14 @@ onMounted(async () => {
   .section-title { font-weight: 600; font-size: 15px; }
   .section-tip { font-size: 12px; color: #9ca3af; margin-left: 8px; }
   .form-tip { font-size: 12px; color: #9ca3af; line-height: 1.4; }
+
+  /* 管理员只读：禁用表单交互 */
+  &.readonly .section-card {
+    :deep(.el-input__inner), :deep(.el-textarea__inner) { pointer-events: none; }
+    :deep(.el-form-item .el-button) { display: none; }
+    :deep(.el-upload) { display: none; }
+    .production-actions { display: none; }
+  }
 }
 .production-block {
   border: 1px solid #e5e7eb;

@@ -4,13 +4,13 @@
       <template #header>
         <div class="version-header">
           <div class="product-info">
-            <el-button text @click="$router.push('/enterprise/dl/products')">
+            <el-button text @click="$router.push('/dl/products')">
               <el-icon><ArrowLeft /></el-icon>返回
             </el-button>
             <span class="food-name">{{ route.query.foodName || firstVersion?.foodName || '商品' }}</span>
             <el-tag size="small">条码：{{ route.query.barcode || firstVersion?.barcode || '-' }}</el-tag>
           </div>
-          <el-button type="primary" @click="handleCreate">
+          <el-button v-if="!isAdmin" type="primary" @click="handleCreate">
             <el-icon><Plus /></el-icon>新建
           </el-button>
         </div>
@@ -53,12 +53,15 @@
         <el-table-column prop="updatedAt" label="修改时间" width="165" />
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.status !== 'published'" size="small" type="primary" link @click="goEdit(row)">编辑</el-button>
-            <el-button v-if="row.status !== 'published'" size="small" type="success" link @click="handlePublish(row)">发布</el-button>
-            <el-button v-else size="small" type="warning" link @click="handleOffline(row)">下架</el-button>
-            <el-popconfirm v-if="row.status !== 'published'" title="确认删除该版本?" @confirm="handleDelete(row)">
-              <template #reference><el-button size="small" type="danger" link>删除</el-button></template>
-            </el-popconfirm>
+            <template v-if="!isAdmin">
+              <el-button v-if="row.status !== 'published'" size="small" type="primary" link @click="goEdit(row)">编辑</el-button>
+              <el-button v-if="row.status !== 'published'" size="small" type="success" link @click="handlePublish(row)">发布</el-button>
+              <el-button v-else size="small" type="warning" link @click="handleOffline(row)">下架</el-button>
+              <el-popconfirm v-if="row.status !== 'published'" title="确认删除该版本?" @confirm="handleDelete(row)">
+                <template #reference><el-button size="small" type="danger" link>删除</el-button></template>
+              </el-popconfirm>
+            </template>
+            <el-button v-else size="small" type="primary" link @click="goEdit(row)">查看</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -80,7 +83,9 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getDlVersions, createDlVersion, deleteDlVersion, publishDlVersion, offlineDlVersion } from '@/api/digital-label'
+import { useDlAdmin } from '@/composables/useDlAdmin'
 
+const { isAdmin } = useDlAdmin()
 const route = useRoute()
 const router = useRouter()
 const productId = Number(route.params.id)
@@ -127,12 +132,12 @@ async function handleCreate() {
   try {
     const res = await createDlVersion(productId, copyFromId)
     ElMessage.success('版本已创建')
-    router.push(`/enterprise/dl/versions/${res.data.id}/edit`)
+    router.push(`/dl/versions/${res.data.id}/edit`)
   } catch (e) {}
 }
 
 function goEdit(row: any) {
-  router.push(`/enterprise/dl/versions/${row.id}/edit`)
+  router.push(`/dl/versions/${row.id}/edit`)
 }
 
 async function handlePublish(row: any) {

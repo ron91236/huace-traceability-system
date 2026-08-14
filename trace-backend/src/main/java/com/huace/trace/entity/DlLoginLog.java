@@ -10,6 +10,9 @@ public class DlLoginLog {
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long enterpriseId;
+    /** 企业名称（非持久化，管理员全局查看时填充） */
+    @TableField(exist = false)
+    private String enterpriseName;
     private String username;
     private String loginType;
     private String country;

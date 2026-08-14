@@ -19,12 +19,18 @@ export const manualDlSync = (data: any) => request.post('/enterprise/dl/sync', d
 export const getDlSyncRecords = (params: any) => request.get('/enterprise/dl/sync/records', { params })
 
 // ==================== 数据分析 ====================
-export const getDlDashboard = (days = 7) => request.get('/enterprise/dl/dashboard', { params: { days } })
-export const getDlScanAnalysis = () => request.get('/enterprise/dl/analysis/scan')
+const entParam = (enterpriseId?: number) => (enterpriseId ? { enterpriseId } : {})
+export const getDlDashboard = (days = 7, enterpriseId?: number) =>
+  request.get('/enterprise/dl/dashboard', { params: { days, ...entParam(enterpriseId) } })
+export const getDlScanAnalysis = (enterpriseId?: number) =>
+  request.get('/enterprise/dl/analysis/scan', { params: entParam(enterpriseId) })
 export const getDlScanDetail = (versionId: number) => request.get('/enterprise/dl/analysis/scan/detail', { params: { versionId } })
-export const getDlGeoAnalysis = () => request.get('/enterprise/dl/analysis/geo')
-export const getDlLabelAnalysis = (days = 30) => request.get('/enterprise/dl/analysis/label', { params: { days } })
-export const getDlProductAnalysis = (days = 30) => request.get('/enterprise/dl/analysis/product', { params: { days } })
+export const getDlGeoAnalysis = (enterpriseId?: number) =>
+  request.get('/enterprise/dl/analysis/geo', { params: entParam(enterpriseId) })
+export const getDlLabelAnalysis = (days = 30, enterpriseId?: number) =>
+  request.get('/enterprise/dl/analysis/label', { params: { days, ...entParam(enterpriseId) } })
+export const getDlProductAnalysis = (days = 30, enterpriseId?: number) =>
+  request.get('/enterprise/dl/analysis/product', { params: { days, ...entParam(enterpriseId) } })
 
 // ==================== 用户管理 ====================
 export const getDlUsers = (params: any) => request.get('/enterprise/dl/users', { params })
@@ -34,8 +40,10 @@ export const getDlOperationLogs = (params: any) => request.get('/enterprise/dl/l
 export const getDlLoginLogs = (params: any) => request.get('/enterprise/dl/logs/login', { params })
 export const recordDlLogin = () => request.post('/enterprise/dl/logs/login')
 
-// ==================== 食品分类 ====================
+// ==================== 食品分类 / 企业列表 ====================
 export const getDlCategories = () => request.get('/enterprise/dl/categories')
+/** 已创建数字标签的企业列表（管理员企业筛选用） */
+export const getDlEnterprises = () => request.get('/enterprise/dl/enterprises')
 
 // ==================== 消费者扫码（公开） ====================
 export const getDlScanData = (barcode: string) => request.get(`/dl/scan/${barcode}`)

@@ -12,10 +12,11 @@ import java.util.Map;
 @Mapper
 public interface DlLabelVersionMapper extends BaseMapper<DlLabelVersion> {
 
-    /** 按日期统计新增标签版本数 */
-    @Select("SELECT DATE(created_at) AS d, COUNT(*) AS cnt FROM dl_label_version " +
-            "WHERE product_id IN (SELECT id FROM dl_product WHERE enterprise_id = #{enterpriseId}) " +
-            "AND created_at >= #{startTime} GROUP BY DATE(created_at)")
+    /** 按日期统计新增标签版本数（enterpriseId 为空时统计全部企业） */
+    @Select("<script>SELECT DATE(created_at) AS d, COUNT(*) AS cnt FROM dl_label_version " +
+            "WHERE created_at &gt;= #{startTime} " +
+            "<if test='enterpriseId != null'>AND product_id IN (SELECT id FROM dl_product WHERE enterprise_id = #{enterpriseId}) </if>" +
+            "GROUP BY DATE(created_at)</script>")
     List<Map<String, Object>> countByDay(@Param("enterpriseId") Long enterpriseId,
                                          @Param("startTime") String startTime);
 }

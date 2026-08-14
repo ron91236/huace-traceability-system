@@ -4,6 +4,10 @@
       <template #header>
         <div class="table-toolbar">
           <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <el-select v-if="isAdmin" v-model="entFilter" placeholder="全部企业" clearable
+              style="width:180px" @change="loadData">
+              <el-option v-for="e in enterprises" :key="e.id" :label="e.name" :value="e.id" />
+            </el-select>
             <el-input v-model="search.foodName" placeholder="食品名称" clearable style="width:160px" @keyup.enter="loadData" />
             <el-input v-model="search.barcode" placeholder="商品条码" clearable style="width:160px" @keyup.enter="loadData" />
             <el-select v-model="search.hasLabel" placeholder="是否创建标签" clearable style="width:140px">
@@ -15,13 +19,16 @@
               value-format="YYYY-MM-DD" style="width:260px" />
             <el-button type="primary" @click="loadData">搜索</el-button>
           </div>
-          <el-button type="primary" @click="addVisible = true">
+          <el-button v-if="!isAdmin" type="primary" @click="addVisible = true">
             <el-icon><Plus /></el-icon>新增
           </el-button>
         </div>
       </template>
       <el-table :data="list" v-loading="loading" border stripe>
         <el-table-column type="index" label="序号" width="60" />
+        <el-table-column v-if="isAdmin" label="所属企业" min-width="140">
+          <template #default="{ row }">{{ row.enterpriseName || entName(row.enterpriseId) }}</template>
+        </el-table-column>
         <el-table-column prop="foodName" label="食品名称" min-width="160" />
         <el-table-column prop="barcode" label="商品条码" width="150" />
         <el-table-column prop="spec" label="规格" width="120">
@@ -37,10 +44,11 @@
         <el-table-column label="操作" width="230">
           <template #default="{ row }">
             <template v-if="row.labelVersionCount > 0">
-              <el-button size="small" type="primary" link @click="createLabel(row)">新增标签</el-button>
-              <el-button size="small" type="primary" link @click="goVersions(row)">管理标签版本</el-button>
+              <el-button v-if="!isAdmin" size="small" type="primary" link @click="createLabel(row)">新增标签</el-button>
+              <el-button size="small" type="primary" link @click="goVersions(row)">{{ isAdmin ? '查看标签版本' : '管理标签版本' }}</el-button>
             </template>
-            <el-button v-else size="small" type="primary" link @click="createLabel(row)">创建标签</el-button>
+            <el-button v-else-if="!isAdmin" size="small" type="primary" link @click="createLabel(row)">创建标签</el-button>
+            <span v-else>-</span>
           </template>
         </el-table-column>
       </el-table>
@@ -76,7 +84,9 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance } from 'element-plus'
 import { getDlProducts, createDlProduct, createDlVersion } from '@/api/digital-label'
+import { useDlAdmin } from '@/composables/useDlAdmin'
 
+const { isAdmin, entFilter, enterprises, entName } = useDlAdmin()
 const router = useRouter()
 const list = ref<any[]>([])
 const loading = ref(false)
@@ -104,6 +114,7 @@ async function loadData() {
       hasLabel: search.hasLabel || undefined,
       startDate: dateRange.value?.[0] || undefined,
       endDate: dateRange.value?.[1] || undefined,
+      enterpriseId: entFilter.value,
     })
     list.value = res.data?.list || []
     total.value = res.data?.total || 0
@@ -130,12 +141,12 @@ async function createLabel(row: any) {
   try {
     const res = await createDlVersion(row.id)
     ElMessage.success('标签版本已创建')
-    router.push(`/enterprise/dl/versions/${res.data.id}/edit`)
+    router.push(`/dl/versions/${res.data.id}/edit`)
   } catch (e) {}
 }
 
 function goVersions(row: any) {
-  router.push({ path: `/enterprise/dl/products/${row.id}/versions`, query: { foodName: row.foodName, barcode: row.barcode } })
+  router.push({ path: `/dl/products/${row.id}/versions`, query: { foodName: row.foodName, barcode: row.barcode } })
 }
 
 onMounted(loadData)

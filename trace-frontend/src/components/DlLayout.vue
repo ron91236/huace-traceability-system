@@ -2,7 +2,8 @@
   <el-container class="layout-container">
     <el-aside :width="collapsed ? '64px' : '220px'" class="aside">
       <div class="logo">
-        <img :src="collapsed ? logoIcon : logoFull" :alt="collapsed ? 'CTi' : 'CTi华测检测'" class="logo-img" :class="{ 'logo-collapsed': collapsed }" />
+        <img :src="logoIcon" alt="CTi" class="logo-img" />
+        <span v-if="!collapsed" class="logo-title">数字标签管理系统</span>
       </div>
       <el-scrollbar class="menu-scroll">
         <el-menu
@@ -13,64 +14,33 @@
           text-color="#a7f3d0"
           active-text-color="#fff"
         >
-          <el-menu-item index="/enterprise/dashboard">
-            <el-icon><DataBoard /></el-icon>
-            <span>控制台</span>
-          </el-menu-item>
-          <el-menu-item index="/enterprise/cert">
-            <el-icon><Medal /></el-icon>
-            <span>企业认证</span>
-          </el-menu-item>
-          <el-menu-item index="/enterprise/base">
-            <el-icon><Location /></el-icon>
-            <span>基地管理</span>
-          </el-menu-item>
-          <el-menu-item index="/enterprise/goods">
-            <el-icon><Goods /></el-icon>
-            <span>商品管理</span>
-          </el-menu-item>
-          <el-menu-item index="/enterprise/address">
-            <el-icon><MapLocation /></el-icon>
-            <span>收货地址</span>
-          </el-menu-item>
-          <el-menu-item index="/enterprise/test-report">
-            <el-icon><Document /></el-icon>
-            <span>检测报告</span>
-          </el-menu-item>
-          <el-menu-item index="/enterprise/batch">
-            <el-icon><Tickets /></el-icon>
-            <span>批次管理</span>
-          </el-menu-item>
-          <el-sub-menu index="order-mgmt">
+          <el-sub-menu index="dl-mgmt">
             <template #title>
-              <el-icon><Document /></el-icon>
-              <span>订单管理</span>
+              <el-icon><Collection /></el-icon>
+              <span>数字标签</span>
             </template>
-            <el-menu-item index="/enterprise/order">订单列表</el-menu-item>
-            <el-menu-item index="/enterprise/order-code">订单条码</el-menu-item>
-            <el-menu-item index="/enterprise/code-usage">条码使用</el-menu-item>
+            <el-menu-item index="/dl/dashboard">工作台</el-menu-item>
+            <el-menu-item index="/dl/products">商品管理</el-menu-item>
+            <el-menu-item v-if="!isAdmin" index="/dl/sync">商品同步</el-menu-item>
           </el-sub-menu>
-          <el-menu-item index="/enterprise/notice">
-            <el-icon><Bell /></el-icon>
-            <span>公告</span>
-          </el-menu-item>
-          <el-sub-menu index="iot-video-mgmt">
+          <el-sub-menu index="dl-analysis">
             <template #title>
-              <el-icon><Monitor /></el-icon>
-              <span>视频/IoT</span>
+              <el-icon><PieChart /></el-icon>
+              <span>数据分析</span>
             </template>
-            <el-menu-item index="/enterprise/video-source">视频源管理</el-menu-item>
-            <el-menu-item index="/enterprise/iot-device">IoT设备</el-menu-item>
-            <el-menu-item index="/enterprise/iot-alert">IoT告警</el-menu-item>
+            <el-menu-item index="/dl/analysis/scan">扫码分析</el-menu-item>
+            <el-menu-item index="/dl/analysis/label">标签分析</el-menu-item>
+            <el-menu-item index="/dl/analysis/product">商品分析</el-menu-item>
           </el-sub-menu>
-          <el-menu-item index="/dl/dashboard">
-            <el-icon><Collection /></el-icon>
-            <span>数字标签系统</span>
-          </el-menu-item>
-          <el-menu-item index="/screen/enterprise">
-            <el-icon><TrendCharts /></el-icon>
-            <span>数据大屏</span>
-          </el-menu-item>
+          <el-sub-menu index="dl-enterprise">
+            <template #title>
+              <el-icon><User /></el-icon>
+              <span>企业管理</span>
+            </template>
+            <el-menu-item index="/dl/users">用户管理</el-menu-item>
+            <el-menu-item index="/dl/logs/operation">操作日志</el-menu-item>
+            <el-menu-item index="/dl/logs/login">登录日志</el-menu-item>
+          </el-sub-menu>
         </el-menu>
       </el-scrollbar>
     </el-aside>
@@ -82,24 +52,21 @@
             <Expand v-else />
           </el-icon>
           <span class="page-title">{{ pageTitle }}</span>
+          <el-tag v-if="isAdmin" type="warning" size="small" effect="dark">管理员 · 全局只读</el-tag>
         </div>
         <div class="header-right">
-          <!-- 母账号企业切换 -->
-          <el-select v-if="userStore.isMasterAccount && children.length > 0"
-            v-model="selectedChildId" placeholder="全部企业" clearable
-            size="small" style="width: 180px" @change="onChildChange">
-            <el-option label="全部企业（聚合）" :value="null" />
-            <el-option v-for="c in children" :key="c.id" :label="c.name" :value="c.id" />
-          </el-select>
-          <span class="enterprise-name" v-if="userStore.userInfo?.enterpriseName">
+          <span v-if="!isAdmin && userStore.userInfo?.enterpriseName" class="enterprise-name">
             {{ userStore.userInfo.enterpriseName }}
           </span>
+          <el-button size="small" @click="goBack">
+            <el-icon style="margin-right:4px"><Back /></el-icon>返回溯源系统
+          </el-button>
           <el-dropdown @command="handleCommand">
             <span class="user-info">
               <el-avatar :size="32" class="user-avatar">
-                {{ userStore.userInfo?.nickname?.charAt(0) || '企' }}
+                {{ userStore.userInfo?.nickname?.charAt(0) || (isAdmin ? '管' : '企') }}
               </el-avatar>
-              <span class="username">{{ userStore.userInfo?.nickname || '企业用户' }}</span>
+              <span class="username">{{ userStore.userInfo?.nickname || (isAdmin ? '管理员' : '企业用户') }}</span>
               <el-icon class="arrow-icon"><ArrowDown /></el-icon>
             </span>
             <template #dropdown>
@@ -121,32 +88,25 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { getGroupChildren } from '@/api/enterprise'
+import { recordDlLogin } from '@/api/digital-label'
 import logoIcon from '@/assets/logo-icon.png'
-import logoFull from '@/assets/logo-full.png'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const collapsed = ref(false)
-const children = ref<{ id: number; name: string }[]>([])
-const selectedChildId = ref<number | null>(null)
 
+const isAdmin = computed(() => userStore.isAdmin)
 const activeMenu = computed(() => route.path)
-const pageTitle = computed(() => (route.meta.title as string) || '控制台')
+const pageTitle = computed(() => (route.meta.title as string) || '数字标签')
 
-onMounted(async () => {
-  // Load child enterprises for master accounts
-  if (userStore.isMasterAccount) {
-    try {
-      const res = await getGroupChildren()
-      children.value = res.data || []
-    } catch (e) {}
-  }
+onMounted(() => {
+  // 企业用户进入数字标签模块时记录登录日志
+  if (!isAdmin.value) recordDlLogin().catch(() => {})
 })
 
-function onChildChange(childId: number | null) {
-  userStore.setCurrentViewEnterpriseId(childId)
+function goBack() {
+  router.push(isAdmin.value ? '/admin/dashboard' : '/enterprise/dashboard')
 }
 
 function handleCommand(command: string) {
@@ -173,18 +133,22 @@ function handleCommand(command: string) {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    color: #333;
+    gap: 8px;
     background: #fff;
     border-bottom: 1px solid #e5e7eb;
+    overflow: hidden;
 
     .logo-img {
-      height: 32px;
+      height: 30px;
       width: auto;
       object-fit: contain;
-      &.logo-collapsed {
-        height: 28px;
-      }
+    }
+
+    .logo-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #065f46;
+      white-space: nowrap;
     }
   }
 

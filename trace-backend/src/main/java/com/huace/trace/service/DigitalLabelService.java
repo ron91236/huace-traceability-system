@@ -34,6 +34,7 @@ public class DigitalLabelService {
     private final DlOperationLogMapper operationLogMapper;
     private final DlLoginLogMapper loginLogMapper;
     private final DlFoodCategoryMapper categoryMapper;
+    private final EnterpriseMapper enterpriseMapper;
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -47,7 +48,7 @@ public class DigitalLabelService {
                                               String barcode, String foodName, String hasLabel,
                                               String startDate, String endDate) {
         LambdaQueryWrapper<DlProduct> w = new LambdaQueryWrapper<>();
-        w.eq(DlProduct::getEnterpriseId, enterpriseId);
+        if (enterpriseId != null) w.eq(DlProduct::getEnterpriseId, enterpriseId);
         if (StringUtils.hasText(barcode)) w.like(DlProduct::getBarcode, barcode);
         if (StringUtils.hasText(foodName)) w.like(DlProduct::getFoodName, foodName);
         if ("yes".equals(hasLabel)) w.gt(DlProduct::getLabelVersionCount, 0);
@@ -56,7 +57,47 @@ public class DigitalLabelService {
         if (StringUtils.hasText(endDate)) w.le(DlProduct::getCreatedAt, endDate + " 23:59:59");
         w.orderByDesc(DlProduct::getId);
         Page<DlProduct> r = productMapper.selectPage(new Page<>(page, size), w);
+        fillProductEnterpriseNames(r.getRecords());
         return new PageResult<>(r.getRecords(), r.getTotal());
+    }
+
+    /** 批量填充企业名称（管理员全局查看时使用） */
+    private void fillProductEnterpriseNames(List<DlProduct> list) {
+        if (list == null || list.isEmpty()) return;
+        Set<Long> ids = list.stream().map(DlProduct::getEnterpriseId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        if (ids.isEmpty()) return;
+        Map<Long, String> nameMap = enterpriseMapper.selectList(new LambdaQueryWrapper<Enterprise>()
+                        .in(Enterprise::getId, ids).select(Enterprise::getId, Enterprise::getName))
+                .stream().collect(Collectors.toMap(Enterprise::getId, Enterprise::getName, (a, b) -> a));
+        list.forEach(p -> p.setEnterpriseName(nameMap.get(p.getEnterpriseId())));
+    }
+
+    private Map<Long, String> enterpriseNameMap(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) return Map.of();
+        return enterpriseMapper.selectList(new LambdaQueryWrapper<Enterprise>()
+                        .in(Enterprise::getId, ids).select(Enterprise::getId, Enterprise::getName))
+                .stream().collect(Collectors.toMap(Enterprise::getId, Enterprise::getName, (a, b) -> a));
+    }
+
+    /** 企业列表（管理员企业筛选用） */
+    public List<Map<String, Object>> dlEnterprises() {
+        List<DlProduct> products = productMapper.selectList(
+                new LambdaQueryWrapper<DlProduct>().select(DlProduct::getEnterpriseId));
+        Set<Long> ids = products.stream().map(DlProduct::getEnterpriseId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        List<Map<String, Object>> result = new ArrayList<>();
+        if (ids.isEmpty()) return result;
+        enterpriseMapper.selectList(new LambdaQueryWrapper<Enterprise>()
+                        .in(Enterprise::getId, ids).select(Enterprise::getId, Enterprise::getName)
+                        .orderByAsc(Enterprise::getId))
+                .forEach(e -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id", e.getId());
+                    m.put("name", e.getName());
+                    result.add(m);
+                });
+        return result;
     }
 
     public DlProduct createProduct(Long enterpriseId, DlProduct product) {
@@ -76,7 +117,7 @@ public class DigitalLabelService {
 
     private DlProduct getProductOwned(Long enterpriseId, Long productId) {
         DlProduct p = productMapper.selectById(productId);
-        if (p == null || !p.getEnterpriseId().equals(enterpriseId)) {
+        if (p == null || (enterpriseId != null && !p.getEnterpriseId().equals(enterpriseId))) {
             throw new BusinessException("商品不存在");
         }
         return p;
@@ -110,7 +151,7 @@ public class DigitalLabelService {
         DlLabelVersion v = versionMapper.selectById(id);
         if (v == null) throw new BusinessException("标签版本不存在");
         DlProduct p = productMapper.selectById(v.getProductId());
-        if (p == null || !p.getEnterpriseId().equals(enterpriseId)) {
+        if (p == null || (enterpriseId != null && !p.getEnterpriseId().equals(enterpriseId))) {
             throw new BusinessException("标签版本不存在");
         }
         return v;
@@ -267,7 +308,8 @@ public class DigitalLabelService {
 
     public PageResult<DlSyncRecord> listSyncRecords(Long enterpriseId, int page, int size) {
         LambdaQueryWrapper<DlSyncRecord> w = new LambdaQueryWrapper<>();
-        w.eq(DlSyncRecord::getEnterpriseId, enterpriseId).orderByDesc(DlSyncRecord::getId);
+        if (enterpriseId != null) w.eq(DlSyncRecord::getEnterpriseId, enterpriseId);
+        w.orderByDesc(DlSyncRecord::getId);
         Page<DlSyncRecord> r = syncRecordMapper.selectPage(new Page<>(page, size), w);
         return new PageResult<>(r.getRecords(), r.getTotal());
     }
@@ -296,25 +338,35 @@ public class DigitalLabelService {
                                                         String productName, String operationType,
                                                         String startDate, String endDate) {
         LambdaQueryWrapper<DlOperationLog> w = new LambdaQueryWrapper<>();
-        w.eq(DlOperationLog::getEnterpriseId, enterpriseId);
+        if (enterpriseId != null) w.eq(DlOperationLog::getEnterpriseId, enterpriseId);
         if (StringUtils.hasText(productName)) w.like(DlOperationLog::getProductName, productName);
         if (StringUtils.hasText(operationType)) w.eq(DlOperationLog::getOperationType, operationType);
         if (StringUtils.hasText(startDate)) w.ge(DlOperationLog::getCreatedAt, startDate + " 00:00:00");
         if (StringUtils.hasText(endDate)) w.le(DlOperationLog::getCreatedAt, endDate + " 23:59:59");
         w.orderByDesc(DlOperationLog::getId);
         Page<DlOperationLog> r = operationLogMapper.selectPage(new Page<>(page, size), w);
+        if (enterpriseId == null) {
+            Map<Long, String> names = enterpriseNameMap(r.getRecords().stream()
+                    .map(DlOperationLog::getEnterpriseId).filter(Objects::nonNull).collect(Collectors.toSet()));
+            r.getRecords().forEach(l -> l.setEnterpriseName(names.get(l.getEnterpriseId())));
+        }
         return new PageResult<>(r.getRecords(), r.getTotal());
     }
 
     public PageResult<DlLoginLog> listLoginLogs(Long enterpriseId, int page, int size,
                                                 String loginType, String startDate, String endDate) {
         LambdaQueryWrapper<DlLoginLog> w = new LambdaQueryWrapper<>();
-        w.eq(DlLoginLog::getEnterpriseId, enterpriseId);
+        if (enterpriseId != null) w.eq(DlLoginLog::getEnterpriseId, enterpriseId);
         if (StringUtils.hasText(loginType)) w.eq(DlLoginLog::getLoginType, loginType);
         if (StringUtils.hasText(startDate)) w.ge(DlLoginLog::getLoginTime, startDate + " 00:00:00");
         if (StringUtils.hasText(endDate)) w.le(DlLoginLog::getLoginTime, endDate + " 23:59:59");
         w.orderByDesc(DlLoginLog::getId);
         Page<DlLoginLog> r = loginLogMapper.selectPage(new Page<>(page, size), w);
+        if (enterpriseId == null) {
+            Map<Long, String> names = enterpriseNameMap(r.getRecords().stream()
+                    .map(DlLoginLog::getEnterpriseId).filter(Objects::nonNull).collect(Collectors.toSet()));
+            r.getRecords().forEach(l -> l.setEnterpriseName(names.get(l.getEnterpriseId())));
+        }
         return new PageResult<>(r.getRecords(), r.getTotal());
     }
 

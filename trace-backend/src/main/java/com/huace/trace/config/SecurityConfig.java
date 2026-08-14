@@ -40,6 +40,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // 华测管理端
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                // 数字标签：管理员（全局只读）与企业用户均可访问
+                .requestMatchers("/api/enterprise/dl/**").hasAnyRole("ADMIN", "ENTERPRISE")
                 // 企业端
                 .requestMatchers("/api/enterprise/**").hasRole("ENTERPRISE")
                 // 其他需要认证

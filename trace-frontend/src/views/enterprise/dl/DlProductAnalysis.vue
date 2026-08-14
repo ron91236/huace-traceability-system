@@ -1,5 +1,11 @@
 <template>
   <div class="page-container" v-loading="loading">
+    <!-- 管理员企业筛选 -->
+    <div v-if="isAdmin" style="margin-bottom:12px">
+      <el-select v-model="entFilter" placeholder="全部企业" clearable style="width:220px" @change="loadData">
+        <el-option v-for="e in enterprises" :key="e.id" :label="e.name" :value="e.id" />
+      </el-select>
+    </div>
     <!-- 统计卡片 -->
     <div class="stat-row">
       <div class="stat-item"><div class="num">{{ data.productCount || 0 }}</div><div class="lbl">商品总数</div></div>
@@ -30,7 +36,9 @@
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { getDlProductAnalysis } from '@/api/digital-label'
+import { useDlAdmin } from '@/composables/useDlAdmin'
 
+const { isAdmin, entFilter, enterprises } = useDlAdmin()
 const loading = ref(false)
 const days = ref(30)
 const data = ref<any>({})
@@ -40,7 +48,7 @@ let trendChart: echarts.ECharts | null = null
 async function loadData() {
   loading.value = true
   try {
-    const res = await getDlProductAnalysis(days.value)
+    const res = await getDlProductAnalysis(days.value, entFilter.value)
     data.value = res.data || {}
     await nextTick()
     renderChart()

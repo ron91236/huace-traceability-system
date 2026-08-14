@@ -3,11 +3,15 @@
     <!-- 顶部操作 -->
     <el-card class="mb-card">
       <div class="dash-actions">
-        <el-button type="primary" @click="$router.push('/enterprise/dl/products')">
+        <el-select v-if="isAdmin" v-model="entFilter" placeholder="全部企业" clearable
+          style="width:220px" @change="loadData">
+          <el-option v-for="e in enterprises" :key="e.id" :label="e.name" :value="e.id" />
+        </el-select>
+        <el-button v-if="!isAdmin" type="primary" @click="$router.push('/dl/products')">
           <el-icon><Plus /></el-icon>创建数字标签
         </el-button>
-        <el-button @click="$router.push('/enterprise/dl/products')">查看版本</el-button>
-        <el-button @click="$router.push('/enterprise/dl/analysis/scan')">扫码分析</el-button>
+        <el-button @click="$router.push('/dl/products')">{{ isAdmin ? '商品管理' : '查看版本' }}</el-button>
+        <el-button @click="$router.push('/dl/analysis/scan')">扫码分析</el-button>
       </div>
     </el-card>
 
@@ -70,7 +74,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
-import { getDlDashboard, recordDlLogin } from '@/api/digital-label'
+import { getDlDashboard } from '@/api/digital-label'
+import { useDlAdmin } from '@/composables/useDlAdmin'
+
+const { isAdmin, entFilter, enterprises } = useDlAdmin()
 
 const data = ref<any>({})
 const trendDays = ref(7)
@@ -83,7 +90,7 @@ let topChart: echarts.ECharts | null = null
 
 async function loadData() {
   try {
-    const res = await getDlDashboard(trendDays.value)
+    const res = await getDlDashboard(trendDays.value, entFilter.value)
     data.value = res.data || {}
     await nextTick()
     renderCharts()
@@ -140,7 +147,6 @@ function handleResize() {
 }
 
 onMounted(() => {
-  recordDlLogin().catch(() => {})
   loadData()
   window.addEventListener('resize', handleResize)
 })
