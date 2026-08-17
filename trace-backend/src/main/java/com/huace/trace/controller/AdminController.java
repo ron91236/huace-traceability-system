@@ -1223,4 +1223,17 @@ public class AdminController {
         String qrCode = posterService.getQrCode(id);
         return Result.ok(Map.of("qrCode", qrCode, "posterUrl", poster.getPosterUrl()));
     }
+
+    /** 读取海报HTML内容（后台在线编辑用） */
+    @GetMapping("/posters/{id}/html")
+    public Result<Map<String, Object>> getPosterHtml(@PathVariable Long id) {
+        return Result.ok(Map.of("content", posterService.getHtml(id)));
+    }
+
+    /** 覆写海报HTML内容：slug不变，访问链接与二维码保持不变 */
+    @PutMapping("/posters/{id}/html")
+    public Result<Void> updatePosterHtml(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        posterService.updateHtml(id, body.get("content"));
+        return Result.ok();
+    }
 }

@@ -202,3 +202,5 @@ export const uploadPoster = (file: File, title?: string) => {
 export const updatePoster = (id: number, data: any) => request.put(`/admin/posters/${id}`, data)
 export const deletePoster = (id: number) => request.delete(`/admin/posters/${id}`)
 export const getPosterQrcode = (id: number) => request.get(`/admin/posters/${id}/qrcode`)
+export const getPosterHtml = (id: number) => request.get(`/admin/posters/${id}/html`)
+export const updatePosterHtml = (id: number, content: string) => request.put(`/admin/posters/${id}/html`, { content })

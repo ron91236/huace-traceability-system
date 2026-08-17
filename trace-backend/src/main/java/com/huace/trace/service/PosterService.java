@@ -100,6 +100,33 @@ public class PosterService {
         return null;
     }
 
+    /** 读取海报HTML内容（后台编辑用） */
+    public String getHtml(Long id) {
+        Poster poster = posterMapper.selectById(id);
+        if (poster == null) throw new BusinessException("海报不存在");
+        try {
+            return Files.readString(Paths.get(uploadDir, poster.getFilePath()));
+        } catch (Exception e) {
+            throw new BusinessException("读取海报内容失败");
+        }
+    }
+
+    /** 覆写海报HTML内容：slug与文件路径不变，访问链接与二维码保持不变 */
+    public void updateHtml(Long id, String content) {
+        Poster poster = posterMapper.selectById(id);
+        if (poster == null) throw new BusinessException("海报不存在");
+        if (content == null || content.isBlank()) throw new BusinessException("HTML内容不能为空");
+        try {
+            Path filePath = Paths.get(uploadDir, poster.getFilePath());
+            Files.createDirectories(filePath.getParent());
+            Files.writeString(filePath, content);
+        } catch (IOException e) {
+            throw new BusinessException("保存海报内容失败");
+        }
+        poster.setUpdatedAt(java.time.LocalDateTime.now());
+        posterMapper.updateById(poster);
+    }
+
     public Poster getById(Long id) {
         Poster poster = posterMapper.selectById(id);
         if (poster != null) fillUrl(poster);
