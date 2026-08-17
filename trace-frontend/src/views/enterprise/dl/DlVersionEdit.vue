@@ -1,5 +1,6 @@
 <template>
-  <div class="page-container dl-version-edit" :class="{ readonly: isAdmin }" v-loading="loading">
+  <div class="page-container dl-version-edit" :class="{ readonly: isAdmin }" v-loading="loading"
+    @keydown.capture="blockEdit" @paste.capture="blockEdit" @drop.capture="blockEdit" @compositionstart.capture="blockEdit">
     <!-- 管理员只读提示 -->
     <el-alert v-if="isAdmin" title="管理员只读模式：仅可查看标签内容，不可修改" type="warning" :closable="false" show-icon style="margin-bottom:16px" />
     <!-- 基础信息 -->
@@ -444,6 +445,13 @@ onMounted(async () => {
     categoryTree.value = res.data || []
   } catch (e) {}
 })
+
+/** 管理员只读：阻断键盘/粘贴/拖拽/输入法对表单字段的修改 */
+function blockEdit(e: Event) {
+  if (!isAdmin.value) return
+  const t = e.target as HTMLElement
+  if (t && /^(INPUT|TEXTAREA)$/.test(t.tagName)) e.preventDefault()
+}
 </script>
 
 <style scoped lang="scss">
