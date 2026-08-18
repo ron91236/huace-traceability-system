@@ -21,6 +21,10 @@
             <el-icon><Medal /></el-icon>
             <span>企业认证</span>
           </el-menu-item>
+          <el-menu-item index="/enterprise/profile">
+            <el-icon><OfficeBuilding /></el-icon>
+            <span>企业信息</span>
+          </el-menu-item>
           <el-menu-item index="/enterprise/base">
             <el-icon><Location /></el-icon>
             <span>基地管理</span>

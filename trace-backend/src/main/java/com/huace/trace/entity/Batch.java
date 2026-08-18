@@ -6,6 +6,7 @@ import com.huace.trace.common.BaseEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -35,4 +36,6 @@ public class Batch extends BaseEntity {
     private String enterpriseName;
     @TableField(exist = false)
     private String testReportName;
+    @TableField(exist = false)
+    private List<Long> testReportIds;
 }

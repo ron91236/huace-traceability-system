@@ -2,6 +2,7 @@ package com.huace.trace.controller;
 
 import com.huace.trace.common.PageResult;
 import com.huace.trace.common.Result;
+import com.huace.trace.common.BusinessException;
 import com.huace.trace.entity.*;
 import com.huace.trace.mapper.EnterpriseMapper;
 import com.huace.trace.mapper.TraceTemplateMapper;
@@ -54,6 +55,49 @@ public class EnterpriseController {
             return enterpriseGroupService.getGroupEnterpriseIds(eid);
         }
         return List.of(eid);
+    }
+
+    // ==================== 企业信息 ====================
+    @GetMapping("/profile")
+    public Result<Enterprise> getProfile(@AuthenticationPrincipal UserPrincipal principal) {
+        Enterprise ent = enterpriseMapper.selectById(principal.getUserId());
+        if (ent == null) throw new BusinessException("企业不存在");
+        // 隐藏敏感字段
+        ent.setLoginPasswordHash(null);
+        ent.setLoginPassword(null);
+        ent.setLoginAccount(null);
+        ent.setStatus(null);
+        ent.setAssignedTemplateIds(null);
+        return Result.ok(ent);
+    }
+
+    @PutMapping("/profile")
+    public Result<Void> updateProfile(@RequestBody Enterprise body,
+                                       @AuthenticationPrincipal UserPrincipal principal) {
+        Long eid = principal.getUserId();
+        enterpriseMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Enterprise>()
+                .eq(Enterprise::getId, eid)
+                .set(Enterprise::getName, body.getName())
+                .set(Enterprise::getNature, body.getNature())
+                .set(Enterprise::getIndustry, body.getIndustry())
+                .set(Enterprise::getContact, body.getContact())
+                .set(Enterprise::getPhone, body.getPhone())
+                .set(Enterprise::getEmail, body.getEmail())
+                .set(Enterprise::getCreditCode, body.getCreditCode())
+                .set(Enterprise::getProvince, body.getProvince())
+                .set(Enterprise::getCity, body.getCity())
+                .set(Enterprise::getDistrict, body.getDistrict())
+                .set(Enterprise::getAddress, body.getAddress())
+                .set(Enterprise::getZipcode, body.getZipcode())
+                .set(Enterprise::getIntroduction, body.getIntroduction())
+                .set(Enterprise::getEnterpriseImage, body.getEnterpriseImage())
+                .set(Enterprise::getLicenseImage, body.getLicenseImage())
+                .set(Enterprise::getHonors, body.getHonors())
+                .set(Enterprise::getQualifications, body.getQualifications())
+                .set(Enterprise::getMainType, body.getMainType())
+                .set(Enterprise::getPromoVideo, body.getPromoVideo())
+                .set(Enterprise::getStandardSystem, body.getStandardSystem()));
+        return Result.ok();
     }
 
     // ==================== 企业认证（只读） ====================
@@ -113,6 +157,13 @@ public class EnterpriseController {
     public Result<Void> deleteGoods(@PathVariable Long id,
                                      @AuthenticationPrincipal UserPrincipal principal) {
         goodsService.delete(id, principal.getUserId());
+        return Result.ok();
+    }
+
+    @PostMapping("/goods/{id}/copy")
+    public Result<Void> copyGoods(@PathVariable Long id,
+                                   @AuthenticationPrincipal UserPrincipal principal) {
+        goodsService.copy(id, principal.getUserId());
         return Result.ok();
     }
 
@@ -176,6 +227,13 @@ public class EnterpriseController {
     public Result<String> getBatchQrcode(@PathVariable Long id,
                                           @AuthenticationPrincipal UserPrincipal principal) {
         return Result.ok(batchService.generateQrcode(id, principal.getUserId()));
+    }
+
+    @PostMapping("/batches/{id}/copy")
+    public Result<Void> copyBatch(@PathVariable Long id,
+                                   @AuthenticationPrincipal UserPrincipal principal) {
+        batchService.copy(id, principal.getUserId());
+        return Result.ok();
     }
 
     // ==================== 订单管理 ====================

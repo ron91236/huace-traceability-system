@@ -64,4 +64,27 @@ public class GoodsService {
         if (!existing.getEnterpriseId().equals(enterpriseId)) throw new BusinessException("无权限操作");
         goodsMapper.deleteById(id);
     }
+
+    /** 复制商品（名称加“（副本）”后缀） */
+    public Goods copy(Long id, Long enterpriseId) {
+        Goods existing = goodsMapper.selectById(id);
+        if (existing == null) throw new BusinessException("商品不存在");
+        if (!existing.getEnterpriseId().equals(enterpriseId)) throw new BusinessException("无权限操作");
+        Goods ng = new Goods();
+        ng.setName(existing.getName() + "（副本）");
+        ng.setProductId(existing.getProductId());
+        ng.setEnterpriseId(existing.getEnterpriseId());
+        ng.setPackageSpec(existing.getPackageSpec());
+        ng.setShowOuterPackage(existing.getShowOuterPackage());
+        ng.setWeightSpec(existing.getWeightSpec());
+        ng.setSampleImage(existing.getSampleImage());
+        ng.setIntroduction(existing.getIntroduction());
+        ng.setStorageMethod(existing.getStorageMethod());
+        ng.setEatingMethod(existing.getEatingMethod());
+        ng.setPromoImage(existing.getPromoImage());
+        ng.setPromoVideo(existing.getPromoVideo());
+        ng.setTraceTemplateId(existing.getTraceTemplateId());
+        goodsMapper.insert(ng);
+        return ng;
+    }
 }

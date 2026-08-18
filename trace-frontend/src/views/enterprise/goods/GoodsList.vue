@@ -32,9 +32,10 @@
         <el-table-column prop="packageSpec" label="包装规格" width="100" />
         <el-table-column prop="weightSpec" label="重量规格" width="100" />
         <el-table-column prop="createdAt" label="创建时间" width="170" />
-        <el-table-column label="操作" width="180">
+        <el-table-column label="操作" width="230">
           <template #default="{ row }">
             <el-button size="small" @click="openForm(row)">编辑</el-button>
+            <el-button size="small" type="primary" @click="handleCopy(row)">复制</el-button>
             <el-popconfirm title="确认删除?" @confirm="handleDelete(row.id)">
               <template #reference><el-button size="small" type="danger">删除</el-button></template>
             </el-popconfirm>
@@ -117,7 +118,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getGoods, createGoods, updateGoods, deleteGoods, getAssignedTemplates } from '@/api/enterprise'
+import { getGoods, createGoods, updateGoods, deleteGoods, copyGoods, getAssignedTemplates } from '@/api/enterprise'
 import { getProductOptions, uploadFile } from '@/api/common'
 
 const loading = ref(false)
@@ -214,4 +215,10 @@ async function handleSubmit() {
 }
 
 async function handleDelete(id: number) { await deleteGoods(id); ElMessage.success('删除成功'); loadData() }
+
+async function handleCopy(row: any) {
+  await copyGoods(row.id)
+  ElMessage.success('复制成功')
+  loadData()
+}
 </script>

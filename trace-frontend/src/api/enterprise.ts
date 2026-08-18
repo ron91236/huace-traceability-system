@@ -1,5 +1,9 @@
 import request from './request'
 
+// 企业信息
+export const getEnterpriseProfile = () => request.get('/enterprise/profile')
+export const updateEnterpriseProfile = (data: any) => request.put('/enterprise/profile', data)
+
 // 企业认证（只读）
 export const getEnterpriseCerts = (params: any) => request.get('/enterprise/certs', { params })
 
@@ -12,6 +16,7 @@ export const getGoods = (params: any) => request.get('/enterprise/goods', { para
 export const createGoods = (data: any) => request.post('/enterprise/goods', data)
 export const updateGoods = (id: number, data: any) => request.put(`/enterprise/goods/${id}`, data)
 export const deleteGoods = (id: number) => request.delete(`/enterprise/goods/${id}`)
+export const copyGoods = (id: number) => request.post(`/enterprise/goods/${id}/copy`)
 
 // 收货地址
 export const getAddresses = (params: any) => request.get('/enterprise/addresses', { params })
@@ -24,6 +29,7 @@ export const getBatches = (params: any) => request.get('/enterprise/batches', { 
 export const createBatch = (data: any) => request.post('/enterprise/batches', data)
 export const updateBatch = (id: number, data: any) => request.put(`/enterprise/batches/${id}`, data)
 export const getBatchQrcode = (id: number) => request.get(`/enterprise/batches/${id}/qrcode`)
+export const copyBatch = (id: number) => request.post(`/enterprise/batches/${id}/copy`)
 
 // 订单管理
 export const getOrders = (params: any) => request.get('/enterprise/orders', { params })

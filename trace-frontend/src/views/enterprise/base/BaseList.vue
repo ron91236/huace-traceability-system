@@ -45,7 +45,7 @@ const loading = ref(false)
 const list = ref<any[]>([])
 const keyword = ref('')
 const dialogVisible = ref(false)
-const form = reactive<any>({})
+const form = reactive<any>({ name: '', manager: '', phone: '', certification: '' })
 const editId = ref(0)
 
 onMounted(() => loadData())
@@ -55,7 +55,14 @@ async function loadData() {
   try { const res = await getBases({ keyword: keyword.value, page: 1, size: 100 }); list.value = res.data?.list || [] } finally { loading.value = false }
 }
 
-function openEdit(row: any) { editId.value = row.id; Object.keys(form).forEach(k => { form[k] = row[k] }); dialogVisible.value = true }
+function openEdit(row: any) {
+  editId.value = row.id
+  form.name = row.name || ''
+  form.manager = row.manager || ''
+  form.phone = row.phone || ''
+  form.certification = row.certification || ''
+  dialogVisible.value = true
+}
 
 async function handleSave() {
   await updateBase(editId.value, form)

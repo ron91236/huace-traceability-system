@@ -7,6 +7,8 @@
         <el-table-column prop="specName" label="标签规格" width="120" />
         <el-table-column prop="productName" label="产品名称" />
         <el-table-column prop="traceTemplate" label="溯源模板" width="120" />
+        <el-table-column prop="serialStart" label="起始身份码" width="140" />
+        <el-table-column prop="serialEnd" label="结束身份码" width="140" />
         <el-table-column prop="quantity" label="数量" width="80" />
         <el-table-column label="退订" width="80">
           <template #default="{ row }"><el-tag :type="row.isUnsubscribed ? 'danger' : 'info'" size="small">{{ row.isUnsubscribed ? '是' : '否' }}</el-tag></template>

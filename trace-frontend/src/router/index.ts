@@ -31,6 +31,7 @@ const adminRoutes: RouteRecordRaw[] = [
 const enterpriseRoutes: RouteRecordRaw[] = [
   { path: 'dashboard', name: 'EntDashboard', component: () => import('@/views/enterprise/DashboardView.vue'), meta: { title: '控制台' } },
   { path: 'cert', name: 'EntCert', component: () => import('@/views/enterprise/cert/CertView.vue'), meta: { title: '企业认证' } },
+  { path: 'profile', name: 'EntProfile', component: () => import('@/views/enterprise/profile/ProfileEdit.vue'), meta: { title: '企业信息' } },
   { path: 'base', name: 'EntBase', component: () => import('@/views/enterprise/base/BaseList.vue'), meta: { title: '基地管理' } },
   { path: 'goods', name: 'EntGoods', component: () => import('@/views/enterprise/goods/GoodsList.vue'), meta: { title: '商品管理' } },
   { path: 'address', name: 'EntAddress', component: () => import('@/views/enterprise/address/AddressList.vue'), meta: { title: '收货地址' } },

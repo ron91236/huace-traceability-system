@@ -16,9 +16,10 @@
           <template #default="{ row }">{{ row.testReportName || '-' }}</template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" width="170" />
-        <el-table-column label="操作" width="180">
+        <el-table-column label="操作" width="240">
           <template #default="{ row }">
             <el-button size="small" @click="openForm(row)">编辑</el-button>
+            <el-button size="small" type="primary" @click="handleCopy(row)">复制</el-button>
             <el-button size="small" type="success" @click="showQrcode(row)">二维码</el-button>
           </template>
         </el-table-column>
@@ -36,7 +37,7 @@
           <el-col :span="12"><el-form-item label="所属基地"><el-select v-model="form.baseId" filterable style="width:100%"><el-option v-for="b in bases" :key="b.id" :label="b.name" :value="b.id" /></el-select></el-form-item></el-col>
           <el-col :span="24">
             <el-form-item label="检测报告">
-              <el-select v-model="form.testReportId" filterable clearable placeholder="选择检测报告" style="width:100%">
+              <el-select v-model="form.testReportIds" multiple filterable clearable placeholder="可多选检测报告" style="width:100%">
                 <el-option v-for="r in testReports" :key="r.id" :label="r.reportName" :value="r.id" />
               </el-select>
             </el-form-item>
@@ -57,7 +58,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getBatches, createBatch, updateBatch, getBatchQrcode, getGoods, getBases, getAllTestReports } from '@/api/enterprise'
+import { getBatches, createBatch, updateBatch, getBatchQrcode, copyBatch, getGoods, getBases, getAllTestReports } from '@/api/enterprise'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -75,7 +76,7 @@ const goodsList = ref<any[]>([])
 const bases = ref<any[]>([])
 const testReports = ref<any[]>([])
 
-const form = reactive<any>({ name: '', goodsId: null, goodsSpec: '', baseId: null, testReportId: null })
+const form = reactive<any>({ name: '', goodsId: null, goodsSpec: '', baseId: null, testReportIds: [] })
 
 onMounted(async () => {
   const [gRes, bRes, rRes] = await Promise.all([getGoods({ page: 1, size: 200 }), getBases({ page: 1, size: 200 }), getAllTestReports()])
@@ -84,7 +85,20 @@ onMounted(async () => {
 })
 
 async function loadData() { loading.value = true; try { const res = await getBatches({ page: page.value, size: size.value, keyword: keyword.value }); list.value = res.data?.list || []; total.value = res.data?.total || 0 } finally { loading.value = false } }
-function openForm(row?: any) { editId.value = row?.id || null; form.name = row?.name || ''; form.goodsId = row?.goodsId || null; form.goodsSpec = row?.goodsSpec || ''; form.baseId = row?.baseId || null; form.testReportId = row?.testReportId || null; dialogVisible.value = true }
+function openForm(row?: any) {
+  editId.value = row?.id || null
+  form.name = row?.name || ''
+  form.goodsId = row?.goodsId || null
+  form.goodsSpec = row?.goodsSpec || ''
+  form.baseId = row?.baseId || null
+  form.testReportIds = row?.testReportIds || (row?.testReportId ? [row.testReportId] : [])
+  dialogVisible.value = true
+}
+async function handleCopy(row: any) {
+  await copyBatch(row.id)
+  ElMessage.success('复制成功')
+  loadData()
+}
 async function handleSubmit() {
   const valid = await formRef.value?.validate().catch(() => false); if (!valid) return; submitting.value = true
   try { if (editId.value) await updateBatch(editId.value, form); else await createBatch(form); ElMessage.success('保存成功'); dialogVisible.value = false; loadData() } finally { submitting.value = false }

@@ -143,6 +143,7 @@ async function handleSubmit() {
   if (!valid) return
   submitting.value = true
   try {
+    if (form.price != null) form.price = Math.round(Number(form.price) * 100) / 100
     if (editId.value) await updateLabelSpec(editId.value, form)
     else await createLabelSpec(form)
     ElMessage.success(editId.value ? '编辑成功' : '新增成功')

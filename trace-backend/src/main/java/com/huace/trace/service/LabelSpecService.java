@@ -8,6 +8,8 @@ import com.huace.trace.mapper.LabelSpecMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @Service
@@ -29,7 +31,22 @@ public class LabelSpecService {
     }
 
     public LabelSpec getById(Long id) { return labelSpecMapper.selectById(id); }
-    public void create(LabelSpec s) { labelSpecMapper.insert(s); }
-    public void update(Long id, LabelSpec s) { s.setId(id); labelSpecMapper.updateById(s); }
+
+    public void create(LabelSpec s) {
+        s.setPrice(roundPrice(s.getPrice()));
+        labelSpecMapper.insert(s);
+    }
+
+    public void update(Long id, LabelSpec s) {
+        s.setId(id);
+        s.setPrice(roundPrice(s.getPrice()));
+        labelSpecMapper.updateById(s);
+    }
+
     public void delete(Long id) { labelSpecMapper.deleteById(id); }
+
+    /** 价格统一保留两位小数，四舍五入（如 0.035 -> 0.04） */
+    private BigDecimal roundPrice(BigDecimal p) {
+        return p == null ? null : p.setScale(2, RoundingMode.HALF_UP);
+    }
 }

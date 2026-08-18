@@ -67,6 +67,7 @@ public class AdminController {
     private final EnterpriseCertMapper enterpriseCertMapper;
     private final EnterpriseMapper enterpriseMapper;
     private final GoodsMapper goodsMapper;
+    private final ProductMapper productMapper;
     private final AddressMapper addressMapper;
     private final VrPanoramaService vrPanoramaService;
     private final PosterService posterService;
@@ -369,7 +370,14 @@ public class AdminController {
                     }
                     if (oi.getGoodsId() != null) {
                         Goods g = goodsMapper.selectById(oi.getGoodsId());
-                        if (g != null) { dto.setProductDescription(g.getIntroduction()); dto.setPackageSpec(g.getPackageSpec()); dto.setWeightSpec(g.getWeightSpec()); }
+                        if (g != null) {
+                            dto.setPackageSpec(g.getPackageSpec());
+                            dto.setWeightSpec(g.getWeightSpec());
+                            if (g.getProductId() != null) {
+                                Product p = productMapper.selectById(g.getProductId());
+                                if (p != null) dto.setProductName(p.getName());
+                            }
+                        }
                     }
                     exportList.add(dto);
                 }
@@ -401,7 +409,7 @@ public class AdminController {
                             dto.setTotalPrice(oi.getTotalPrice() != null ? oi.getTotalPrice().toPlainString() : "");
                             if (oi.getGoodsId() != null) {
                                 Goods g = goodsMapper.selectById(oi.getGoodsId());
-                                if (g != null) { dto.setProductDescription(g.getIntroduction()); dto.setPackageSpec(g.getPackageSpec()); dto.setWeightSpec(g.getWeightSpec()); }
+                                if (g != null) { dto.setPackageSpec(g.getPackageSpec()); dto.setWeightSpec(g.getWeightSpec()); }
                             }
                         });
                     }

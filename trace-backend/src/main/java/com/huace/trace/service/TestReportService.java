@@ -103,6 +103,13 @@ public class TestReportService {
                         .eq(BatchTestReport::getTestReportId, reportId));
     }
 
+    /** 解绑批次下的全部报告 */
+    public void unbindAllFromBatch(Long batchId) {
+        batchTestReportMapper.delete(
+                new LambdaQueryWrapper<BatchTestReport>()
+                        .eq(BatchTestReport::getBatchId, batchId));
+    }
+
     // ==================== 构建报告信息Map ====================
 
     public Map<String, Object> buildReportInfo(TestReport report) {

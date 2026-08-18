@@ -10,7 +10,9 @@
       <el-table :data="list" v-loading="loading" border stripe>
         <el-table-column prop="title" label="标题" min-width="200" />
         <el-table-column prop="content" label="内容" />
-        <el-table-column prop="createdAt" label="创建时间" width="170" />
+        <el-table-column label="发布时间" width="170">
+          <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
+        </el-table-column>
       </el-table>
       <div class="pagination-wrap">
         <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total" layout="total, prev, pager, next" @change="loadData" />
@@ -29,5 +31,6 @@ const page = ref(1)
 const size = ref(20)
 const keyword = ref('')
 onMounted(() => loadData())
+function formatTime(t: string) { if (!t) return ''; return t.replace('T', ' ').substring(0, 19) }
 async function loadData() { loading.value = true; try { const res = await getNotices({ page: page.value, size: size.value, keyword: keyword.value }); list.value = res.data?.list || []; total.value = res.data?.total || 0 } finally { loading.value = false } }
 </script>

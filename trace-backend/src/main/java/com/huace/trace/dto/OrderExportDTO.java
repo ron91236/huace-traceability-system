@@ -22,10 +22,6 @@ public class OrderExportDTO {
     @ColumnWidth(16)
     private String productName;
 
-    @ExcelProperty("产品描述")
-    @ColumnWidth(20)
-    private String productDescription;
-
     @ExcelProperty("商品名称")
     @ColumnWidth(14)
     private String goodsName;
