@@ -31,6 +31,7 @@ public class OrderService {
     private final BatchMapper batchMapper;
     private final GoodsMapper goodsMapper;
     private final CertProductService certProductService;
+    private final TraceTemplateMapper traceTemplateMapper;
 
     public PageResult<Order> list(int page, int size, String keyword, Long enterpriseId, String status) {
         LambdaQueryWrapper<Order> w = new LambdaQueryWrapper<>();
@@ -226,6 +227,14 @@ public class OrderService {
                                 if (g != null) code.setProductDescription(g.getIntroduction());
                             }
                         });
+            }
+            // 填充溯源模板名称
+            if (code.getTraceTemplate() != null) {
+                TraceTemplate tt = traceTemplateMapper.selectOne(
+                        new LambdaQueryWrapper<TraceTemplate>()
+                                .eq(TraceTemplate::getTemplateKey, code.getTraceTemplate())
+                                .last("LIMIT 1"));
+                if (tt != null) code.setTemplateName(tt.getTemplateName());
             }
         });
         return codes;

@@ -66,7 +66,9 @@
             <el-table-column prop="productionTime" label="生产时间" width="160">
               <template #default="{ row }">{{ row.productionTime || '-' }}</template>
             </el-table-column>
-            <el-table-column prop="traceTemplate" label="溯源模板" width="100" />
+            <el-table-column prop="traceTemplate" label="溯源模板" width="100">
+              <template #default="{ row }">{{ row.templateName || '-' }}</template>
+            </el-table-column>
             <el-table-column label="预览码" width="80">
               <template #default="{ row }">
                 <el-button type="success" link size="small" @click="showPreviewQrcode(row)">预览</el-button>

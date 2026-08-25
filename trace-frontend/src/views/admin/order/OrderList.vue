@@ -58,7 +58,9 @@
                   <el-table-column prop="productionTime" label="生产时间" width="160">
                     <template #default="{ row: oc }">{{ oc.productionTime || '-' }}</template>
                   </el-table-column>
-                  <el-table-column prop="traceTemplate" label="溯源模板" width="100" />
+                  <el-table-column prop="traceTemplate" label="溯源模板" width="100">
+                    <template #default="{ row: oc }">{{ oc.templateName || '-' }}</template>
+                  </el-table-column>
                   <el-table-column label="预览码" width="80">
                     <template #default="{ row: oc }">
                       <el-button type="success" link size="small" @click="showPreviewQrcode(oc)">预览</el-button>
@@ -66,8 +68,8 @@
                   </el-table-column>
                   <el-table-column label="操作" width="80" fixed="right">
                     <template #default="{ row: oc }">
-                      <el-popconfirm title="确认删除?" @confirm="handleDeleteCode(oc.id, row)">
-                        <template #reference><el-button type="danger" link size="small">删除</el-button></template>
+                      <el-popconfirm title="确认解绑该码段？解绑后码段内的条码将失效并释放回条码库" @confirm="handleDeleteCode(oc.id, row)">
+                        <template #reference><el-button type="danger" link size="small">解绑</el-button></template>
                       </el-popconfirm>
                     </template>
                   </el-table-column>
@@ -396,10 +398,12 @@ async function handleBindCode() {
 async function handleDeleteCode(codeId: number, row: any) {
   try {
     await deleteOrderCode(codeId)
-    ElMessage.success('已删除')
+    ElMessage.success('解绑成功')
     const codeRes = await getOrderCodes(row.id)
     row._orderCodes = codeRes.data || []
-  } catch { ElMessage.error('删除失败') }
+    // 同步刷新订单列表，更新绑定数量统计
+    await loadData()
+  } catch { ElMessage.error('解绑失败') }
 }
 
 async function showPreviewQrcode(oc: any) {
