@@ -45,6 +45,7 @@ public class EnterpriseController {
     private final TraceTemplateMapper traceTemplateMapper;
     private final LabelSpecMapper labelSpecMapper;
     private final EnterpriseCertMapper enterpriseCertMapper;
+    private final TracePageService tracePageService;
 
     /**
      * 解析企业ID列表 — 支持集团母账号聚合查看
@@ -97,6 +98,8 @@ public class EnterpriseController {
                 .set(Enterprise::getMainType, body.getMainType())
                 .set(Enterprise::getPromoVideo, body.getPromoVideo())
                 .set(Enterprise::getStandardSystem, body.getStandardSystem()));
+        // 企业信息变更后清除溯源页缓存，保证已绑定溯源码展示最新数据
+        tracePageService.evictAllCache();
         return Result.ok();
     }
 

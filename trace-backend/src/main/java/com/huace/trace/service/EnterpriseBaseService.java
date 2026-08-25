@@ -17,6 +17,7 @@ import org.springframework.util.StringUtils;
 public class EnterpriseBaseService {
     private final EnterpriseBaseMapper baseMapper;
     private final EnterpriseMapper enterpriseMapper;
+    private final TracePageService tracePageService;
 
     public PageResult<EnterpriseBase> list(int page, int size, String keyword, Long enterpriseId) {
         LambdaQueryWrapper<EnterpriseBase> w = new LambdaQueryWrapper<>();
@@ -31,7 +32,7 @@ public class EnterpriseBaseService {
         return new PageResult<>(r.getRecords(), r.getTotal());
     }
 
-    public void create(EnterpriseBase b) { baseMapper.insert(b); }
+    public void create(EnterpriseBase b) { baseMapper.insert(b); tracePageService.evictAllCache(); }
 
     public void update(Long id, EnterpriseBase b, Long enterpriseId) {
         EnterpriseBase existing = baseMapper.selectById(id);
@@ -40,9 +41,11 @@ public class EnterpriseBaseService {
         b.setId(id);
         if (enterpriseId != null) b.setEnterpriseId(enterpriseId);
         baseMapper.updateById(b);
+        tracePageService.evictAllCache();
     }
 
     public void delete(Long id) {
         baseMapper.deleteById(id);
+        tracePageService.evictAllCache();
     }
 }

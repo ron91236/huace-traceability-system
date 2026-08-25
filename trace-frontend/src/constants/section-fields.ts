@@ -38,7 +38,8 @@ export const SECTION_FIELDS: Record<string, SectionDefinition> = {
     { field: 'enterprise.addressFull', label: '企业地址' }, { field: 'enterprise.contact', label: '联系人' },
     { field: 'enterprise.phone', label: '联系电话' }, { field: 'enterprise.creditCode', label: '信用代码' },
     { field: 'enterprise.licenseImage', label: '营业执照', type: 'image' }, { field: 'enterprise.enterpriseImage', label: '企业图片', type: 'image' },
-    { field: 'enterprise.honors', label: '荣誉资质', type: 'text' }, { field: 'enterprise.mainType', label: '主营类型' },
+    { field: 'enterprise.honors', label: '荣誉资质', type: 'rich-text' }, { field: 'enterprise.qualifications', label: '资质证书', type: 'rich-text' },
+    { field: 'enterprise.mainType', label: '主营类型' },
     { field: 'enterprise.promoVideo', label: '宣传视频', type: 'video' },
   ]},
   'product-info': { title: '产品信息', fields: [

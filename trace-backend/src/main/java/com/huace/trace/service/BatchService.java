@@ -25,6 +25,7 @@ public class BatchService {
     private final EnterpriseMapper enterpriseMapper;
     private final TestReportService testReportService;
     private final TestReportMapper testReportMapper;
+    private final TracePageService tracePageService;
 
     @Value("${app.base-url:http://localhost}")
     private String baseUrl;
@@ -68,6 +69,7 @@ public class BatchService {
     public void create(Batch b) {
         batchMapper.insert(b);
         syncTestReportBindings(b.getId(), b.getTestReportIds(), b.getTestReportId(), b.getEnterpriseId());
+        tracePageService.evictAllCache();
     }
 
     public void update(Long id, Batch b, Long enterpriseId) {
@@ -81,6 +83,7 @@ public class BatchService {
         if (b.getTestReportIds() != null) {
             syncTestReportBindings(id, b.getTestReportIds(), null, enterpriseId);
         }
+        tracePageService.evictAllCache();
     }
 
     /**

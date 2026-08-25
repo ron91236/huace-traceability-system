@@ -9,6 +9,7 @@ import com.huace.trace.entity.mongo.CodePackageItemMongo;
 import com.huace.trace.mapper.*;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
@@ -35,6 +36,16 @@ public class TracePageService {
     private final TestReportService testReportService;
     private final ObjectMapper objectMapper;
     private final MongoCodeItemService mongoCodeItemService;
+
+    /**
+     * 清除全部溯源页缓存。
+     * 企业信息、模板、商品、批次、证书、订单绑定等数据变更后调用，
+     * 确保已绑定的溯源链接扫码时展示最新数据。
+     */
+    @CacheEvict(value = "tracePage", allEntries = true)
+    public void evictAllCache() {
+        // 仅用于清空缓存，无实际逻辑
+    }
 
     /**
      * C端溯源查询 - 通过流水号查询完整溯源信息
@@ -103,6 +114,7 @@ public class TracePageService {
                 enterpriseInfo.put("licenseImage", enterprise.getLicenseImage());
                 enterpriseInfo.put("enterpriseImage", enterprise.getEnterpriseImage());
                 enterpriseInfo.put("honors", enterprise.getHonors());
+                enterpriseInfo.put("qualifications", enterprise.getQualifications());
                 enterpriseInfo.put("mainType", enterprise.getMainType());
                 enterpriseInfo.put("promoVideo", enterprise.getPromoVideo());
                 enterpriseInfo.put("standardSystem", enterprise.getStandardSystem());
@@ -277,6 +289,7 @@ public class TracePageService {
                 enterpriseInfo.put("licenseImage", enterprise.getLicenseImage());
                 enterpriseInfo.put("enterpriseImage", enterprise.getEnterpriseImage());
                 enterpriseInfo.put("honors", enterprise.getHonors());
+                enterpriseInfo.put("qualifications", enterprise.getQualifications());
                 enterpriseInfo.put("mainType", enterprise.getMainType());
                 result.put("enterprise", enterpriseInfo);
             }

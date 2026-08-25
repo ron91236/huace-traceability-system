@@ -45,6 +45,8 @@ public class OrderCode {
     @TableField(exist = false)
     private String certNo;
     @TableField(exist = false)
+    private String templateName;
+    @TableField(exist = false)
     private String goodsPackageSpec;
     @TableField(exist = false)
     private String goodsWeightSpec;

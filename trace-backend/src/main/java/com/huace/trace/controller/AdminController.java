@@ -1,6 +1,7 @@
 package com.huace.trace.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.huace.trace.common.PageResult;
 import com.huace.trace.common.Result;
@@ -48,6 +49,8 @@ public class AdminController {
     private final DashboardService dashboardService;
     private final CodeGenerationService codeGenerationService;
     private final CodeGenerationAsyncService codeGenerationAsyncService;
+    private final TracePageService tracePageService;
+    private final MongoCodeItemService mongoCodeItemService;
     private final VoidedCodeRangeService voidedCodeRangeService;
     private final CertProductService certProductService;
     private final TraceTemplateService traceTemplateService;
@@ -882,6 +885,8 @@ public class AdminController {
                     .apply("serial_no >= {0}", startStr)
                     .apply("serial_no <= {0}", endStr));
         }
+        // 绑定条码影响码包明细状态，清除溯源页缓存
+        tracePageService.evictAllCache();
         return Result.ok();
     }
 
@@ -911,9 +916,32 @@ public class AdminController {
         return Result.ok(result);
     }
 
+    /**
+     * 订单标签解绑：释放码包明细（MySQL + MongoDB 恢复未绑定），并删除订单码段记录
+     */
     @DeleteMapping("/order-codes/{id}")
     public Result<Void> deleteOrderCode(@PathVariable Long id) {
-        orderCodeMapper.deleteById(id);
+        OrderCode oc = orderCodeMapper.selectById(id);
+        if (oc != null) {
+            if (oc.getCodePackageId() != null) {
+                // MySQL 码包明细恢复为未绑定状态
+                codePackageItemMapper.update(null, new LambdaUpdateWrapper<CodePackageItem>()
+                        .eq(CodePackageItem::getPackageId, oc.getCodePackageId())
+                        .eq(CodePackageItem::getOrderCodeId, id)
+                        .set(CodePackageItem::getBindStatus, "UNBOUND")
+                        .set(CodePackageItem::getBindTime, null)
+                        .set(CodePackageItem::getOrderCodeId, null)
+                        .set(CodePackageItem::getEnterpriseId, null)
+                        .set(CodePackageItem::getGoodsId, null)
+                        .set(CodePackageItem::getCertId, null)
+                        .set(CodePackageItem::getBatchId, null)
+                        .set(CodePackageItem::getTraceTemplate, null));
+                // MongoDB 明细同步解绑（降级时自动跳过）
+                mongoCodeItemService.unbindByOrderCodeId(id);
+            }
+            orderCodeMapper.deleteById(id);
+            tracePageService.evictAllCache();
+        }
         return Result.ok();
     }
 
@@ -1135,6 +1163,14 @@ public class AdminController {
                         }
                     }
                 }
+            }
+            // 填充溯源模板名称
+            if (oc.getTraceTemplate() != null) {
+                TraceTemplate tt = traceTemplateMapper.selectOne(
+                        new LambdaQueryWrapper<TraceTemplate>()
+                                .eq(TraceTemplate::getTemplateKey, oc.getTraceTemplate())
+                                .last("LIMIT 1"));
+                if (tt != null) oc.setTemplateName(tt.getTemplateName());
             }
         });
         // 前端筛选

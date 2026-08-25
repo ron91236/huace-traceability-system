@@ -44,7 +44,7 @@
             <!-- 富文本 -->
             <div v-else-if="el.type === 'rich-text'" class="el-rich-text" :style="el.style || {}" v-html="DOMPurify.sanitize(el.content || '')"></div>
             <!-- 图片 -->
-            <el-image v-else-if="el.type === 'image' && el.src" :src="el.src" fit="cover" :style="{ width: el.style?.width || '100%', height: el.style?.height || 'auto', borderRadius: (el.style?.borderRadius || 0) + 'px', margin: el.style?.margin || '' }" :preview-src-list="[el.src]" />
+            <el-image v-else-if="el.type === 'image' && el.src" :src="el.src" fit="contain" :style="{ width: el.style?.width || '100%', height: el.style?.height || 'auto', borderRadius: (el.style?.borderRadius || 0) + 'px', margin: el.style?.margin || '' }" :preview-src-list="[el.src]" />
             <!-- 视频 -->
             <video v-else-if="el.type === 'video' && el.src" :src="el.src" :poster="el.poster" controls style="width:100%;border-radius:8px" />
             <!-- 分割线 -->
@@ -81,11 +81,11 @@
                     <template v-if="getImageList(field.field).length > 1">
                       <el-carousel :interval="4000" indicator-position="outside" height="200px" arrow="always">
                         <el-carousel-item v-for="(img, idx) in getImageList(field.field)" :key="idx">
-                          <el-image :src="img" fit="cover" style="width:100%;height:100%" :preview-src-list="getImageList(field.field)" :initial-index="idx" />
+                          <el-image :src="img" fit="contain" style="width:100%;height:100%" :preview-src-list="getImageList(field.field)" :initial-index="idx" />
                         </el-carousel-item>
                       </el-carousel>
                     </template>
-                    <el-image v-else-if="getImageList(field.field).length === 1" :src="getImageList(field.field)[0]" fit="cover" :preview-src-list="getImageList(field.field)" />
+                    <el-image v-else-if="getImageList(field.field).length === 1" :src="getImageList(field.field)[0]" fit="contain" style="width:100%;height:auto" :preview-src-list="getImageList(field.field)" />
                   </div>
                   <div v-else-if="field.type === 'video'" class="field-item field-item-block field-media">
                     <div class="field-label">{{ field.label }}</div>
@@ -103,6 +103,10 @@
                     <div class="field-label">{{ field.label }}</div>
                     <div class="field-value field-text">{{ getFieldValue(field.field) }}</div>
                   </div>
+                  <div v-else-if="field.type === 'rich-text'" class="field-item field-item-block">
+                    <div class="field-label">{{ field.label }}</div>
+                    <div class="field-value field-rich-text" v-html="DOMPurify.sanitize(String(getFieldValue(field.field) || ''))"></div>
+                  </div>
                   <div v-else class="field-item">
                     <span class="field-label">{{ field.label }}</span>
                     <span class="field-value">{{ getFieldValue(field.field) }}</span>
@@ -114,7 +118,7 @@
             <div v-else-if="el.type === 'custom-field' && getCustomFieldValue(el.fieldKey)" class="field-item" style="background:var(--trace-section-bg);border-radius:8px;padding:12px;margin-bottom:8px">
               <span class="field-label">{{ el.label }}：</span>
               <template v-if="el.fieldType === 'image'">
-                <el-image :src="getCustomFieldValue(el.fieldKey)" fit="cover" style="width:100%;max-width:300px;height:180px;border-radius:8px" />
+                <el-image :src="getCustomFieldValue(el.fieldKey)" fit="contain" style="width:100%;height:auto;max-width:100%;border-radius:8px" :preview-src-list="[getCustomFieldValue(el.fieldKey)]" />
               </template>
               <template v-else>
                 <span class="field-value">{{ getCustomFieldValue(el.fieldKey) }}</span>
@@ -174,7 +178,7 @@
             <div v-for="field in section.visibleFields" :key="field.field" class="field-item">
               <span class="field-label">{{ field.label }}：</span>
               <template v-if="field.type === 'image'">
-                <el-image :src="getFieldValue(field.field)" fit="cover" style="width:100%;max-width:300px;height:180px;border-radius:8px" :preview-src-list="[getFieldValue(field.field)]" />
+                <el-image :src="getFieldValue(field.field)" fit="contain" style="width:100%;height:auto;max-width:100%;border-radius:8px" :preview-src-list="[getFieldValue(field.field)]" />
               </template>
               <template v-else-if="field.type === 'file'">
                 <el-link v-if="getFieldValue(field.field)" :href="getFieldValue(field.field)" target="_blank" type="primary">查看文件</el-link>
@@ -185,6 +189,9 @@
               <template v-else-if="field.type === 'video'">
                 <video v-if="getFieldValue(field.field)" :src="getFieldValue(field.field)"
                   controls style="width:100%;max-width:400px;border-radius:8px" />
+              </template>
+              <template v-else-if="field.type === 'rich-text'">
+                <div class="field-value field-rich-text" v-html="DOMPurify.sanitize(String(getFieldValue(field.field) || ''))"></div>
               </template>
               <template v-else>
                 <span class="field-value">{{ getFieldValue(field.field) }}</span>
@@ -223,7 +230,7 @@
             <div v-for="cf in customFields" :key="cf.fieldKey" class="field-item">
               <span class="field-label">{{ cf.fieldLabel || cf.fieldKey }}：</span>
               <template v-if="cf.fieldType === 'image'">
-                <el-image v-if="cf.fieldValue" :src="cf.fieldValue" fit="cover" style="width:100%;max-width:300px;height:180px;border-radius:8px" :preview-src-list="[cf.fieldValue]" />
+                <el-image v-if="cf.fieldValue" :src="cf.fieldValue" fit="contain" style="width:100%;height:auto;max-width:100%;border-radius:8px" :preview-src-list="[cf.fieldValue]" />
               </template>
               <template v-else-if="cf.fieldType === 'file'">
                 <el-link v-if="cf.fieldValue" :href="cf.fieldValue" target="_blank" type="primary">查看文件</el-link>
@@ -1008,6 +1015,16 @@ onMounted(async () => {
       white-space: pre-wrap;
       word-break: break-word;
       overflow-wrap: break-word;
+    }
+
+    &.field-rich-text {
+      line-height: 1.7;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      :deep(p) { margin: 4px 0; }
+      :deep(img) { max-width: 100%; height: auto; border-radius: 4px; display: block; }
+      :deep(a) { color: var(--trace-link-color); }
+      :deep(ul), :deep(ol) { padding-left: 20px; margin: 4px 0; }
     }
   }
 

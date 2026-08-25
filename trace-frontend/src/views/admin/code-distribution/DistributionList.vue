@@ -20,7 +20,7 @@
             <div style="padding:12px 24px">
               <el-descriptions :column="3" border size="small">
                 <el-descriptions-item label="生产时间">{{ row.productionTime || '-' }}</el-descriptions-item>
-                <el-descriptions-item label="溯源码模板">{{ row.traceTemplate || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="溯源码模板">{{ row.templateName || row.traceTemplate || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="包装规格">{{ row.goodsPackageSpec || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="重量规格">{{ row.goodsWeightSpec || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="作废数">{{ row.wasteCount || 0 }}</el-descriptions-item>
@@ -49,6 +49,9 @@
         </el-table-column>
         <el-table-column prop="labelSpecName" label="标签规格" width="110">
           <template #default="{ row }">{{ row.labelSpecName || '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="templateName" label="溯源模板" min-width="120">
+          <template #default="{ row }">{{ row.templateName || row.traceTemplate || '-' }}</template>
         </el-table-column>
         <el-table-column prop="goodsPackageSpec" label="包装规格" width="90">
           <template #default="{ row }">{{ row.goodsPackageSpec || '-' }}</template>

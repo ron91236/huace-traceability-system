@@ -23,6 +23,7 @@ public class GoodsService {
     private final ProductMapper productMapper;
     private final EnterpriseMapper enterpriseMapper;
     private final TraceTemplateMapper traceTemplateMapper;
+    private final TracePageService tracePageService;
 
     public PageResult<Goods> list(int page, int size, String keyword, Long enterpriseId) {
         LambdaQueryWrapper<Goods> w = new LambdaQueryWrapper<>();
@@ -47,7 +48,7 @@ public class GoodsService {
         return new PageResult<>(r.getRecords(), r.getTotal());
     }
 
-    public void create(Goods g) { goodsMapper.insert(g); }
+    public void create(Goods g) { goodsMapper.insert(g); tracePageService.evictAllCache(); }
 
     public void update(Long id, Goods g, Long enterpriseId) {
         Goods existing = goodsMapper.selectById(id);
@@ -56,6 +57,7 @@ public class GoodsService {
         g.setId(id);
         g.setEnterpriseId(enterpriseId);
         goodsMapper.updateById(g);
+        tracePageService.evictAllCache();
     }
 
     public void delete(Long id, Long enterpriseId) {
@@ -63,6 +65,7 @@ public class GoodsService {
         if (existing == null) throw new BusinessException("商品不存在");
         if (!existing.getEnterpriseId().equals(enterpriseId)) throw new BusinessException("无权限操作");
         goodsMapper.deleteById(id);
+        tracePageService.evictAllCache();
     }
 
     /** 复制商品（名称加“（副本）”后缀） */

@@ -74,8 +74,8 @@
             </el-table-column>
             <el-table-column label="操作" width="80" fixed="right">
               <template #default="{ row }">
-                <el-popconfirm title="确认删除?" @confirm="handleDeleteCode(row.id)">
-                  <template #reference><el-button type="danger" link size="small">删除</el-button></template>
+                <el-popconfirm title="确认解绑该码段？解绑后码段内的条码将失效并释放回条码库" @confirm="handleUnbindCode(row.id)">
+                  <template #reference><el-button type="danger" link size="small">解绑</el-button></template>
                 </el-popconfirm>
               </template>
             </el-table-column>
@@ -300,15 +300,18 @@ async function handleBindCode() {
   }
 }
 
-async function handleDeleteCode(codeId: number) {
+async function handleUnbindCode(codeId: number) {
   try {
     await deleteOrderCode(codeId)
-    ElMessage.success('已删除')
+    ElMessage.success('解绑成功')
     const id = Number(route.params.id)
     const codeRes = await getOrderCodes(id)
     orderCodes.value = codeRes.data || []
+    // 解绑后重新拉取订单详情，同步绑定数量统计
+    const detailRes = await getAdminOrderDetail(id)
+    order.value = detailRes.data?.order || {}
   } catch (e) {
-    ElMessage.error('删除失败')
+    ElMessage.error('解绑失败')
   }
 }
 

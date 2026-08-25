@@ -105,6 +105,28 @@ public class MongoCodeItemService {
     }
 
     /**
+     * 解绑：将指定订单码段关联的 MongoDB 明细恢复为未绑定状态
+     */
+    public void unbindByOrderCodeId(Long orderCodeId) {
+        if (!isMongoAvailable()) return;
+        try {
+            Query query = new Query(Criteria.where("orderCodeId").is(orderCodeId));
+            Update update = new Update()
+                    .set("bindStatus", "UNBOUND")
+                    .unset("orderCodeId")
+                    .unset("bindTime")
+                    .unset("enterpriseId")
+                    .unset("goodsId")
+                    .unset("certId")
+                    .unset("batchId")
+                    .unset("traceTemplate");
+            mongoTemplate.updateMulti(query, update, CodePackageItemMongo.class);
+        } catch (DataAccessException e) {
+            log.warn("MongoDB 解绑 orderCodeId={} 失败: {}", orderCodeId, e.getMessage());
+        }
+    }
+
+    /**
      * 更新 MongoDB 中指定流水号的扫码次数
      */
     public void updateScanCount(String serialNo, Integer scanCount) {

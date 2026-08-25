@@ -27,6 +27,7 @@ public class TraceTemplateService {
     private final OrderCodeMapper orderCodeMapper;
     private final CodePackageItemMapper codePackageItemMapper;
     private final ObjectMapper objectMapper;
+    private final TracePageService tracePageService;
 
     public PageResult<TraceTemplate> list(int page, int size, String keyword) {
         LambdaQueryWrapper<TraceTemplate> w = new LambdaQueryWrapper<>();
@@ -42,6 +43,7 @@ public class TraceTemplateService {
         t.setTemplateKey("tpl_" + System.currentTimeMillis());
         if (t.getStatus() == null) t.setStatus(1);
         templateMapper.insert(t);
+        tracePageService.evictAllCache();
     }
 
     public void update(Long id, TraceTemplate t) {
@@ -50,6 +52,7 @@ public class TraceTemplateService {
         t.setId(id);
         t.setTemplateKey(existing.getTemplateKey()); // 不允许修改 key
         templateMapper.updateById(t);
+        tracePageService.evictAllCache();
     }
 
     public void delete(Long id) {
@@ -70,6 +73,7 @@ public class TraceTemplateService {
         }
 
         templateMapper.deleteById(id);
+        tracePageService.evictAllCache();
     }
 
     public TraceTemplate getById(Long id) {

@@ -28,8 +28,12 @@
         </el-row>
         <el-divider content-position="left">企业介绍与资质</el-divider>
         <el-form-item label="企业介绍"><el-input v-model="form.introduction" type="textarea" :rows="4" /></el-form-item>
-        <el-form-item label="荣誉资质"><el-input v-model="form.honors" type="textarea" :rows="2" /></el-form-item>
-        <el-form-item label="资质证书"><el-input v-model="form.qualifications" type="textarea" :rows="2" /></el-form-item>
+        <el-form-item label="荣誉资质">
+          <RichTextEditor v-model="form.honors" :upload-image="handleRichImageUpload" />
+        </el-form-item>
+        <el-form-item label="资质证书">
+          <RichTextEditor v-model="form.qualifications" :upload-image="handleRichImageUpload" />
+        </el-form-item>
         <el-form-item label="标准体系"><el-input v-model="form.standardSystem" type="textarea" :rows="2" /></el-form-item>
         <el-divider content-position="left">企业展示</el-divider>
         <el-form-item label="企业形象图">
@@ -85,6 +89,7 @@ import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { getEnterpriseProfile, updateEnterpriseProfile } from '@/api/enterprise'
 import { uploadFile } from '@/api/common'
+import RichTextEditor from '@/components/RichTextEditor.vue'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -106,6 +111,11 @@ const rules = {
   phone: [{ required: true, message: '请输入联系电话', trigger: 'blur' }],
 }
 
+async function handleRichImageUpload(file: File): Promise<string> {
+  const res = await uploadFile(file)
+  return res.data?.url || res.data || ''
+}
+
 function urlsToFileList(url: string) {
   if (!url) return []
   return [{ name: 'file', url }]
@@ -117,6 +127,9 @@ onMounted(async () => {
     const res = await getEnterpriseProfile()
     const d = res.data || {}
     Object.keys(form).forEach(k => { form[k] = d[k] ?? '' })
+    // 旧数据为纯文本时，包一层 <p> 便于富文本编辑器渲染
+    if (form.honors && !form.honors.trim().startsWith('<')) form.honors = `<p>${form.honors}</p>`
+    if (form.qualifications && !form.qualifications.trim().startsWith('<')) form.qualifications = `<p>${form.qualifications}</p>`
     enterpriseImageFileList.value = urlsToFileList(form.enterpriseImage)
     licenseImageFileList.value = urlsToFileList(form.licenseImage)
     promoVideoFileList.value = urlsToFileList(form.promoVideo)

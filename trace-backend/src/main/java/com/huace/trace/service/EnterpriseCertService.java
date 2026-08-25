@@ -28,6 +28,7 @@ public class EnterpriseCertService {
     private final EnterpriseMapper enterpriseMapper;
     private final CertTypeMapper certTypeMapper;
     private final LabelSpecMapper labelSpecMapper;
+    private final TracePageService tracePageService;
 
     public PageResult<EnterpriseCert> list(int page, int size, String keyword, Long enterpriseId) {
         LambdaQueryWrapper<EnterpriseCert> wrapper = new LambdaQueryWrapper<>();
@@ -61,11 +62,13 @@ public class EnterpriseCertService {
 
     public void create(EnterpriseCert cert) {
         certMapper.insert(cert);
+        tracePageService.evictAllCache();
     }
 
     public void update(Long id, EnterpriseCert cert) {
         cert.setId(id);
         certMapper.updateById(cert);
+        tracePageService.evictAllCache();
     }
 
     public EnterpriseCert getById(Long id) {
@@ -74,6 +77,7 @@ public class EnterpriseCertService {
 
     public void delete(Long id) {
         certMapper.deleteById(id);
+        tracePageService.evictAllCache();
     }
 
     public String generateQrcode(Long id) {
