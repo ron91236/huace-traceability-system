@@ -248,7 +248,7 @@ onMounted(async () => {
     codePackages.value = pkgRes.data || []
   } catch (e) {}
   try {
-    const tplRes = await getTraceTemplateOptions()
+    const tplRes = await getTraceTemplateOptions(order.value.enterpriseId)
     traceTemplates.value = tplRes.data || []
   } catch (e) {}
 })

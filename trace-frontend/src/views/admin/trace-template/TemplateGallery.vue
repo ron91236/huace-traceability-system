@@ -1,6 +1,6 @@
 <template>
   <el-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)"
-    title="模板画廊" width="900px" top="5vh" destroy-on-close>
+    title="模板画廊" width="900px" top="5vh" destroy-on-close :close-on-click-modal="false">
     <div class="gallery-filter">
       <el-radio-group v-model="filterLayout" size="small">
         <el-radio-button label="">全部</el-radio-button>

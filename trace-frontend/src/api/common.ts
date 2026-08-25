@@ -11,7 +11,7 @@ export const uploadFile = (file: File) => {
 export const getProductOptions = () => request.get('/common/products')
 export const getLabelSpecOptions = () => request.get('/common/label-specs')
 export const getCertTypeOptions = () => request.get('/common/cert-types')
-export const getTraceTemplateOptions = () => request.get('/common/trace-templates')
+export const getTraceTemplateOptions = (enterpriseId?: number) => request.get('/common/trace-templates', { params: { enterpriseId } })
 
 // 溯源查询（公开）
 export const getTraceInfo = (serialNo: string) => request.get(`/trace/${serialNo}`)

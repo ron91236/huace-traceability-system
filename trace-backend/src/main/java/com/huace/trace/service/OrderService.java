@@ -48,16 +48,16 @@ public class OrderService {
                 EnterpriseCert c = certMapper.selectById(o.getCertId());
                 if (c != null) o.setCertName(c.getCertName());
             }
-            // 计算条码统计
+            // 计算条码统计：订购标签数量 = 订单明细订购数量之和；绑定标签数量 = 已绑定码段绑定数之和
             List<OrderCode> codes = orderCodeMapper.selectList(
                     new LambdaQueryWrapper<OrderCode>().eq(OrderCode::getOrderId, o.getId()));
-            int totalBarcode = codes.stream().mapToInt(c -> c.getQuantity() != null ? c.getQuantity() : 0).sum();
             int allocatedBarcode = codes.stream().mapToInt(c -> c.getBindCount() != null ? c.getBindCount() : 0).sum();
-            o.setTotalBarcodeCount(totalBarcode);
             o.setAllocatedBarcodeCount(allocatedBarcode);
-            // 计算总价
+            // 计算总价与订购数量
             List<OrderItem> items = orderItemMapper.selectList(
                     new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, o.getId()));
+            int totalBarcode = items.stream().mapToInt(i -> i.getQuantity() != null ? i.getQuantity() : 0).sum();
+            o.setTotalBarcodeCount(totalBarcode);
             BigDecimal total = items.stream()
                     .map(i -> i.getTotalPrice() != null ? i.getTotalPrice() : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);

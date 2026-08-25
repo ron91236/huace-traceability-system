@@ -354,6 +354,11 @@ async function openBindDialog(row: any) {
   bindForm.value = { codePackageId: null, labelSpecId: null, serialStart: '', serialEnd: '', wasteCount: 0, productName: '', traceTemplate: '', productionTime: '', remark: '' }
   calcResult.value = { totalCount: 0, voidedCount: 0, bindCount: 0 }
   showBindDialog.value = true
+  // 按订单所属企业加载其被分配的溯源模板（未分配时后端返回全部）
+  try {
+    const r = await getTraceTemplateOptions(row.enterpriseId)
+    traceTemplates.value = r.data || []
+  } catch {}
   try {
     const res = await getLastSerial(row.id)
     if (res.data?.nextStart) bindForm.value.serialStart = String(res.data.nextStart)

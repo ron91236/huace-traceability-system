@@ -1,6 +1,6 @@
 <template>
   <el-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)"
-    :title="templateData?.id ? '编辑溯源模板' : '新增溯源模板'" width="1200px" top="2vh" destroy-on-close>
+    :title="templateData?.id ? '编辑溯源模板' : '新增溯源模板'" width="1200px" top="2vh" destroy-on-close :close-on-click-modal="false">
     <TemplateGallery v-model="galleryVisible" @select="applyGalleryItem" />
     <!-- 顶部：基本信息 -->
     <div class="top-bar">
