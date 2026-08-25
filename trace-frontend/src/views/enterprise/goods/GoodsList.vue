@@ -156,6 +156,8 @@ function openForm(row?: any) {
     if (k === 'packageSpecUnit') form[k] = row?.packageSpecUnit || ''
     else form[k] = row?.[k] ?? null
   })
+  // 重量规格统一以 kg 存储：编辑时剥离单位便于修改
+  if (form.weightSpec) form.weightSpec = String(form.weightSpec).replace(/kg$/i, '').trim()
   // Parse package spec unit if it matches a known unit
   if (form.packageSpec) {
     const unitMatch = form.packageSpec.match(/(g\/袋|kg\/袋|g\/盒|kg\/盒|g\/包|kg\/箱)$/)
@@ -206,6 +208,10 @@ async function handleSubmit() {
       submitData.packageSpec = (submitData.packageSpec || '') + submitData.packageSpecUnit
     }
     delete submitData.packageSpecUnit
+    // 重量规格统一以 kg 存储：纯数字时补上 kg 单位
+    if (submitData.weightSpec && /^\d+(\.\d+)?$/.test(String(submitData.weightSpec))) {
+      submitData.weightSpec = String(submitData.weightSpec) + 'kg'
+    }
     if (editId.value) await updateGoods(editId.value, submitData)
     else await createGoods(submitData)
     ElMessage.success(editId.value ? '编辑成功' : '新增成功')

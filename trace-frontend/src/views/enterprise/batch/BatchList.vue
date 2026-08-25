@@ -32,8 +32,8 @@
       <el-form ref="formRef" :model="form" :rules="{ name: [{ required: true, message: '请输入', trigger: 'blur' }] }" label-width="100px">
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="批次名称" prop="name"><el-input v-model="form.name" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="商品"><el-select v-model="form.goodsId" filterable style="width:100%"><el-option v-for="g in goodsList" :key="g.id" :label="g.name" :value="g.id" /></el-select></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="商品规格"><el-input v-model="form.goodsSpec" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="商品"><el-select v-model="form.goodsId" filterable style="width:100%" @change="handleGoodsChange"><el-option v-for="g in goodsList" :key="g.id" :label="g.name" :value="g.id" /></el-select></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="商品规格"><el-input v-model="form.goodsSpec" placeholder="如 500g/袋" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="所属基地"><el-select v-model="form.baseId" filterable style="width:100%"><el-option v-for="b in bases" :key="b.id" :label="b.name" :value="b.id" /></el-select></el-form-item></el-col>
           <el-col :span="24">
             <el-form-item label="检测报告">
@@ -93,6 +93,12 @@ function openForm(row?: any) {
   form.baseId = row?.baseId || null
   form.testReportIds = row?.testReportIds || (row?.testReportId ? [row.testReportId] : [])
   dialogVisible.value = true
+}
+
+// 选择商品后自动带出包装规格（含单位），避免商品规格缺失单位
+function handleGoodsChange(goodsId: any) {
+  const g = goodsList.value.find((x: any) => x.id === goodsId)
+  if (g?.packageSpec && !form.goodsSpec) form.goodsSpec = g.packageSpec
 }
 async function handleCopy(row: any) {
   await copyBatch(row.id)

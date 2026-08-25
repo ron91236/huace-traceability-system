@@ -78,14 +78,10 @@
                 <template v-for="field in getElVisibleFields(el)" :key="field.field">
                   <div v-if="field.type === 'image'" class="field-item field-item-block field-media">
                     <div class="field-label">{{ field.label }}</div>
-                    <template v-if="getImageList(field.field).length > 1">
-                      <el-carousel :interval="4000" indicator-position="outside" height="200px" arrow="always">
-                        <el-carousel-item v-for="(img, idx) in getImageList(field.field)" :key="idx">
-                          <el-image :src="img" fit="contain" style="width:100%;height:100%" :preview-src-list="getImageList(field.field)" :initial-index="idx" />
-                        </el-carousel-item>
-                      </el-carousel>
-                    </template>
-                    <el-image v-else-if="getImageList(field.field).length === 1" :src="getImageList(field.field)[0]" fit="contain" style="width:100%;height:auto" :preview-src-list="getImageList(field.field)" />
+                    <!-- 图片自适应：容器高度随图片比例自动撑开，不裁剪不压缩 -->
+                    <div v-if="getImageList(field.field).length > 0" class="field-image-list">
+                      <el-image v-for="(img, idx) in getImageList(field.field)" :key="idx" :src="img" fit="contain" class="field-image-item" :preview-src-list="getImageList(field.field)" :initial-index="idx" />
+                    </div>
                   </div>
                   <div v-else-if="field.type === 'video'" class="field-item field-item-block field-media">
                     <div class="field-label">{{ field.label }}</div>
@@ -109,7 +105,7 @@
                   </div>
                   <div v-else class="field-item">
                     <span class="field-label">{{ field.label }}</span>
-                    <span class="field-value">{{ getFieldValue(field.field) }}</span>
+                    <span class="field-value">{{ formatFieldValue(field.field, getFieldValue(field.field)) }}</span>
                   </div>
                 </template>
               </div>
@@ -553,11 +549,19 @@ function getElVisibleFields(el: any) {
   const all = getSectionAllFields(el.type)
   const selected = el.selectedFields || []
   return all
-    .filter((f: any) => selected.includes(f.field))
+    // 图片字段兜底：只要图片存在就展示（证书图片等，不依赖模板是否勾选）
+    .filter((f: any) => selected.includes(f.field) || (f.type === 'image' && getImageList(f.field).length > 0))
     .filter((f: any) => {
       const val = getFieldValue(f.field)
       return val !== '' && val !== null && val !== undefined
     })
+}
+
+/** 字段值展示格式化：重量规格为纯数字时补上 kg 单位 */
+function formatFieldValue(field: string, val: any): string {
+  if (val === null || val === undefined) return ''
+  if (field === 'goods.weightSpec' && /^\d+(\.\d+)?$/.test(String(val))) return String(val) + 'kg'
+  return String(val)
 }
 
 function getCustomFieldValue(key: string): string {
@@ -992,6 +996,17 @@ onMounted(async () => {
         border-radius: 10px;
         overflow: hidden;
         box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      }
+      // 多图纵向自适应排列：容器高度随图片比例自动撑开
+      .field-image-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        .field-image-item {
+          width: 100%;
+          height: auto;
+          display: block;
+        }
       }
       video { background: #000; }
     }
