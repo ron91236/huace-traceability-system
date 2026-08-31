@@ -70,21 +70,7 @@ public class VoidedCodeRangeService {
      * 计算 [serialStart, serialEnd] 范围内与作废码表重叠的数量
      */
     public int countOverlapping(long serialStart, long serialEnd) {
-        List<VoidedCodeRange> allRanges = voidedCodeRangeMapper.selectList(null);
-        int totalOverlap = 0;
-        for (VoidedCodeRange range : allRanges) {
-            try {
-                long rStart = Long.parseLong(range.getSerialStart());
-                long rEnd = Long.parseLong(range.getSerialEnd());
-                long overlapStart = Math.max(rStart, serialStart);
-                long overlapEnd = Math.min(rEnd, serialEnd);
-                if (overlapStart <= overlapEnd) {
-                    totalOverlap += (int)(overlapEnd - overlapStart + 1);
-                }
-            } catch (NumberFormatException ignored) {
-                // 非数字格式跳过
-            }
-        }
-        return totalOverlap;
+        Long result = voidedCodeRangeMapper.sumOverlappingCount(serialStart, serialEnd);
+        return result != null ? result.intValue() : 0;
     }
 }

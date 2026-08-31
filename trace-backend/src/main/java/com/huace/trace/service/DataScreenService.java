@@ -82,9 +82,17 @@ public class DataScreenService {
         if (enterpriseId != null) w.eq(Goods::getEnterpriseId, enterpriseId);
         List<Goods> goodsList = goodsMapper.selectList(w);
 
+        Set<Long> productIds = goodsList.stream()
+                .map(Goods::getProductId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, Product> productMap = productIds.isEmpty() ? Collections.emptyMap() :
+                productMapper.selectBatchIds(productIds).stream()
+                        .collect(Collectors.toMap(Product::getId, p -> p));
+
         Map<String, Long> categoryCount = goodsList.stream()
                 .collect(Collectors.groupingBy(
-                        g -> g.getProductId() != null ? getProductCategoryName(g.getProductId()) : "未分类",
+                        g -> productCategoryName(productMap.get(g.getProductId())),
                         Collectors.counting()));
 
         List<Map<String, Object>> result = new ArrayList<>();
@@ -97,30 +105,28 @@ public class DataScreenService {
         return result;
     }
 
-    private String getProductCategoryName(Long productId) {
-        if (productId == null) return "未分类";
-        Product p = productMapper.selectById(productId);
-        return p != null && p.getCategory() != null ? p.getCategory() : (p != null ? p.getName() : "未分类");
+    private String productCategoryName(Product p) {
+        if (p == null) return "未分类";
+        return p.getCategory() != null ? p.getCategory() : (p.getName() != null ? p.getName() : "未分类");
     }
 
     private List<Map<String, Object>> getEnterpriseScanRanking() {
-        // Get scan count per enterprise
-        List<ScanRecord> allRecords = scanRecordMapper.selectList(null);
-        Map<Long, Long> countMap = allRecords.stream()
-                .filter(r -> r.getEnterpriseId() != null)
-                .collect(Collectors.groupingBy(ScanRecord::getEnterpriseId, Collectors.counting()));
+        List<Map<String, Object>> stats = scanRecordMapper.countByEnterprise();
+        List<Long> enterpriseIds = stats.stream()
+                .map(m -> ((Number) m.get("enterprise_id")).longValue())
+                .collect(Collectors.toList());
+        Map<Long, Enterprise> entMap = enterpriseIds.isEmpty() ? Collections.emptyMap() :
+                enterpriseMapper.selectBatchIds(enterpriseIds).stream()
+                        .collect(Collectors.toMap(Enterprise::getId, e -> e));
 
         List<Map<String, Object>> ranking = new ArrayList<>();
-        countMap.entrySet().stream()
-                .sorted(Map.Entry.<Long, Long>comparingByValue().reversed())
-                .limit(10)
-                .forEach(entry -> {
-                    Enterprise e = enterpriseMapper.selectById(entry.getKey());
-                    Map<String, Object> item = new HashMap<>();
-                    item.put("enterpriseName", e != null ? e.getName() : "未知");
-                    item.put("scanCount", entry.getValue());
-                    ranking.add(item);
-                });
+        for (Map<String, Object> row : stats) {
+            Enterprise e = entMap.get(((Number) row.get("enterprise_id")).longValue());
+            Map<String, Object> item = new HashMap<>();
+            item.put("enterpriseName", e != null ? e.getName() : "未知");
+            item.put("scanCount", ((Number) row.get("count")).longValue());
+            ranking.add(item);
+        }
         return ranking;
     }
 }

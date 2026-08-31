@@ -41,4 +41,9 @@ public interface ScanRecordMapper extends BaseMapper<ScanRecord> {
             "</where> GROUP BY DATE_FORMAT(created_at, '%Y-%m') ORDER BY month" +
             "</script>")
     List<Map<String, Object>> monthlyScans(@Param("enterpriseId") Long enterpriseId);
+
+    @Select("SELECT enterprise_id, COUNT(*) as count FROM scan_record " +
+            "WHERE enterprise_id IS NOT NULL " +
+            "GROUP BY enterprise_id ORDER BY count DESC LIMIT 10")
+    List<Map<String, Object>> countByEnterprise();
 }

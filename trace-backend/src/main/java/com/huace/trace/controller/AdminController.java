@@ -984,16 +984,33 @@ public class AdminController {
     public Result<List<Map<String, Object>>> allCodePackages() {
         List<CodePackage> packages = codePackageMapper.selectList(
                 new LambdaQueryWrapper<CodePackage>().orderByDesc(CodePackage::getId));
+
+        java.util.Set<Long> labelSpecIds = packages.stream().map(CodePackage::getLabelSpecId)
+                .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+        Map<Long, LabelSpec> labelSpecMap = labelSpecIds.isEmpty() ? java.util.Collections.emptyMap()
+                : labelSpecService.listByIds(labelSpecIds).stream()
+                        .collect(java.util.stream.Collectors.toMap(LabelSpec::getId, ls -> ls));
+
+        List<Long> packageIds = packages.stream().map(CodePackage::getId)
+                .collect(java.util.stream.Collectors.toList());
+        Map<Long, long[]> statusCounts = new HashMap<>();
+        for (int i = 0; i < packageIds.size(); i += 5000) {
+            List<Long> chunk = packageIds.subList(i, Math.min(i + 5000, packageIds.size()));
+            for (Map<String, Object> row : codePackageItemMapper.countGroupByPackageAndStatus(chunk)) {
+                Long pkgId = ((Number) row.get("package_id")).longValue();
+                String status = (String) row.get("bind_status");
+                long cnt = ((Number) row.get("cnt")).longValue();
+                long[] counts = statusCounts.computeIfAbsent(pkgId, k -> new long[2]);
+                if ("BOUND".equals(status)) counts[0] += cnt;
+                else if ("WASTE".equals(status)) counts[1] += cnt;
+            }
+        }
+
         List<Map<String, Object>> result = new java.util.ArrayList<>();
         for (CodePackage cp : packages) {
-            long boundCount = codePackageItemMapper.selectCount(
-                    new LambdaQueryWrapper<CodePackageItem>()
-                            .eq(CodePackageItem::getPackageId, cp.getId())
-                            .eq(CodePackageItem::getBindStatus, "BOUND"));
-            long wasteCount = codePackageItemMapper.selectCount(
-                    new LambdaQueryWrapper<CodePackageItem>()
-                            .eq(CodePackageItem::getPackageId, cp.getId())
-                            .eq(CodePackageItem::getBindStatus, "WASTE"));
+            long[] counts = statusCounts.get(cp.getId());
+            long boundCount = counts != null ? counts[0] : 0;
+            long wasteCount = counts != null ? counts[1] : 0;
             long available = (cp.getTotalCount() != null ? cp.getTotalCount() : 0) - boundCount - wasteCount;
 
             Map<String, Object> item = new HashMap<>();
@@ -1013,7 +1030,7 @@ public class AdminController {
                     : "通用条码库";
             item.put("ruleName", ruleName);
             if (cp.getLabelSpecId() != null) {
-                LabelSpec ls = labelSpecService.getById(cp.getLabelSpecId());
+                LabelSpec ls = labelSpecMap.get(cp.getLabelSpecId());
                 item.put("labelSpecName", ls != null ? ls.getSpecName() : "");
             }
             result.add(item);
