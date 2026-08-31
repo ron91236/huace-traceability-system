@@ -341,82 +341,111 @@ public class AdminController {
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setHeader("Content-Disposition", "attachment;filename=orders.xlsx");
         PageResult<Order> pageResult = orderService.list(1, 10000, keyword, null, status);
+        List<Order> orders = pageResult.getList();
         java.util.List<OrderExportDTO> exportList = new java.util.ArrayList<>();
-        for (Order o : pageResult.getList()) {
-            Enterprise ent = enterpriseService.getById(o.getEnterpriseId());
-            String entName = ent != null ? ent.getName() : "";
-            String certNoStr = "";
-            if (o.getCertId() != null) {
-                EnterpriseCert c = enterpriseCertMapper.selectById(o.getCertId());
-                if (c != null) certNoStr = c.getCertNo() != null ? c.getCertNo() : "";
-            }
-            List<OrderItem> items = orderItemMapper.selectList(
-                    new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, o.getId()));
-            List<OrderCode> codes = orderCodeMapper.selectList(
-                    new LambdaQueryWrapper<OrderCode>().eq(OrderCode::getOrderId, o.getId()));
-            final String entNameFinal = entName;
-            final String certNoFinal = certNoStr;
-            if (codes.isEmpty()) {
-                for (OrderItem oi : items) {
-                    OrderExportDTO dto = new OrderExportDTO();
-                    dto.setOrderNo(o.getOrderNo());
-                    dto.setEnterpriseName(entNameFinal);
-                    dto.setCertNo(certNoFinal);
-                    dto.setGoodsName(oi.getGoodsName());
-                    dto.setLabelSpecName(oi.getLabelSpecName());
-                    dto.setUnitPrice(oi.getPrice() != null ? oi.getPrice().toPlainString() : "");
-                    dto.setQuantity(oi.getQuantity());
-                    dto.setTotalPrice(oi.getTotalPrice() != null ? oi.getTotalPrice().toPlainString() : "");
-                    if (oi.getBatchId() != null) {
-                        Batch b = batchMapper.selectById(oi.getBatchId());
+        if (!orders.isEmpty()) {
+            // 批量预取全部关联数据，消除逐行查询
+            java.util.Set<Long> orderIds = orders.stream().map(Order::getId)
+                    .collect(java.util.stream.Collectors.toSet());
+            java.util.Set<Long> entIds = orders.stream().map(Order::getEnterpriseId)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            java.util.Set<Long> certIds = orders.stream().map(Order::getCertId)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            Map<Long, Enterprise> entMap = entIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : enterpriseMapper.selectBatchIds(entIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(Enterprise::getId, e -> e));
+            Map<Long, EnterpriseCert> certMap = certIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : enterpriseCertMapper.selectBatchIds(certIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(EnterpriseCert::getId, c -> c));
+            Map<Long, List<OrderItem>> itemsByOrder = orderItemMapper.selectList(
+                            new LambdaQueryWrapper<OrderItem>().in(OrderItem::getOrderId, orderIds))
+                    .stream().collect(java.util.stream.Collectors.groupingBy(OrderItem::getOrderId));
+            Map<Long, List<OrderCode>> codesByOrder = orderCodeMapper.selectList(
+                            new LambdaQueryWrapper<OrderCode>().in(OrderCode::getOrderId, orderIds))
+                    .stream().collect(java.util.stream.Collectors.groupingBy(OrderCode::getOrderId));
+            java.util.Set<Long> batchIds = new java.util.HashSet<>();
+            java.util.Set<Long> goodsIds = new java.util.HashSet<>();
+            java.util.Set<Long> labelSpecIds = new java.util.HashSet<>();
+            itemsByOrder.values().forEach(list -> list.forEach(oi -> {
+                if (oi.getBatchId() != null) batchIds.add(oi.getBatchId());
+                if (oi.getGoodsId() != null) goodsIds.add(oi.getGoodsId());
+            }));
+            codesByOrder.values().forEach(list -> list.forEach(oc -> {
+                if (oc.getBatchId() != null) batchIds.add(oc.getBatchId());
+                if (oc.getLabelSpecId() != null) labelSpecIds.add(oc.getLabelSpecId());
+            }));
+            Map<Long, Batch> batchMap = batchIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : batchMapper.selectBatchIds(batchIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(Batch::getId, b -> b));
+            Map<Long, Goods> goodsMap = goodsIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : goodsMapper.selectBatchIds(goodsIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(Goods::getId, g -> g));
+            Map<Long, LabelSpec> labelSpecMap = labelSpecIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : labelSpecService.listByIds(labelSpecIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(LabelSpec::getId, ls -> ls));
+            java.util.Set<Long> productIds = goodsMap.values().stream().map(Goods::getProductId)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            Map<Long, Product> productMap = productIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : productMapper.selectBatchIds(productIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(Product::getId, p -> p));
+            for (Order o : orders) {
+                Enterprise ent = entMap.get(o.getEnterpriseId());
+                String entName = ent != null ? ent.getName() : "";
+                EnterpriseCert cert = certMap.get(o.getCertId());
+                String certNoStr = cert != null && cert.getCertNo() != null ? cert.getCertNo() : "";
+                List<OrderItem> items = itemsByOrder.getOrDefault(o.getId(), List.of());
+                List<OrderCode> codes = codesByOrder.getOrDefault(o.getId(), List.of());
+                if (codes.isEmpty()) {
+                    for (OrderItem oi : items) {
+                        OrderExportDTO dto = new OrderExportDTO();
+                        dto.setOrderNo(o.getOrderNo());
+                        dto.setEnterpriseName(entName);
+                        dto.setCertNo(certNoStr);
+                        dto.setGoodsName(oi.getGoodsName());
+                        dto.setLabelSpecName(oi.getLabelSpecName());
+                        dto.setUnitPrice(oi.getPrice() != null ? oi.getPrice().toPlainString() : "");
+                        dto.setQuantity(oi.getQuantity());
+                        dto.setTotalPrice(oi.getTotalPrice() != null ? oi.getTotalPrice().toPlainString() : "");
+                        Batch b = batchMap.get(oi.getBatchId());
                         if (b != null) dto.setProductBatch(b.getName());
-                    }
-                    if (oi.getGoodsId() != null) {
-                        Goods g = goodsMapper.selectById(oi.getGoodsId());
+                        Goods g = goodsMap.get(oi.getGoodsId());
                         if (g != null) {
                             dto.setPackageSpec(g.getPackageSpec());
                             dto.setWeightSpec(g.getWeightSpec());
-                            if (g.getProductId() != null) {
-                                Product p = productMapper.selectById(g.getProductId());
-                                if (p != null) dto.setProductName(p.getName());
-                            }
+                            Product p = productMap.get(g.getProductId());
+                            if (p != null) dto.setProductName(p.getName());
                         }
+                        exportList.add(dto);
                     }
-                    exportList.add(dto);
-                }
-            } else {
-                for (OrderCode oc : codes) {
-                    OrderExportDTO dto = new OrderExportDTO();
-                    dto.setOrderNo(o.getOrderNo());
-                    dto.setEnterpriseName(entNameFinal);
-                    dto.setCertNo(certNoFinal);
-                    dto.setProductName(oc.getProductName());
-                    dto.setSerialStart(oc.getSerialStart());
-                    dto.setSerialEnd(oc.getSerialEnd());
-                    dto.setQuantity(oc.getQuantity());
-                    dto.setUnitPrice(oc.getPrice() != null ? oc.getPrice().toPlainString() : "");
-                    if (oc.getProductionTime() != null) {
-                        dto.setProductionTime(oc.getProductionTime().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-                    }
-                    if (oc.getBatchId() != null) {
-                        Batch b = batchMapper.selectById(oc.getBatchId());
+                } else {
+                    for (OrderCode oc : codes) {
+                        OrderExportDTO dto = new OrderExportDTO();
+                        dto.setOrderNo(o.getOrderNo());
+                        dto.setEnterpriseName(entName);
+                        dto.setCertNo(certNoStr);
+                        dto.setProductName(oc.getProductName());
+                        dto.setSerialStart(oc.getSerialStart());
+                        dto.setSerialEnd(oc.getSerialEnd());
+                        dto.setQuantity(oc.getQuantity());
+                        dto.setUnitPrice(oc.getPrice() != null ? oc.getPrice().toPlainString() : "");
+                        if (oc.getProductionTime() != null) {
+                            dto.setProductionTime(oc.getProductionTime().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+                        }
+                        Batch b = batchMap.get(oc.getBatchId());
                         if (b != null) dto.setProductBatch(b.getName());
-                    }
-                    if (oc.getLabelSpecId() != null) {
-                        LabelSpec ls = labelSpecService.getById(oc.getLabelSpecId());
+                        LabelSpec ls = labelSpecMap.get(oc.getLabelSpecId());
                         if (ls != null) dto.setLabelSpecName(ls.getSpecName());
-                    }
-                    if (oc.getLabelSpecId() != null) {
                         items.stream().filter(i -> oc.getLabelSpecId().equals(i.getLabelSpecId())).findFirst().ifPresent(oi -> {
                             dto.setGoodsName(oi.getGoodsName());
                             dto.setTotalPrice(oi.getTotalPrice() != null ? oi.getTotalPrice().toPlainString() : "");
-                            if (oi.getGoodsId() != null) {
-                                Goods g = goodsMapper.selectById(oi.getGoodsId());
-                                if (g != null) { dto.setPackageSpec(g.getPackageSpec()); dto.setWeightSpec(g.getWeightSpec()); }
+                            Goods g = goodsMap.get(oi.getGoodsId());
+                            if (g != null) {
+                                dto.setPackageSpec(g.getPackageSpec());
+                                dto.setWeightSpec(g.getWeightSpec());
                             }
                         });
+                        exportList.add(dto);
                     }
-                    exportList.add(dto);
                 }
             }
         }
