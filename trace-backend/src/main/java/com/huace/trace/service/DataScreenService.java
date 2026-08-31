@@ -18,6 +18,7 @@ public class DataScreenService {
     private final GoodsMapper goodsMapper;
     private final CodePackageItemMapper codePackageItemMapper;
     private final ProductMapper productMapper;
+    private final BatchMapper batchMapper;
 
     public Map<String, Object> getAllData(Long enterpriseId) {
         Map<String, Object> result = new HashMap<>();
@@ -47,6 +48,8 @@ public class DataScreenService {
 
         if (enterpriseId != null) {
             kpi.put("merchantCount", 1L);
+            kpi.put("batchCount", batchMapper.selectCount(
+                    new LambdaQueryWrapper<Batch>().eq(Batch::getEnterpriseId, enterpriseId)));
         } else {
             kpi.put("merchantCount", enterpriseMapper.selectCount(null));
         }

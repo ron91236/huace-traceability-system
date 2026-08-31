@@ -101,19 +101,19 @@ function renderData(data: any) {
 
   const kpi = data.kpi || {}
   kpis.value = [
-    { label: '总库存', value: kpi.totalStock?.toLocaleString() || '0' },
+    { label: '总库存', value: kpi.totalInventory?.toLocaleString() || '0' },
     { label: '累计扫码', value: kpi.totalScans?.toLocaleString() || '0' },
-    { label: '商品数', value: kpi.productTypes?.toLocaleString() || '0' },
+    { label: '商品数', value: kpi.productCount?.toLocaleString() || '0' },
     { label: '批次数', value: kpi.batchCount?.toLocaleString() || '0' },
   ]
 
-  const provinceData = data.provinceScanData || []
+  const provinceData = data.provinceScan || []
   if (charts[0]) {
     charts[0].setOption({
       tooltip: { trigger: 'item' },
-      xAxis: { type: 'category', data: provinceData.map((d: any) => d.name), axisLabel: { color: darkTextColor, fontSize: 10, rotate: 30 }, axisLine: { lineStyle: { color: darkAxisColor } } },
+      xAxis: { type: 'category', data: provinceData.map((d: any) => d.province), axisLabel: { color: darkTextColor, fontSize: 10, rotate: 30 }, axisLine: { lineStyle: { color: darkAxisColor } } },
       yAxis: { type: 'value', axisLabel: { color: darkTextColor }, splitLine: { lineStyle: { color: darkAxisColor } } },
-      series: [{ type: 'bar', data: provinceData.map((d: any) => d.value), itemStyle: { color: '#1890ff' } }],
+      series: [{ type: 'bar', data: provinceData.map((d: any) => d.count), itemStyle: { color: '#1890ff' } }],
       grid: { left: 40, right: 10, top: 10, bottom: 40 },
     })
   }
@@ -124,7 +124,7 @@ function renderData(data: any) {
       tooltip: { trigger: 'axis' },
       xAxis: { type: 'category', data: trendData.map((d: any) => d.date), axisLabel: { color: darkTextColor, fontSize: 10 }, axisLine: { lineStyle: { color: darkAxisColor } } },
       yAxis: { type: 'value', axisLabel: { color: darkTextColor }, splitLine: { lineStyle: { color: darkAxisColor } } },
-      series: [{ type: 'line', data: trendData.map((d: any) => d.value), smooth: true, areaStyle: { color: 'rgba(24,144,255,0.2)' }, lineStyle: { color: '#1890ff' }, itemStyle: { color: '#1890ff' } }],
+      series: [{ type: 'line', data: trendData.map((d: any) => d.count), smooth: true, areaStyle: { color: 'rgba(24,144,255,0.2)' }, lineStyle: { color: '#1890ff' }, itemStyle: { color: '#1890ff' } }],
       grid: { left: 40, right: 10, top: 10, bottom: 30 },
     })
   }
@@ -134,13 +134,16 @@ function renderData(data: any) {
     charts[2].setOption({
       tooltip: { trigger: 'axis' },
       xAxis: { type: 'value', axisLabel: { color: darkTextColor }, splitLine: { lineStyle: { color: darkAxisColor } } },
-      yAxis: { type: 'category', data: cityData.map((d: any) => d.name).reverse(), axisLabel: { color: darkTextColor, fontSize: 10 }, axisLine: { lineStyle: { color: darkAxisColor } } },
-      series: [{ type: 'bar', data: cityData.map((d: any) => d.value).reverse(), itemStyle: { color: '#36cfc9' } }],
+      yAxis: { type: 'category', data: cityData.map((d: any) => d.city).reverse(), axisLabel: { color: darkTextColor, fontSize: 10 }, axisLine: { lineStyle: { color: darkAxisColor } } },
+      series: [{ type: 'bar', data: cityData.map((d: any) => d.count).reverse(), itemStyle: { color: '#36cfc9' } }],
       grid: { left: 80, right: 10, top: 10, bottom: 10 },
     })
   }
 
   const scanRate = data.scanRate || {}
+  const scanTotal = scanRate.total || 0
+  const scanScanned = scanRate.scanned || 0
+  const ratePercent = scanTotal > 0 ? Math.min(100, Math.round(scanScanned / scanTotal * 100)) : 0
   if (charts[3]) {
     charts[3].setOption({
       series: [{
@@ -154,7 +157,7 @@ function renderData(data: any) {
         splitLine: { show: false },
         axisLabel: { show: false },
         detail: { valueAnimation: true, fontSize: 24, color: '#fff', offsetCenter: [0, '10%'], formatter: '{value}%' },
-        data: [{ value: scanRate.rate || 0, name: '扫码率' }],
+        data: [{ value: ratePercent, name: '扫码率' }],
         title: { color: darkTextColor, fontSize: 12, offsetCenter: [0, '40%'] },
       }],
     })
@@ -164,14 +167,14 @@ function renderData(data: any) {
   if (charts[4]) {
     charts[4].setOption({
       tooltip: { trigger: 'axis' },
-      xAxis: { type: 'category', data: labelData.map((d: any) => d.date), axisLabel: { color: darkTextColor, fontSize: 10 }, axisLine: { lineStyle: { color: darkAxisColor } } },
+      xAxis: { type: 'category', data: labelData.map((d: any) => d.month), axisLabel: { color: darkTextColor, fontSize: 10 }, axisLine: { lineStyle: { color: darkAxisColor } } },
       yAxis: { type: 'value', axisLabel: { color: darkTextColor }, splitLine: { lineStyle: { color: darkAxisColor } } },
-      series: [{ type: 'line', data: labelData.map((d: any) => d.value), smooth: true, areaStyle: { color: 'rgba(54,207,201,0.2)' }, lineStyle: { color: '#36cfc9' }, itemStyle: { color: '#36cfc9' } }],
+      series: [{ type: 'line', data: labelData.map((d: any) => d.count), smooth: true, areaStyle: { color: 'rgba(54,207,201,0.2)' }, lineStyle: { color: '#36cfc9' }, itemStyle: { color: '#36cfc9' } }],
       grid: { left: 40, right: 10, top: 10, bottom: 30 },
     })
   }
 
-  const categoryData = data.productCategoryRatio || []
+  const categoryData = data.productCategory || []
   if (charts[5]) {
     charts[5].setOption({
       tooltip: { trigger: 'item' },
