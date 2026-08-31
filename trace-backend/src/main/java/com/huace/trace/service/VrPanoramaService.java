@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -28,7 +29,7 @@ public class VrPanoramaService {
         if (enterpriseId != null) w.eq(VrScene::getEnterpriseId, enterpriseId);
         w.orderByAsc(VrScene::getSortOrder).orderByAsc(VrScene::getId);
         List<VrScene> scenes = vrSceneMapper.selectList(w);
-        scenes.forEach(this::fillScene);
+        fillScenes(scenes);
         return scenes;
     }
 
@@ -42,7 +43,7 @@ public class VrPanoramaService {
         if (baseId != null) w.eq(VrScene::getBaseId, baseId);
         w.orderByAsc(VrScene::getSortOrder).orderByAsc(VrScene::getId);
         List<VrScene> scenes = vrSceneMapper.selectList(w);
-        scenes.forEach(this::fillScene);
+        fillScenes(scenes);
         return scenes;
     }
 
@@ -103,6 +104,33 @@ public class VrPanoramaService {
 
     public void deleteHotspot(Long id) {
         vrHotspotMapper.deleteById(id);
+    }
+
+    private void fillScenes(List<VrScene> scenes) {
+        if (scenes.isEmpty()) return;
+        List<Long> sceneIds = scenes.stream().map(VrScene::getId).collect(java.util.stream.Collectors.toList());
+        Map<Long, List<VrHotspot>> hotspotMap = vrHotspotMapper.selectList(
+                new LambdaQueryWrapper<VrHotspot>()
+                        .in(VrHotspot::getSceneId, sceneIds)
+                        .orderByAsc(VrHotspot::getSortOrder))
+                .stream().collect(java.util.stream.Collectors.groupingBy(VrHotspot::getSceneId));
+        List<Long> entIds = scenes.stream().map(VrScene::getEnterpriseId)
+                .filter(java.util.Objects::nonNull).distinct().collect(java.util.stream.Collectors.toList());
+        Map<Long, Enterprise> entMap = entIds.isEmpty() ? java.util.Collections.emptyMap()
+                : enterpriseMapper.selectBatchIds(entIds).stream()
+                        .collect(java.util.stream.Collectors.toMap(Enterprise::getId, e -> e));
+        List<Long> baseIds = scenes.stream().map(VrScene::getBaseId)
+                .filter(java.util.Objects::nonNull).distinct().collect(java.util.stream.Collectors.toList());
+        Map<Long, EnterpriseBase> baseMap = baseIds.isEmpty() ? java.util.Collections.emptyMap()
+                : baseMapper.selectBatchIds(baseIds).stream()
+                        .collect(java.util.stream.Collectors.toMap(EnterpriseBase::getId, b -> b));
+        for (VrScene scene : scenes) {
+            scene.setHotspots(hotspotMap.getOrDefault(scene.getId(), new ArrayList<>()));
+            Enterprise e = entMap.get(scene.getEnterpriseId());
+            if (e != null) scene.setEnterpriseName(e.getName());
+            EnterpriseBase b = baseMap.get(scene.getBaseId());
+            if (b != null) scene.setBaseName(b.getName());
+        }
     }
 
     private void fillScene(VrScene scene) {

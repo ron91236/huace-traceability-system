@@ -510,6 +510,14 @@ public class AdminController {
         List<OrderCode> codes = orderCodeMapper.selectList(
                 new LambdaQueryWrapper<OrderCode>().eq(OrderCode::getOrderId, id));
 
+        Map<Long, Goods> goodsMap = new HashMap<>();
+        List<Long> goodsIds = items.stream().map(OrderItem::getGoodsId)
+                .filter(java.util.Objects::nonNull).distinct().collect(java.util.stream.Collectors.toList());
+        if (!goodsIds.isEmpty()) {
+            goodsMap = goodsMapper.selectBatchIds(goodsIds).stream()
+                    .collect(java.util.stream.Collectors.toMap(Goods::getId, g -> g));
+        }
+
         int totalLabels = codes.stream().mapToInt(c -> c.getQuantity() != null ? c.getQuantity() : 0).sum();
         if (totalLabels == 0) totalLabels = items.stream().mapToInt(i -> i.getQuantity() != null ? i.getQuantity() : 0).sum();
         BigDecimal totalPrice = items.stream()
@@ -639,8 +647,7 @@ public class AdminController {
                     if (oi.getLabelSpecId().equals(oc.getLabelSpecId())) matchedCodes.add(oc);
                 }
             }
-            Goods g = null;
-            if (oi.getGoodsId() != null) g = goodsMapper.selectById(oi.getGoodsId());
+            Goods g = goodsMap.get(oi.getGoodsId());
 
             if (matchedCodes.isEmpty()) {
                 XSSFRow row = sheet.createRow(rowNum++);

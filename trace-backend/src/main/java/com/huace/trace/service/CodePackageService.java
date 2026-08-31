@@ -40,18 +40,25 @@ public class CodePackageService {
         }
         w.orderByDesc(CodePackage::getId);
         Page<CodePackage> r = codePackageMapper.selectPage(new Page<>(page, size), w);
-        r.getRecords().forEach(cp -> {
-            if (cp.getLabelSpecId() != null) {
-                LabelSpec ls = labelSpecMapper.selectById(cp.getLabelSpecId());
+        List<CodePackage> records = r.getRecords();
+        if (!records.isEmpty()) {
+            List<Long> packageIds = records.stream().map(CodePackage::getId).collect(Collectors.toList());
+            List<Long> specIds = records.stream().map(CodePackage::getLabelSpecId)
+                    .filter(java.util.Objects::nonNull).distinct().collect(Collectors.toList());
+            Map<Long, LabelSpec> specMap = specIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : labelSpecMapper.selectBatchIds(specIds).stream()
+                            .collect(Collectors.toMap(LabelSpec::getId, ls -> ls));
+            Map<Long, Long> boundMap = codePackageItemMapper.countGroupByPackageAndStatus(packageIds).stream()
+                    .filter(m -> "BOUND".equals(m.get("bind_status")))
+                    .collect(Collectors.toMap(
+                            m -> ((Number) m.get("package_id")).longValue(),
+                            m -> ((Number) m.get("cnt")).longValue()));
+            records.forEach(cp -> {
+                LabelSpec ls = specMap.get(cp.getLabelSpecId());
                 if (ls != null) cp.setLabelSpecName(ls.getSpecName());
-            }
-            // 统计已绑定数量
-            Long boundCount = codePackageItemMapper.selectCount(
-                    new LambdaQueryWrapper<CodePackageItem>()
-                            .eq(CodePackageItem::getPackageId, cp.getId())
-                            .eq(CodePackageItem::getBindStatus, "BOUND"));
-            cp.setBoundCount(boundCount.intValue());
-        });
+                cp.setBoundCount(boundMap.getOrDefault(cp.getId(), 0L).intValue());
+            });
+        }
         return new PageResult<>(r.getRecords(), r.getTotal());
     }
 
