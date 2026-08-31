@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Collection;
 import java.util.List;
 
 @Service
@@ -31,6 +32,11 @@ public class LabelSpecService {
     }
 
     public LabelSpec getById(Long id) { return labelSpecMapper.selectById(id); }
+
+    public List<LabelSpec> listByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        return labelSpecMapper.selectBatchIds(ids);
+    }
 
     public void create(LabelSpec s) {
         s.setPrice(roundPrice(s.getPrice()));
