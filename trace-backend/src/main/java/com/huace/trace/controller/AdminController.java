@@ -1135,59 +1135,45 @@ public class AdminController {
                 if (oc.getLabelSpecId() != null) labelSpecIds.add(oc.getLabelSpecId());
                 if (oc.getTraceTemplate() != null) templateKeys.add(oc.getTraceTemplate());
             });
-            Map<Long, Order> orderMap = java.util.Collections.emptyMap();
-            if (!orderIds.isEmpty()) {
-                orderMap = orderMapper.selectBatchIds(orderIds).stream()
-                        .collect(java.util.stream.Collectors.toMap(Order::getId, o -> o));
-            }
-            Map<Long, Enterprise> entMap = java.util.Collections.emptyMap();
-            Map<Long, EnterpriseCert> certMap = java.util.Collections.emptyMap();
-            if (!orderMap.isEmpty()) {
-                java.util.Set<Long> entIds = orderMap.values().stream()
-                        .map(Order::getEnterpriseId).filter(java.util.Objects::nonNull)
-                        .collect(java.util.stream.Collectors.toSet());
-                if (!entIds.isEmpty()) {
-                    entMap = enterpriseMapper.selectBatchIds(entIds).stream()
+            Map<Long, Order> orderMap = orderIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : orderMapper.selectBatchIds(orderIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(Order::getId, o -> o));
+            java.util.Set<Long> entIds = orderMap.values().stream()
+                    .map(Order::getEnterpriseId).filter(java.util.Objects::nonNull)
+                    .collect(java.util.stream.Collectors.toSet());
+            java.util.Set<Long> certIds = orderMap.values().stream()
+                    .map(Order::getCertId).filter(java.util.Objects::nonNull)
+                    .collect(java.util.stream.Collectors.toSet());
+            Map<Long, Enterprise> entMap = entIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : enterpriseMapper.selectBatchIds(entIds).stream()
                             .collect(java.util.stream.Collectors.toMap(Enterprise::getId, e -> e));
-                }
-                java.util.Set<Long> certIds = orderMap.values().stream()
-                        .map(Order::getCertId).filter(java.util.Objects::nonNull)
-                        .collect(java.util.stream.Collectors.toSet());
-                if (!certIds.isEmpty()) {
-                    certMap = enterpriseCertMapper.selectBatchIds(certIds).stream()
+            Map<Long, EnterpriseCert> certMap = certIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : enterpriseCertMapper.selectBatchIds(certIds).stream()
                             .collect(java.util.stream.Collectors.toMap(EnterpriseCert::getId, c -> c));
-                }
-            }
-            Map<Long, LabelSpec> labelSpecMap = java.util.Collections.emptyMap();
-            if (!labelSpecIds.isEmpty()) {
-                labelSpecMap = labelSpecService.listByIds(labelSpecIds).stream()
-                        .collect(java.util.stream.Collectors.toMap(LabelSpec::getId, ls -> ls));
-            }
+            Map<Long, LabelSpec> labelSpecMap = labelSpecIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : labelSpecService.listByIds(labelSpecIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(LabelSpec::getId, ls -> ls));
             // 订单明细：in(orderIds) 一次拉取，按 (orderId,labelSpecId) 取第一条
             Map<String, OrderItem> itemMap = new HashMap<>();
-            Map<Long, Goods> goodsMap = java.util.Collections.emptyMap();
+            java.util.Set<Long> goodsIds = new java.util.HashSet<>();
             if (!orderIds.isEmpty()) {
                 List<OrderItem> items = orderItemMapper.selectList(
                         new LambdaQueryWrapper<OrderItem>().in(OrderItem::getOrderId, orderIds));
-                java.util.Set<Long> goodsIds = new java.util.HashSet<>();
                 for (OrderItem oi : items) {
                     if (oi.getLabelSpecId() != null) {
                         itemMap.putIfAbsent(oi.getOrderId() + "-" + oi.getLabelSpecId(), oi);
                     }
                     if (oi.getGoodsId() != null) goodsIds.add(oi.getGoodsId());
                 }
-                if (!goodsIds.isEmpty()) {
-                    goodsMap = goodsMapper.selectBatchIds(goodsIds).stream()
+            }
+            Map<Long, Goods> goodsMap = goodsIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : goodsMapper.selectBatchIds(goodsIds).stream()
                             .collect(java.util.stream.Collectors.toMap(Goods::getId, g -> g));
-                }
-            }
-            Map<String, TraceTemplate> templateMap = java.util.Collections.emptyMap();
-            if (!templateKeys.isEmpty()) {
-                templateMap = traceTemplateMapper.selectList(
-                                new LambdaQueryWrapper<TraceTemplate>()
-                                        .in(TraceTemplate::getTemplateKey, templateKeys))
-                        .stream().collect(java.util.stream.Collectors.toMap(TraceTemplate::getTemplateKey, t -> t));
-            }
+            Map<String, TraceTemplate> templateMap = templateKeys.isEmpty() ? java.util.Collections.emptyMap()
+                    : traceTemplateMapper.selectList(
+                                    new LambdaQueryWrapper<TraceTemplate>()
+                                            .in(TraceTemplate::getTemplateKey, templateKeys))
+                            .stream().collect(java.util.stream.Collectors.toMap(TraceTemplate::getTemplateKey, t -> t));
             // 回填关联信息
             records.forEach(oc -> {
                 Order o = orderMap.get(oc.getOrderId());
