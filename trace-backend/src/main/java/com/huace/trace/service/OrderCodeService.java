@@ -40,18 +40,33 @@ public class OrderCodeService {
         }
         w.orderByDesc(OrderCode::getId);
         Page<OrderCode> r = orderCodeMapper.selectPage(new Page<>(page, size), w);
-        r.getRecords().forEach(oc -> {
-            Order order = orderMapper.selectById(oc.getOrderId());
-            if (order != null) oc.setOrderNo(order.getOrderNo());
-            if (oc.getLabelSpecId() != null) {
-                LabelSpec ls = labelSpecMapper.selectById(oc.getLabelSpecId());
+        List<OrderCode> records = r.getRecords();
+        if (!records.isEmpty()) {
+            // 批量预取 order/labelSpec/batch，消除逐行查询
+            java.util.Set<Long> orderIds = records.stream().map(OrderCode::getOrderId)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            java.util.Set<Long> labelSpecIds = records.stream().map(OrderCode::getLabelSpecId)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            java.util.Set<Long> batchIds = records.stream().map(OrderCode::getBatchId)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            Map<Long, Order> orderMap = orderIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : orderMapper.selectBatchIds(orderIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(Order::getId, o -> o));
+            Map<Long, LabelSpec> labelSpecMap = labelSpecIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : labelSpecMapper.selectBatchIds(labelSpecIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(LabelSpec::getId, ls -> ls));
+            Map<Long, Batch> batchMap = batchIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : batchMapper.selectBatchIds(batchIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(Batch::getId, b -> b));
+            records.forEach(oc -> {
+                Order order = orderMap.get(oc.getOrderId());
+                if (order != null) oc.setOrderNo(order.getOrderNo());
+                LabelSpec ls = labelSpecMap.get(oc.getLabelSpecId());
                 if (ls != null) oc.setLabelSpecName(ls.getSpecName());
-            }
-            if (oc.getBatchId() != null) {
-                Batch b = batchMapper.selectById(oc.getBatchId());
+                Batch b = batchMap.get(oc.getBatchId());
                 if (b != null) oc.setBatchName(b.getName());
-            }
-        });
+            });
+        }
         return new PageResult<>(r.getRecords(), r.getTotal());
     }
 

@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +27,7 @@ public class BatchService {
     private final EnterpriseMapper enterpriseMapper;
     private final TestReportService testReportService;
     private final TestReportMapper testReportMapper;
+    private final BatchTestReportMapper batchTestReportMapper;
     private final TracePageService tracePageService;
 
     @Value("${app.base-url:http://localhost}")
@@ -36,33 +39,60 @@ public class BatchService {
         if (StringUtils.hasText(keyword)) w.like(Batch::getName, keyword);
         w.orderByDesc(Batch::getId);
         Page<Batch> r = batchMapper.selectPage(new Page<>(page, size), w);
-        r.getRecords().forEach(b -> {
-            if (b.getGoodsId() != null) {
-                Goods g = goodsMapper.selectById(b.getGoodsId());
-                if (g != null) b.setGoodsName(g.getName());
-            }
-            if (b.getBaseId() != null) {
-                EnterpriseBase base = baseMapper.selectById(b.getBaseId());
-                if (base != null) b.setBaseName(base.getName());
-            }
-            // 回填多报告：中间表为主，兼容旧数据 testReportId
-            List<TestReport> reports = testReportService.listByBatchId(b.getId());
-            List<Long> reportIds = new ArrayList<>();
-            List<String> reportNames = new ArrayList<>();
-            for (TestReport tr : reports) {
-                reportIds.add(tr.getId());
-                if (StringUtils.hasText(tr.getReportName())) reportNames.add(tr.getReportName());
-            }
-            if (reportIds.isEmpty() && b.getTestReportId() != null) {
-                TestReport tr = testReportMapper.selectById(b.getTestReportId());
-                if (tr != null) {
-                    reportIds.add(tr.getId());
-                    if (StringUtils.hasText(tr.getReportName())) reportNames.add(tr.getReportName());
+        List<Batch> records = r.getRecords();
+        if (!records.isEmpty()) {
+            // 批量预取 goods/base 与检测报告绑定关系，消除逐行查询
+            java.util.Set<Long> batchIds = records.stream().map(Batch::getId)
+                    .collect(java.util.stream.Collectors.toSet());
+            java.util.Set<Long> goodsIds = records.stream().map(Batch::getGoodsId)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            java.util.Set<Long> baseIds = records.stream().map(Batch::getBaseId)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            Map<Long, Goods> goodsMap = goodsIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : goodsMapper.selectBatchIds(goodsIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(Goods::getId, g -> g));
+            Map<Long, EnterpriseBase> baseMap = baseIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : baseMapper.selectBatchIds(baseIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(EnterpriseBase::getId, b -> b));
+            // 中间表一次查绑定关系，按批次分组（保持 sortOrder 顺序）
+            List<BatchTestReport> bindings = batchTestReportMapper.selectList(
+                    new LambdaQueryWrapper<BatchTestReport>()
+                            .in(BatchTestReport::getBatchId, batchIds)
+                            .orderByAsc(BatchTestReport::getSortOrder));
+            Map<Long, List<Long>> reportIdsByBatch = new HashMap<>();
+            java.util.Set<Long> reportIdSet = new java.util.HashSet<>();
+            for (BatchTestReport binding : bindings) {
+                if (binding.getBatchId() != null && binding.getTestReportId() != null) {
+                    reportIdsByBatch.computeIfAbsent(binding.getBatchId(), k -> new ArrayList<>())
+                            .add(binding.getTestReportId());
+                    reportIdSet.add(binding.getTestReportId());
                 }
             }
-            b.setTestReportIds(reportIds);
-            b.setTestReportName(String.join("、", reportNames));
-        });
+            records.forEach(b -> {
+                if (b.getTestReportId() != null) reportIdSet.add(b.getTestReportId());
+            });
+            Map<Long, TestReport> reportMap = reportIdSet.isEmpty() ? java.util.Collections.emptyMap()
+                    : testReportMapper.selectBatchIds(reportIdSet).stream()
+                            .collect(java.util.stream.Collectors.toMap(TestReport::getId, tr -> tr));
+            records.forEach(b -> {
+                Goods g = goodsMap.get(b.getGoodsId());
+                if (g != null) b.setGoodsName(g.getName());
+                EnterpriseBase base = baseMap.get(b.getBaseId());
+                if (base != null) b.setBaseName(base.getName());
+                // 回填多报告：中间表为主，兼容旧数据 testReportId
+                List<Long> ids = reportIdsByBatch.getOrDefault(b.getId(), List.of());
+                if (ids.isEmpty() && b.getTestReportId() != null) {
+                    ids = List.of(b.getTestReportId());
+                }
+                List<String> reportNames = new ArrayList<>();
+                for (Long rid : ids) {
+                    TestReport tr = reportMap.get(rid);
+                    if (tr != null && StringUtils.hasText(tr.getReportName())) reportNames.add(tr.getReportName());
+                }
+                b.setTestReportIds(ids);
+                b.setTestReportName(String.join("、", reportNames));
+            });
+        }
         return new PageResult<>(r.getRecords(), r.getTotal());
     }
 

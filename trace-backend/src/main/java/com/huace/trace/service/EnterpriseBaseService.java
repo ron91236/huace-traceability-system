@@ -12,6 +12,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.List;
+import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
 public class EnterpriseBaseService {
@@ -25,10 +28,19 @@ public class EnterpriseBaseService {
         if (StringUtils.hasText(keyword)) w.like(EnterpriseBase::getName, keyword);
         w.orderByDesc(EnterpriseBase::getId);
         Page<EnterpriseBase> r = baseMapper.selectPage(new Page<>(page, size), w);
-        r.getRecords().forEach(b -> {
-            Enterprise e = enterpriseMapper.selectById(b.getEnterpriseId());
-            if (e != null) b.setEnterpriseName(e.getName());
-        });
+        List<EnterpriseBase> records = r.getRecords();
+        if (!records.isEmpty()) {
+            // 批量预取 enterprise，消除逐行查询
+            java.util.Set<Long> entIds = records.stream().map(EnterpriseBase::getEnterpriseId)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            Map<Long, Enterprise> entMap = entIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : enterpriseMapper.selectBatchIds(entIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(Enterprise::getId, e -> e));
+            records.forEach(b -> {
+                Enterprise e = entMap.get(b.getEnterpriseId());
+                if (e != null) b.setEnterpriseName(e.getName());
+            });
+        }
         return new PageResult<>(r.getRecords(), r.getTotal());
     }
 

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -25,15 +26,22 @@ public class VoidedCodeRangeService {
         LambdaQueryWrapper<VoidedCodeRange> w = new LambdaQueryWrapper<>();
         w.orderByDesc(VoidedCodeRange::getId);
         Page<VoidedCodeRange> r = voidedCodeRangeMapper.selectPage(new Page<>(page, size), w);
-        r.getRecords().forEach(item -> {
-            if (item.getCodePackageId() != null) {
-                CodePackage cp = codePackageMapper.selectById(item.getCodePackageId());
+        List<VoidedCodeRange> records = r.getRecords();
+        if (!records.isEmpty()) {
+            // 批量预取码包，消除逐行查询
+            java.util.Set<Long> pkgIds = records.stream().map(VoidedCodeRange::getCodePackageId)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            Map<Long, CodePackage> pkgMap = pkgIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : codePackageMapper.selectBatchIds(pkgIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(CodePackage::getId, cp -> cp));
+            records.forEach(item -> {
+                CodePackage cp = pkgMap.get(item.getCodePackageId());
                 if (cp != null) item.setPackageNo(cp.getPackageNo());
-            }
-            if (item.getPackageNo() == null) {
-                item.setPackageNo(item.getSerialDigits() + "位身份码条码库");
-            }
-        });
+                if (item.getPackageNo() == null) {
+                    item.setPackageNo(item.getSerialDigits() + "位身份码条码库");
+                }
+            });
+        }
         return new PageResult<>(r.getRecords(), r.getTotal());
     }
 

@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -25,15 +26,21 @@ public class CertProductService {
                 new LambdaQueryWrapper<CertProduct>()
                         .eq(CertProduct::getCertId, certId)
                         .orderByAsc(CertProduct::getId));
-        products.forEach(cp -> {
-            if (cp.getProductId() != null) {
-                Product p = productMapper.selectById(cp.getProductId());
+        if (!products.isEmpty()) {
+            // 批量预取产品，消除逐行查询
+            java.util.Set<Long> productIds = products.stream().map(CertProduct::getProductId)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            Map<Long, Product> productMap = productIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : productMapper.selectBatchIds(productIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(Product::getId, p -> p));
+            products.forEach(cp -> {
+                Product p = productMap.get(cp.getProductId());
                 if (p != null) {
                     cp.setProductName(p.getName());
                     cp.setProductDescription(p.getDescription());
                 }
-            }
-        });
+            });
+        }
         return products;
     }
 

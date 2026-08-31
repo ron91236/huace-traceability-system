@@ -41,22 +41,33 @@ public class EnterpriseCertService {
         }
         wrapper.orderByDesc(EnterpriseCert::getId);
         Page<EnterpriseCert> result = certMapper.selectPage(new Page<>(page, size), wrapper);
-
-        // 填充关联名称
-        result.getRecords().forEach(cert -> {
-            if (cert.getCertTypeId() != null) {
-                CertType ct = certTypeMapper.selectById(cert.getCertTypeId());
+        List<EnterpriseCert> records = result.getRecords();
+        if (!records.isEmpty()) {
+            // 批量预取 certType/enterprise/labelSpec，消除逐行查询
+            java.util.Set<Long> certTypeIds = records.stream().map(EnterpriseCert::getCertTypeId)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            java.util.Set<Long> entIds = records.stream().map(EnterpriseCert::getEnterpriseId)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            java.util.Set<Long> labelSpecIds = records.stream().map(EnterpriseCert::getLabelSpecId)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            Map<Long, CertType> certTypeMap = certTypeIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : certTypeMapper.selectBatchIds(certTypeIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(CertType::getId, ct -> ct));
+            Map<Long, Enterprise> entMap = entIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : enterpriseMapper.selectBatchIds(entIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(Enterprise::getId, e -> e));
+            Map<Long, LabelSpec> labelSpecMap = labelSpecIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : labelSpecMapper.selectBatchIds(labelSpecIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(LabelSpec::getId, ls -> ls));
+            records.forEach(cert -> {
+                CertType ct = certTypeMap.get(cert.getCertTypeId());
                 if (ct != null) cert.setCertTypeName(ct.getName());
-            }
-            if (cert.getEnterpriseId() != null) {
-                Enterprise e = enterpriseMapper.selectById(cert.getEnterpriseId());
+                Enterprise e = entMap.get(cert.getEnterpriseId());
                 if (e != null) cert.setEnterpriseName(e.getName());
-            }
-            if (cert.getLabelSpecId() != null) {
-                LabelSpec ls = labelSpecMapper.selectById(cert.getLabelSpecId());
+                LabelSpec ls = labelSpecMap.get(cert.getLabelSpecId());
                 if (ls != null) cert.setLabelSpecName(ls.getSpecName());
-            }
-        });
+            });
+        }
         return new PageResult<>(result.getRecords(), result.getTotal());
     }
 
