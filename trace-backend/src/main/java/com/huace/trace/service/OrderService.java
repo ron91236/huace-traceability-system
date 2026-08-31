@@ -15,7 +15,9 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -42,28 +44,47 @@ public class OrderService {
         }
         w.orderByDesc(Order::getId);
         Page<Order> r = orderMapper.selectPage(new Page<>(page, size), w);
-        r.getRecords().forEach(o -> {
-            Enterprise e = enterpriseMapper.selectById(o.getEnterpriseId());
-            if (e != null) o.setEnterpriseName(e.getName());
-            if (o.getCertId() != null) {
-                EnterpriseCert c = certMapper.selectById(o.getCertId());
-                if (c != null) o.setCertName(c.getCertName());
+        List<Order> records = r.getRecords();
+        if (!records.isEmpty()) {
+            // 批量预取关联数据，消除逐行查询
+            java.util.Set<Long> orderIds = records.stream().map(Order::getId)
+                    .collect(java.util.stream.Collectors.toSet());
+            java.util.Set<Long> entIds = records.stream().map(Order::getEnterpriseId)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            java.util.Set<Long> certIds = records.stream().map(Order::getCertId)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            Map<Long, Enterprise> entMap = entIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : enterpriseMapper.selectBatchIds(entIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(Enterprise::getId, e -> e));
+            Map<Long, EnterpriseCert> certMap = certIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : certMapper.selectBatchIds(certIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(EnterpriseCert::getId, c -> c));
+            // 订购标签数量 = 订单明细订购数量之和；绑定标签数量 = 已绑定码段绑定数之和
+            Map<Long, Integer> bindCountMap = new HashMap<>();
+            for (OrderCode c : orderCodeMapper.selectList(
+                    new LambdaQueryWrapper<OrderCode>().in(OrderCode::getOrderId, orderIds))) {
+                if (c.getOrderId() != null) {
+                    bindCountMap.merge(c.getOrderId(), c.getBindCount() != null ? c.getBindCount() : 0, Integer::sum);
+                }
             }
-            // 计算条码统计：订购标签数量 = 订单明细订购数量之和；绑定标签数量 = 已绑定码段绑定数之和
-            List<OrderCode> codes = orderCodeMapper.selectList(
-                    new LambdaQueryWrapper<OrderCode>().eq(OrderCode::getOrderId, o.getId()));
-            int allocatedBarcode = codes.stream().mapToInt(c -> c.getBindCount() != null ? c.getBindCount() : 0).sum();
-            o.setAllocatedBarcodeCount(allocatedBarcode);
-            // 计算总价与订购数量
-            List<OrderItem> items = orderItemMapper.selectList(
-                    new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, o.getId()));
-            int totalBarcode = items.stream().mapToInt(i -> i.getQuantity() != null ? i.getQuantity() : 0).sum();
-            o.setTotalBarcodeCount(totalBarcode);
-            BigDecimal total = items.stream()
-                    .map(i -> i.getTotalPrice() != null ? i.getTotalPrice() : BigDecimal.ZERO)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            o.setTotalPrice(total);
-        });
+            Map<Long, Integer> qtyMap = new HashMap<>();
+            Map<Long, BigDecimal> totalMap = new HashMap<>();
+            for (OrderItem i : orderItemMapper.selectList(
+                    new LambdaQueryWrapper<OrderItem>().in(OrderItem::getOrderId, orderIds))) {
+                if (i.getOrderId() == null) continue;
+                if (i.getQuantity() != null) qtyMap.merge(i.getOrderId(), i.getQuantity(), Integer::sum);
+                if (i.getTotalPrice() != null) totalMap.merge(i.getOrderId(), i.getTotalPrice(), BigDecimal::add);
+            }
+            for (Order o : records) {
+                Enterprise e = entMap.get(o.getEnterpriseId());
+                if (e != null) o.setEnterpriseName(e.getName());
+                EnterpriseCert c = certMap.get(o.getCertId());
+                if (c != null) o.setCertName(c.getCertName());
+                o.setAllocatedBarcodeCount(bindCountMap.getOrDefault(o.getId(), 0));
+                o.setTotalBarcodeCount(qtyMap.getOrDefault(o.getId(), 0));
+                o.setTotalPrice(totalMap.getOrDefault(o.getId(), BigDecimal.ZERO));
+            }
+        }
         return new PageResult<>(r.getRecords(), r.getTotal());
     }
 
@@ -210,10 +231,27 @@ public class OrderService {
         List<OrderCode> codes = orderCodeMapper.selectList(
                 new LambdaQueryWrapper<OrderCode>()
                         .eq(OrderCode::getOrderId, orderId));
-        // 填充关联字段
+        if (codes.isEmpty()) return codes;
+        // 填充关联字段：明细一次查，商品/模板批量查
         List<OrderItem> items = orderItemMapper.selectList(
                 new LambdaQueryWrapper<OrderItem>()
                         .eq(OrderItem::getOrderId, orderId));
+        java.util.Set<Long> goodsIds = new java.util.HashSet<>();
+        java.util.Set<String> templateKeys = new java.util.HashSet<>();
+        items.forEach(i -> {
+            if (i.getGoodsId() != null) goodsIds.add(i.getGoodsId());
+        });
+        codes.forEach(code -> {
+            if (code.getTraceTemplate() != null) templateKeys.add(code.getTraceTemplate());
+        });
+        Map<Long, Goods> goodsMap = goodsIds.isEmpty() ? java.util.Collections.emptyMap()
+                : goodsMapper.selectBatchIds(goodsIds).stream()
+                        .collect(java.util.stream.Collectors.toMap(Goods::getId, g -> g));
+        Map<String, TraceTemplate> templateMap = templateKeys.isEmpty() ? java.util.Collections.emptyMap()
+                : traceTemplateMapper.selectList(
+                                new LambdaQueryWrapper<TraceTemplate>()
+                                        .in(TraceTemplate::getTemplateKey, templateKeys))
+                        .stream().collect(java.util.stream.Collectors.toMap(TraceTemplate::getTemplateKey, t -> t));
         codes.forEach(code -> {
             if (code.getLabelSpecId() != null) {
                 items.stream()
@@ -222,20 +260,13 @@ public class OrderService {
                         .ifPresent(i -> {
                             code.setGoodsName(i.getGoodsName());
                             // productDescription 取自 OrderCode.productName 或 OrderItem 关联的 Product
-                            if (i.getGoodsId() != null) {
-                                Goods g = goodsMapper.selectById(i.getGoodsId());
-                                if (g != null) code.setProductDescription(g.getIntroduction());
-                            }
+                            Goods g = goodsMap.get(i.getGoodsId());
+                            if (g != null) code.setProductDescription(g.getIntroduction());
                         });
             }
             // 填充溯源模板名称
-            if (code.getTraceTemplate() != null) {
-                TraceTemplate tt = traceTemplateMapper.selectOne(
-                        new LambdaQueryWrapper<TraceTemplate>()
-                                .eq(TraceTemplate::getTemplateKey, code.getTraceTemplate())
-                                .last("LIMIT 1"));
-                if (tt != null) code.setTemplateName(tt.getTemplateName());
-            }
+            TraceTemplate tt = templateMap.get(code.getTraceTemplate());
+            if (tt != null) code.setTemplateName(tt.getTemplateName());
         });
         return codes;
     }
@@ -245,11 +276,15 @@ public class OrderService {
                 new LambdaQueryWrapper<OrderItem>()
                         .eq(OrderItem::getOrderId, orderId)
                         .orderByAsc(OrderItem::getId));
+        if (items.isEmpty()) return items;
+        java.util.Set<Long> batchIds = items.stream().map(OrderItem::getBatchId)
+                .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+        Map<Long, Batch> batchMap = batchIds.isEmpty() ? java.util.Collections.emptyMap()
+                : batchMapper.selectBatchIds(batchIds).stream()
+                        .collect(java.util.stream.Collectors.toMap(Batch::getId, b -> b));
         items.forEach(item -> {
-            if (item.getBatchId() != null) {
-                Batch b = batchMapper.selectById(item.getBatchId());
-                if (b != null) item.setBatchName(b.getName());
-            }
+            Batch b = batchMap.get(item.getBatchId());
+            if (b != null) item.setBatchName(b.getName());
         });
         return items;
     }
