@@ -327,7 +327,7 @@ import VehicleTrackElement from '@/components/trace/VehicleTrackElement.vue'
 import VrPanoramaElement from '@/components/trace/VrPanoramaElement.vue'
 import QRCode from 'qrcode'
 import DOMPurify from 'dompurify'
-import { SECTION_FIELDS, SECTION_TYPE_MAP, isInfoSection, getSectionAllFields, getSectionDataPrefix } from '@/constants/section-fields'
+import { SECTION_FIELDS, isInfoSection, getSectionAllFields } from '@/constants/section-fields'
 
 const route = useRoute()
 const loading = ref(false)

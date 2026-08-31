@@ -9,7 +9,6 @@ export const uploadFile = (file: File) => {
 
 // 下拉数据
 export const getProductOptions = () => request.get('/common/products')
-export const getLabelSpecOptions = () => request.get('/common/label-specs')
 export const getCertTypeOptions = () => request.get('/common/cert-types')
 export const getTraceTemplateOptions = (enterpriseId?: number) => request.get('/common/trace-templates', { params: { enterpriseId } })
 
