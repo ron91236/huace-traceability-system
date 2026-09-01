@@ -66,6 +66,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from '@/utils/echarts'
+import chinaGeoJson from '@/assets/china.geo.json'
 import { getDlScanAnalysis, getDlScanDetail, getDlGeoAnalysis } from '@/api/digital-label'
 import { useDlAdmin } from '@/composables/useDlAdmin'
 
@@ -134,12 +135,10 @@ async function renderMap() {
   if (!mapChartRef.value) return
   if (!mapRegistered) {
     try {
-      const resp = await fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json')
-      const geoJson = await resp.json()
-      echarts.registerMap('china', geoJson)
+      echarts.registerMap('china', chinaGeoJson as any)
       mapRegistered = true
     } catch (e) {
-      // 地图加载失败，退化为柱状图
+      // 地图注册失败，退化为柱状图
       renderBarFallback()
       return
     }
