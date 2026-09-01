@@ -23,7 +23,7 @@
         <div class="truth-meta">
           <span v-if="traceData?.scanCount != null" class="truth-item">已查验 <strong>{{ traceData.scanCount }}</strong> 次</span>
           <span v-if="traceData?.production?.productionTime" class="truth-item">生产时间：{{ traceData.production.productionTime }}</span>
-          <span v-if="traceData?.batch?.testResult" class="truth-item">检测结果：<strong>{{ traceData.batch.testResult }}</strong></span>
+          <span v-if="testReports[0]?.testResult" class="truth-item">检测结果：<strong>{{ testReports[0].testResult }}</strong></span>
         </div>
       </div>
 
