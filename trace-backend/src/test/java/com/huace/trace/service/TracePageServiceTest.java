@@ -51,19 +51,19 @@ class TracePageServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(mongoCodeItemService.findBySerialNo(anyString())).thenReturn(Optional.empty());
+        lenient().when(mongoCodeItemService.findBySerialNo(anyString())).thenReturn(Optional.empty());
         Enterprise ent = new Enterprise();
         ent.setId(1L);
         ent.setName("河南福鹿家鲜啤酒业有限公司");
-        when(enterpriseMapper.selectById(1L)).thenReturn(ent);
+        lenient().when(enterpriseMapper.selectById(1L)).thenReturn(ent);
         Goods goods = new Goods();
         goods.setId(2L);
         goods.setName("德式小麦");
-        when(goodsMapper.selectById(2L)).thenReturn(goods);
+        lenient().when(goodsMapper.selectById(2L)).thenReturn(goods);
         EnterpriseCert cert = new EnterpriseCert();
         cert.setId(3L);
         cert.setCertName("全程可追溯产品验证证书");
-        when(certMapper.selectById(3L)).thenReturn(cert);
+        lenient().when(certMapper.selectById(3L)).thenReturn(cert);
     }
 
     private CodePackageItem buildItem(String antiFakeCode) {

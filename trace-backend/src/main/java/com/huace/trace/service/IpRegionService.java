@@ -25,6 +25,8 @@ public class IpRegionService {
             if (parts.length < 4) return null;
             String province = clean(parts[2]);
             String city = clean(parts[3]);
+            // ip2region 对私有地址返回"内网IP"，不视为有效归属地
+            if ("内网IP".equals(city)) city = "";
             if (province.isEmpty() && city.isEmpty()) return null;
             return new String[]{province, city};
         } catch (Exception e) {

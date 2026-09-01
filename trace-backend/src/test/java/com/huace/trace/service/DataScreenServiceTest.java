@@ -88,8 +88,8 @@ class DataScreenServiceTest {
 
         Map<String, Object> byName = new HashMap<>();
         for (Map<String, Object> c : categories) byName.put((String) c.get("name"), c);
-        assertEquals(1L, byName.get("未分类").get("value"));
-        assertEquals(1L, byName.get("饮料").get("value"));
+        assertEquals(1L, ((Map<String, Object>) byName.get("未分类")).get("value"));
+        assertEquals(1L, ((Map<String, Object>) byName.get("饮料")).get("value"));
     }
 
     @Test
