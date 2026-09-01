@@ -72,6 +72,18 @@ if [ -f /opt/trace-system/sql/V1__init_schema.sql ]; then
     echo "数据库初始化完成"
 fi
 
+# 生成随机管理员密码（可用同名环境变量覆盖），覆盖种子数据中的默认密码
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
+while [ -z "$ADMIN_PASSWORD" ] || [ ${#ADMIN_PASSWORD} -lt 16 ]; do
+    ADMIN_PASSWORD="$(openssl rand -base64 16 | tr -dc 'A-Za-z0-9')"
+done
+if ! command -v htpasswd &>/dev/null; then
+    yum install -y httpd-tools 2>/dev/null || true
+fi
+ADMIN_HASH=$(htpasswd -bnBC 10 "" "$ADMIN_PASSWORD" | tr -d ':\n')
+mysql -u root -p"$DB_PASSWORD" -e "UPDATE trace_system.sys_user SET password_hash='$ADMIN_HASH' WHERE username='admin';" 2>/dev/null || true
+echo "管理员密码已生成，请妥善保存到本地密码管理器中"
+
 # ---------- 4. 构建前端 ----------
 echo "[4/6] 构建前端..."
 cd /opt/trace-system/trace-frontend
@@ -278,5 +290,6 @@ echo ""
 echo "=============================="
 echo "  部署完成！"
 echo "  访问地址: http://$(curl -s ifconfig.me 2>/dev/null || echo 'YOUR_SERVER_IP')"
-echo "  管理端账号: admin / admin123"
+echo "  管理端账号: admin / $ADMIN_PASSWORD"
+echo "  (首次登录后请在系统内修改密码)"
 echo "=============================="

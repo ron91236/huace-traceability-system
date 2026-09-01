@@ -26,8 +26,9 @@ echo " - /enterprise/batches"
 
 echo ""
 echo "=== 5. Test API through nginx ==="
-curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1/api/auth/login -X POST -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin123","loginType":"admin"}'
-echo " - /api/auth/login"
+# 公开接口健康检查（不依赖凭据）
+curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1/api/trace/00000626"
+echo " - /api/trace/00000626 (公开接口)"
 
 # Login and test enterprise API through nginx
 TOKEN=$(curl -s -X POST http://127.0.0.1/api/auth/login -H 'Content-Type: application/json' -d '{"username":"test_enterprise","password":"test123","loginType":"enterprise"}' | python3 -c 'import sys,json; print(json.load(sys.stdin).get("data",{}).get("token",""))')

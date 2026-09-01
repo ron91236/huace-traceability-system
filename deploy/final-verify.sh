@@ -1,7 +1,10 @@
 #!/bin/bash
 echo "=== Final data fix and verification ==="
+# 凭据不再硬编码：DB_PASSWORD / ADMIN_PASS 环境变量缺失时相关步骤降级
+DB_PASSWORD="${DB_PASSWORD:-root}"
+ADMIN_PASS="${ADMIN_PASS:-}"
 
-mysql -uroot -proot trace_system 2>/dev/null <<'SQL'
+mysql -uroot -p"$DB_PASSWORD" trace_system 2>/dev/null <<'SQL'
 -- Add trace_inventory with correct fields
 INSERT INTO trace_inventory (code_pool, label_spec_id, start_serial, end_serial, produce_time, enterprise_id)
 SELECT 'POOL-001', 1, '00000001', '00000100', '2026-06-15 10:00:00', 11
@@ -28,7 +31,7 @@ SQL
 
 echo ""
 echo "=== Final data counts ==="
-mysql -uroot -proot trace_system 2>/dev/null <<'SQL'
+mysql -uroot -p"$DB_PASSWORD" trace_system 2>/dev/null <<'SQL'
 SELECT 'enterprise' as tbl, COUNT(*) as cnt FROM enterprise
 UNION ALL SELECT 'enterprise_cert', COUNT(*) FROM enterprise_cert
 UNION ALL SELECT 'enterprise_base', COUNT(*) FROM enterprise_base
@@ -61,14 +64,18 @@ done
 
 echo ""
 echo "=== Comprehensive API test (admin) ==="
-ALOGIN=$(curl -s -X POST http://127.0.0.1:8080/api/auth/login -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin123","loginType":"admin"}')
-ATK=$(echo $ALOGIN | python3 -c 'import sys,json; print(json.load(sys.stdin).get("data",{}).get("token",""))')
-AH="Authorization: Bearer $ATK"
+if [ -n "$ADMIN_PASS" ]; then
+  ALOGIN=$(curl -s -X POST http://127.0.0.1:8080/api/auth/login -H 'Content-Type: application/json' -d "{\"username\":\"admin\",\"password\":\"$ADMIN_PASS\",\"loginType\":\"admin\"}")
+  ATK=$(echo $ALOGIN | python3 -c 'import sys,json; print(json.load(sys.stdin).get("data",{}).get("token",""))')
+  AH="Authorization: Bearer $ATK"
 
-for ep in cert-types enterprises enterprises/all products label-specs bases orders notices dashboard/stats code-packages code-packages/all code-packages/last-serial data-screen/all trace-templates voided-code-ranges; do
-  CODE=$(curl -s "http://127.0.0.1:8080/api/admin/$ep" -H "$AH" | python3 -c "import sys,json; print(json.load(sys.stdin).get('code','ERR'))" 2>/dev/null)
-  echo "  admin/$ep: $CODE"
-done
+  for ep in cert-types enterprises enterprises/all products label-specs bases orders notices dashboard/stats code-packages code-packages/all code-packages/last-serial data-screen/all trace-templates voided-code-ranges; do
+    CODE=$(curl -s "http://127.0.0.1:8080/api/admin/$ep" -H "$AH" | python3 -c "import sys,json; print(json.load(sys.stdin).get('code','ERR'))" 2>/dev/null)
+    echo "  admin/$ep: $CODE"
+  done
+else
+  echo "未设置 ADMIN_PASS 环境变量，跳过管理端 API 测试"
+fi
 
 echo ""
 echo "=== Test trace/query (public) ==="

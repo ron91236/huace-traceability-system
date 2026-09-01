@@ -1,20 +1,29 @@
 #!/bin/bash
 BASE=http://127.0.0.1:8080/api
+# 凭据不再硬编码：ADMIN_PASS / ENT_PASS / DB_PASSWORD 环境变量缺失时相关检查降级跳过
+ADMIN_PASS="${ADMIN_PASS:-}"
+ENT_PASS="${ENT_PASS:-}"
+DB_PASSWORD="${DB_PASSWORD:-root}"
 
 # Admin login
-ADMIN_TOKEN=$(curl -s -X POST $BASE/auth/login -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin123","loginType":"admin"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["data"]["token"])' 2>/dev/null)
+if [ -z "$ADMIN_PASS" ]; then
+  echo "未设置 ADMIN_PASS 环境变量，跳过管理端登录"
+  ADMIN_TOKEN=""
+else
+  ADMIN_TOKEN=$(curl -s -X POST $BASE/auth/login -H 'Content-Type: application/json' -d "{\"username\":\"admin\",\"password\":\"$ADMIN_PASS\",\"loginType\":\"admin\"}" | python3 -c 'import sys,json; print(json.load(sys.stdin)["data"]["token"])' 2>/dev/null)
+fi
 echo "ADMIN_TOKEN_LEN=${#ADMIN_TOKEN}"
 
 # DB users
 echo "--- SYS_USER ---"
-mysql -uroot -proot trace_system -N -e 'SELECT id,username,user_type,enterprise_id FROM sys_user;' 2>/dev/null
+mysql -uroot -p"$DB_PASSWORD" trace_system -N -e 'SELECT id,username,user_type,enterprise_id FROM sys_user;' 2>/dev/null
 echo "--- ENTERPRISE ---"
-mysql -uroot -proot trace_system -N -e 'SELECT id,name,contact_name,phone FROM enterprise LIMIT 5;' 2>/dev/null
+mysql -uroot -p"$DB_PASSWORD" trace_system -N -e 'SELECT id,name,contact_name,phone FROM enterprise LIMIT 5;' 2>/dev/null
 
 # Enterprise login - try first enterprise contact phone
-PHONE=$(mysql -uroot -proot trace_system -N -e 'SELECT phone FROM enterprise WHERE id=1;' 2>/dev/null)
-CONTACT=$(mysql -uroot -proot trace_system -N -e 'SELECT contact_name FROM enterprise WHERE id=1;' 2>/dev/null)
-ENT_NAME=$(mysql -uroot -proot trace_system -N -e 'SELECT name FROM enterprise WHERE id=1;' 2>/dev/null)
+PHONE=$(mysql -uroot -p"$DB_PASSWORD" trace_system -N -e 'SELECT phone FROM enterprise WHERE id=1;' 2>/dev/null)
+CONTACT=$(mysql -uroot -p"$DB_PASSWORD" trace_system -N -e 'SELECT contact_name FROM enterprise WHERE id=1;' 2>/dev/null)
+ENT_NAME=$(mysql -uroot -p"$DB_PASSWORD" trace_system -N -e 'SELECT name FROM enterprise WHERE id=1;' 2>/dev/null)
 echo "ENT1: phone=$PHONE contact=$CONTACT name=$ENT_NAME"
 
 # Try login with phone
@@ -35,15 +44,18 @@ if [ ${#ENT_TOKEN} -lt 10 ]; then
 fi
 if [ ${#ENT_TOKEN} -lt 10 ]; then
   echo "--- CHECK USER PASSWORDS ---"
-  mysql -uroot -proot trace_system -N -e "SELECT id,username,user_type,password FROM sys_user WHERE user_type!='admin' LIMIT 5;" 2>/dev/null
-  # Try admin123
-  ENT_RESP=$(curl -s -X POST $BASE/auth/login -H 'Content-Type: application/json' -d "{\"username\":\"$PHONE\",\"password\":\"admin123\",\"loginType\":\"enterprise\"}")
-  echo "ENT_LOGIN_ADMIN123: $(echo $ENT_RESP | python3 -c 'import sys,json; d=json.load(sys.stdin); print("code=",d.get("code"),"msg=",d.get("msg",""))' 2>/dev/null)"
-  ENT_TOKEN=$(echo $ENT_RESP | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("data",{}).get("token",""))' 2>/dev/null)
+  mysql -uroot -p"$DB_PASSWORD" trace_system -N -e "SELECT id,username,user_type,password FROM sys_user WHERE user_type!='admin' LIMIT 5;" 2>/dev/null
+  if [ -n "$ENT_PASS" ]; then
+    ENT_RESP=$(curl -s -X POST $BASE/auth/login -H 'Content-Type: application/json' -d "{\"username\":\"$PHONE\",\"password\":\"$ENT_PASS\",\"loginType\":\"enterprise\"}")
+    echo "ENT_LOGIN_ENT_PASS: $(echo $ENT_RESP | python3 -c 'import sys,json; d=json.load(sys.stdin); print("code=",d.get("code"),"msg=",d.get("msg",""))' 2>/dev/null)"
+    ENT_TOKEN=$(echo $ENT_RESP | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("data",{}).get("token",""))' 2>/dev/null)
+  else
+    echo "未设置 ENT_PASS 环境变量，跳过备用密码尝试"
+  fi
 fi
 if [ ${#ENT_TOKEN} -lt 10 ]; then
   # Try username from sys_user
-  ENT_USER=$(mysql -uroot -proot trace_system -N -e "SELECT username FROM sys_user WHERE user_type!='admin' LIMIT 1;" 2>/dev/null)
+  ENT_USER=$(mysql -uroot -p"$DB_PASSWORD" trace_system -N -e "SELECT username FROM sys_user WHERE user_type!='admin' LIMIT 1;" 2>/dev/null)
   echo "TRYING_SYS_USER=$ENT_USER"
   ENT_RESP=$(curl -s -X POST $BASE/auth/login -H 'Content-Type: application/json' -d "{\"username\":\"$ENT_USER\",\"password\":\"123456\",\"loginType\":\"enterprise\"}")
   echo "ENT_LOGIN_SYS: $(echo $ENT_RESP | python3 -c 'import sys,json; d=json.load(sys.stdin); print("code=",d.get("code"),"msg=",d.get("msg",""))' 2>/dev/null)"

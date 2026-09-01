@@ -1,5 +1,10 @@
 #!/bin/bash
-# 在服务器上执行: bash /tmp/test-apis.sh
+# 在服务器上执行: ADMIN_PASS=xxx bash /tmp/test-apis.sh
+ADMIN_PASS="${ADMIN_PASS:-}"
+if [ -z "$ADMIN_PASS" ]; then
+  echo "请设置 ADMIN_PASS 环境变量后执行"
+  exit 1
+fi
 
 echo "=== 1. 检查后端服务状态 ==="
 systemctl is-active trace-backend
@@ -8,7 +13,7 @@ echo ""
 echo "=== 2. 测试登录API ==="
 LOGIN_RESP=$(curl -s -X POST http://127.0.0.1:8080/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"admin123","loginType":"enterprise"}')
+  -d "{\"username\":\"admin\",\"password\":\"$ADMIN_PASS\",\"loginType\":\"enterprise\"}")
 echo "$LOGIN_RESP" | python3 -m json.tool 2>/dev/null || echo "$LOGIN_RESP"
 
 # 提取token

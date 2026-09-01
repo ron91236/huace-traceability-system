@@ -66,7 +66,7 @@ systemctl status trace-backend
 # 测试 API
 curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}'
+  -d '{"username":"admin","password":"<你的管理员密码>"}'
 
 # 退出
 exit
@@ -75,7 +75,7 @@ exit
 ### 步骤 4：访问系统
 
 - **前端页面**：http://8.152.162.118
-- **默认账号**：admin / admin123
+- **管理端账号**：admin / 部署脚本生成的随机密码（`deploy.sh` 输出中查看；可用 `ADMIN_PASSWORD` 环境变量指定）
 
 ---
 

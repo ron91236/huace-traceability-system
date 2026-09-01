@@ -366,6 +366,7 @@ CREATE TABLE `audit_log` (
 INSERT INTO `sys_role` (`name`, `role_type`) VALUES ('总部管理员', 'admin'), ('企业管理员', 'enterprise');
 
 -- 初始管理员账号 (密码: admin123, BCrypt加密)
+-- 注意: deploy.sh 部署时会用随机生成的 ADMIN_PASSWORD 覆盖此默认密码
 INSERT INTO `sys_user` (`username`, `password_hash`, `nickname`, `user_type`, `role_id`, `status`)
 VALUES ('admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '系统管理员', 'admin', 1, 1);
 
