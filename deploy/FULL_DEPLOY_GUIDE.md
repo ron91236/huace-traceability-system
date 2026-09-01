@@ -146,11 +146,11 @@ ssh root@8.152.162.118
 # 检查 MySQL 状态
 systemctl status mysqld
 
-# 检查数据库是否存在
-mysql -u root -p'Trace@2024' -e "SHOW DATABASES;"
+# 检查数据库是否存在（密码以 systemd 服务中的 DB_PASSWORD 为准，不在此处明文记录）
+mysql -u root -p -e "SHOW DATABASES;"
 
 # 如果数据库不存在，重新初始化
-mysql -u root -p'Trace@2024' < /opt/trace-system/sql/V1__init_schema.sql
+mysql -u root -p < /opt/trace-system/sql/V1__init_schema.sql
 ```
 
 ---

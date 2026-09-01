@@ -27,6 +27,11 @@ echo "[3/6] 配置数据库..."
 systemctl start mysqld 2>/dev/null || systemctl start mysql 2>/dev/null || true
 systemctl enable mysqld 2>/dev/null || systemctl enable mysql 2>/dev/null || true
 
+# 生成随机数据库密码与 JWT 密钥（不写入仓库；可用同名环境变量覆盖）
+DB_PASSWORD="${DB_PASSWORD:-$(openssl rand -base64 18 | tr -dc 'A-Za-z0-9' | head -c 20)}"
+JWT_SECRET="${JWT_SECRET:-$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 48)}"
+echo "已生成数据库密码与JWT密钥，请妥善保存到本地密码管理器中"
+
 # Redis
 if ! command -v redis-server &>/dev/null && ! systemctl list-unit-files | grep -q redis; then
     yum install -y redis 2>/dev/null || true
@@ -56,15 +61,14 @@ systemctl start mongod 2>/dev/null || true
 systemctl enable mongod 2>/dev/null || true
 
 # 设置 root 密码并创建数据库
-mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'Trace@2024';" 2>/dev/null || true
-mysql -u root -p'Trace@2024' -e "CREATE DATABASE IF NOT EXISTS trace_system DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || true
-# 允许远程访问（本地开发连接服务器数据库）
-mysql -u root -p'Trace@2024' -e "CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY 'Trace@2024'; GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;" 2>/dev/null || true
-mysql -u root -p'Trace@2024' -e "FLUSH PRIVILEGES;" 2>/dev/null || true
+mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_PASSWORD';" 2>/dev/null || true
+mysql -u root -p"$DB_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS trace_system DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || true
+# 出于安全考虑不再创建 root@'%' 远程账号，本地开发请通过 SSH 隧道连接数据库
+mysql -u root -p"$DB_PASSWORD" -e "FLUSH PRIVILEGES;" 2>/dev/null || true
 
 # 导入建表脚本
 if [ -f /opt/trace-system/sql/V1__init_schema.sql ]; then
-    mysql -u root -p'Trace@2024' < /opt/trace-system/sql/V1__init_schema.sql 2>/dev/null || true
+    mysql -u root -p"$DB_PASSWORD" < /opt/trace-system/sql/V1__init_schema.sql 2>/dev/null || true
     echo "数据库初始化完成"
 fi
 
@@ -97,7 +101,7 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/trace_system?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
     username: root
-    password: Trace@2024
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 20
@@ -141,7 +145,7 @@ mybatis-plus:
       id-type: auto
 
 jwt:
-  secret: huace-trace-system-jwt-secret-key-2024-very-long-secret
+  secret: ${JWT_SECRET:}
   expiration: 86400000
 
 file:
@@ -227,7 +231,7 @@ systemctl enable nginx
 echo "Nginx 已启动"
 
 # 创建后端 systemd 服务
-cat > /etc/systemd/system/trace-backend.service << 'SVC'
+cat > /etc/systemd/system/trace-backend.service << SVC
 [Unit]
 Description=Trace System Backend
 After=network.target mysqld.service mongod.service redis.service
@@ -241,7 +245,8 @@ Environment=MONGO_URI=mongodb://127.0.0.1:27017/trace_system
 Environment=REDIS_HOST=127.0.0.1
 Environment=DB_URL=jdbc:mysql://127.0.0.1:3306/trace_system?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
 Environment=DB_USERNAME=root
-Environment=DB_PASSWORD=Trace@2024
+Environment=DB_PASSWORD=$DB_PASSWORD
+Environment=JWT_SECRET=$JWT_SECRET
 WorkingDirectory=/opt/trace-system/trace-backend
 ExecStart=/usr/bin/java -jar -Xms512m -Xmx2g target/trace-backend-1.0.0.jar
 Restart=always
