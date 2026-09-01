@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.huace.trace.entity.*;
 import com.huace.trace.mapper.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -20,6 +21,7 @@ public class DataScreenService {
     private final ProductMapper productMapper;
     private final BatchMapper batchMapper;
 
+    @Cacheable(value = "dataScreen", key = "#enterpriseId == null ? 'all:admin' : 'all:' + #enterpriseId")
     public Map<String, Object> getAllData(Long enterpriseId) {
         Map<String, Object> result = new HashMap<>();
         result.put("kpi", getKpiData(enterpriseId));

@@ -54,9 +54,17 @@ public class RedisConfig {
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer))
                 .disableCachingNullValues();
 
+        // 数据大屏聚合数据缓存 TTL 短（30秒），降低多维度聚合查询压力
+        RedisCacheConfiguration dataScreenConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofSeconds(30))
+                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer))
+                .disableCachingNullValues();
+
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
                 .withCacheConfiguration("tracePage", tracePageConfig)
+                .withCacheConfiguration("dataScreen", dataScreenConfig)
                 .transactionAware()
                 .build();
     }
