@@ -48,7 +48,7 @@ export function createBlankPages(genId: (prefix: string) => string): PageData[] 
 
 // 生猪溯源默认信息模块
 function pigInfoSections(genId: (prefix: string) => string): PageElement[] {
-  const sectionTypes = ['enterprise-info', 'product-info', 'base-info', 'breed-archive', 'farm-info', 'transport-info', 'slaughter-info', 'cutting-record', 'test-info', 'cert-info']
+  const sectionTypes = ['enterprise-info', 'product-info', 'base-info', 'test-info', 'cert-info']
   return sectionTypes.map(type => {
     const def = SECTION_FIELDS[type]
     return {

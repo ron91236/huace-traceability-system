@@ -36,6 +36,8 @@ public class TracePageService {
     private final TestReportService testReportService;
     private final ObjectMapper objectMapper;
     private final MongoCodeItemService mongoCodeItemService;
+    private final OrderCodeMapper orderCodeMapper;
+    private final IpRegionService ipRegionService;
 
     /**
      * 清除全部溯源页缓存。
@@ -54,7 +56,7 @@ public class TracePageService {
         return queryBySerialNo(serialNo, null);
     }
 
-    @Cacheable(value = "tracePage", key = "'serial:' + #serialNo")
+    @Cacheable(value = "tracePage", key = "'serial:' + #serialNo + ':v2'")
     public Map<String, Object> queryBySerialNo(String serialNo, HttpServletRequest request) {
         // 1. 优先从 MongoDB 查询码包明细（亿级数据外部存储）
         CodePackageItem item = mongoCodeItemService.findBoundBySerialNo(serialNo)
@@ -83,9 +85,14 @@ public class TracePageService {
             record.setSerialNo(serialNo);
             record.setEnterpriseId(item.getEnterpriseId());
             if (request != null) {
-                record.setIp(getClientIp(request));
+                String ip = getClientIp(request);
+                record.setIp(ip);
                 record.setUserAgent(request.getHeader("User-Agent"));
-                // 简单从 User-Agent 无法获取地理位置，前端可通过IP库补充
+                String[] region = ipRegionService.resolve(ip);
+                if (region != null) {
+                    record.setProvince(region[0]);
+                    record.setCity(region[1]);
+                }
             }
             scanRecordMapper.insert(record);
         } catch (Exception ignored) {}
@@ -94,6 +101,7 @@ public class TracePageService {
         result.put("serialNo", item.getSerialNo());
         result.put("antiFakeCode", item.getAntiFakeCode());
         result.put("url", item.getUrl());
+        result.put("scanCount", item.getScanCount() != null ? item.getScanCount() : 0);
         // 关联ID（供C端扩展接口使用）
         result.put("_enterpriseId", item.getEnterpriseId());
         result.put("_batchId", item.getBatchId());
@@ -202,6 +210,20 @@ public class TracePageService {
                         result.put("base", baseInfo);
                     }
                 }
+            }
+        }
+
+        // 6.5 生产信息（从订单绑定关系获取）
+        if (item.getOrderCodeId() != null) {
+            OrderCode oc = orderCodeMapper.selectById(item.getOrderCodeId());
+            if (oc != null) {
+                Map<String, Object> productionInfo = new HashMap<>();
+                if (oc.getProductionTime() != null) {
+                    productionInfo.put("productionTime",
+                            oc.getProductionTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+                }
+                productionInfo.put("productName", oc.getProductName());
+                result.put("production", productionInfo);
             }
         }
 

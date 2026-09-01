@@ -570,13 +570,11 @@ const elementPalette = [
     { type: 'test-info', label: '检测信息', icon: 'Tickets' },
     { type: 'base-info', label: '基地信息', icon: 'Location' },
   ]},
-  { label: '养殖溯源', items: [
-    { type: 'breed-archive', label: '养殖档案', icon: 'Notebook' },
-    { type: 'farm-info', label: '养殖场信息', icon: 'House' },
-    { type: 'transport-info', label: '调运信息', icon: 'Van' },
-    { type: 'slaughter-info', label: '屠宰信息', icon: 'Document' },
-    { type: 'cutting-record', label: '分割记录', icon: 'Crop' },
+  { label: '扩展元素', items: [
     { type: 'map', label: '地图', icon: 'MapLocation' },
+    { type: 'video-monitor', label: '视频监控', icon: 'VideoCamera' },
+    { type: 'iot-environment', label: '环境监测', icon: 'Monitor' },
+    { type: 'vr-panorama', label: 'VR全景导览', icon: 'View' },
   ]},
 ]
 
@@ -1017,12 +1015,11 @@ function loadPreset(key: string) {
     form.value.themeKey = 'premium-gold'
     form.value.backgroundImage = ''
 
-    // 首页：产品主图 + 养殖档案 + 阶段导航
+    // 首页：产品主图 + 企业信息 + 内容导航
     const page0Id = genId('page')
     const page1Id = genId('page')
     const page2Id = genId('page')
     const page3Id = genId('page')
-    const page4Id = genId('page')
 
     const heroImg = createElementData('image')
     heroImg.label = '产品主图'; heroImg.style = { ...heroImg.style, height: '180px', borderRadius: 0 }
@@ -1039,61 +1036,39 @@ function loadPreset(key: string) {
     tagsText.content = '大河乌猪 | 2025-12-25生产 | 1KG'
     tagsText.style = { fontSize: 12, color: '#999', fontWeight: 'normal', textAlign: 'center' }
 
-    const certOrg = createElementData('text')
-    certOrg.content = '认证机构：富源县大河乌猪产业发展协会'
-    certOrg.style = { fontSize: 13, color: '#666', fontWeight: 'normal', textAlign: 'left' }
-
-    const breedArchive = createElementData('breed-archive')
-    breedArchive.selectedFields = SECTION_FIELDS['breed-archive'].fields.map(f => f.field)
+    const enterpriseInfo = createElementData('enterprise-info')
+    enterpriseInfo.selectedFields = SECTION_FIELDS['enterprise-info'].fields.map(f => f.field)
 
     const divider1 = createElementData('divider')
 
     const stageTitle = createElementData('text')
-    stageTitle.content = '选择查看阶段'
+    stageTitle.content = '选择查看内容'
     stageTitle.style = { fontSize: 14, color: '#333', fontWeight: 'bold', textAlign: 'left' }
 
-    const btnFarm = createElementData('button')
-    btnFarm.label = '养殖阶段'; btnFarm.buttonType = 'page'; btnFarm.targetPageId = page1Id
-    btnFarm.style = { ...btnFarm.style, backgroundColor: '#8B4513', width: '100%', borderRadius: 8 }
+    const btnTest = createElementData('button')
+    btnTest.label = '检测报告'; btnTest.buttonType = 'page'; btnTest.targetPageId = page1Id
+    btnTest.style = { ...btnTest.style, backgroundColor: '#8B4513', width: '100%', borderRadius: 8 }
 
-    const btnTransport = createElementData('button')
-    btnTransport.label = '调运阶段'; btnTransport.buttonType = 'page'; btnTransport.targetPageId = page2Id
-    btnTransport.style = { ...btnTransport.style, backgroundColor: '#A0522D', width: '100%', borderRadius: 8 }
+    const btnCert = createElementData('button')
+    btnCert.label = '认证信息'; btnCert.buttonType = 'page'; btnCert.targetPageId = page2Id
+    btnCert.style = { ...btnCert.style, backgroundColor: '#A0522D', width: '100%', borderRadius: 8 }
 
-    const btnSlaughter = createElementData('button')
-    btnSlaughter.label = '屠宰阶段'; btnSlaughter.buttonType = 'page'; btnSlaughter.targetPageId = page3Id
-    btnSlaughter.style = { ...btnSlaughter.style, backgroundColor: '#8B2500', width: '100%', borderRadius: 8 }
+    const btnMap = createElementData('button')
+    btnMap.label = '位置地图'; btnMap.buttonType = 'page'; btnMap.targetPageId = page3Id
+    btnMap.style = { ...btnMap.style, backgroundColor: '#8B2500', width: '100%', borderRadius: 8 }
 
-    const btnCutting = createElementData('button')
-    btnCutting.label = '分割记录'; btnCutting.buttonType = 'page'; btnCutting.targetPageId = page4Id
-    btnCutting.style = { ...btnCutting.style, backgroundColor: '#CD853F', width: '100%', borderRadius: 8 }
+    // 检测报告页
+    const testInfo = createElementData('test-info')
+    testInfo.selectedFields = SECTION_FIELDS['test-info'].fields.map(f => f.field)
 
-    // 养殖阶段页
-    const farmInfo = createElementData('farm-info')
-    farmInfo.selectedFields = SECTION_FIELDS['farm-info'].fields.map(f => f.field)
+    const productInfo = createElementData('product-info')
+    productInfo.selectedFields = SECTION_FIELDS['product-info'].fields.map(f => f.field)
 
-    const farmDivider = createElementData('divider')
+    // 认证信息页
+    const certInfo = createElementData('cert-info')
+    certInfo.selectedFields = SECTION_FIELDS['cert-info'].fields.map(f => f.field)
 
-    const feedingTitle = createElementData('text')
-    feedingTitle.content = '饲养记录'
-    feedingTitle.style = { fontSize: 14, color: '#8B2500', fontWeight: 'bold', textAlign: 'left' }
-
-    const feedingContent = createElementData('text')
-    feedingContent.content = '• 双胞胎乳猪配合饲料\n• 双胞胎大猪配合饲料'
-    feedingContent.style = { fontSize: 13, color: '#555', fontWeight: 'normal', textAlign: 'left' }
-
-    const vaxTitle = createElementData('text')
-    vaxTitle.content = '接种记录'
-    vaxTitle.style = { fontSize: 14, color: '#8B2500', fontWeight: 'bold', textAlign: 'left' }
-
-    const vaxEmpty = createElementData('text')
-    vaxEmpty.content = '暂无数据'
-    vaxEmpty.style = { fontSize: 13, color: '#999', fontWeight: 'normal', textAlign: 'center' }
-
-    // 调运阶段页
-    const transportInfo = createElementData('transport-info')
-    transportInfo.selectedFields = SECTION_FIELDS['transport-info'].fields.filter(f => !f.field.includes('Lat') && !f.field.includes('Lng')).map(f => f.field)
-
+    // 地图页
     const mapEl = createElementData('map')
     mapEl.mapKey = ''
     mapEl.center = '104.2609,25.6745' // 富源县坐标
@@ -1103,20 +1078,11 @@ function loadPreset(key: string) {
       { label: '屠宰场', lat: 25.6892, lng: 104.2488 },
     ]
 
-    // 屠宰阶段页
-    const slaughterInfo = createElementData('slaughter-info')
-    slaughterInfo.selectedFields = SECTION_FIELDS['slaughter-info'].fields.map(f => f.field)
-
-    // 分割记录页
-    const cuttingRecord = createElementData('cutting-record')
-    cuttingRecord.selectedFields = SECTION_FIELDS['cutting-record'].fields.map(f => f.field)
-
     form.value.pages = [
-      { id: page0Id, name: '认证报告', elements: [heroImg, titleText, subtitleText, tagsText, certOrg, breedArchive, divider1, stageTitle, btnFarm, btnTransport, btnSlaughter, btnCutting] },
-      { id: page1Id, name: '养殖阶段', elements: [farmInfo, farmDivider, feedingTitle, feedingContent, vaxTitle, vaxEmpty] },
-      { id: page2Id, name: '调运阶段', elements: [transportInfo, mapEl] },
-      { id: page3Id, name: '屠宰阶段', elements: [slaughterInfo] },
-      { id: page4Id, name: '分割记录', elements: [cuttingRecord] },
+      { id: page0Id, name: '认证报告', elements: [heroImg, titleText, subtitleText, tagsText, enterpriseInfo, divider1, stageTitle, btnTest, btnCert, btnMap] },
+      { id: page1Id, name: '检测报告', elements: [testInfo, productInfo] },
+      { id: page2Id, name: '认证信息', elements: [certInfo] },
+      { id: page3Id, name: '位置地图', elements: [mapEl] },
     ]
     currentPageIdx.value = 0
     selectedId.value = null

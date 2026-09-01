@@ -14,6 +14,19 @@
       <!-- 溯源码角标 -->
       <div class="serial-badge">{{ isBatchMode ? '批次：' + (traceData.batch?.name || '') : '溯源码：' + serialNo }}</div>
 
+      <!-- 真实性结论条 -->
+      <div v-if="!isBatchMode" :class="['truth-bar', truthBarClass]">
+        <div class="truth-main">
+          <span class="truth-icon">{{ truthIcon }}</span>
+          <span class="truth-title">{{ truthStatus.title }}</span>
+        </div>
+        <div class="truth-meta">
+          <span v-if="traceData?.scanCount != null" class="truth-item">已查验 <strong>{{ traceData.scanCount }}</strong> 次</span>
+          <span v-if="traceData?.production?.productionTime" class="truth-item">生产时间：{{ traceData.production.productionTime }}</span>
+          <span v-if="traceData?.batch?.testResult" class="truth-item">检测结果：<strong>{{ traceData.batch.testResult }}</strong></span>
+        </div>
+      </div>
+
       <!-- 扫码即防伪结果 -->
       <div v-if="isDirectMode && directVerifyResult" class="direct-verify-card">
         <div :class="['dv-status', directVerifyResult.verified ? 'success' : 'fail']">
@@ -356,11 +369,6 @@ const SECTION_ICONS: Record<string, string> = {
   'cert-info': 'Medal',
   'test-info': 'FirstAidKit',
   'base-info': 'House',
-  'breed-archive': 'Notebook',
-  'farm-info': 'Van',
-  'transport-info': 'MapLocation',
-  'slaughter-info': 'KnifeFork',
-  'cutting-record': 'Crop',
   'video-monitor': 'VideoCamera',
   'iot-environment': 'Monitor',
 }
@@ -410,23 +418,19 @@ async function loadExtendedData() {
 }
 
 const defaultSections = [
-  { key: 'enterprise', title: '企业信息', icon: 'OfficeBuilding', fields: [
-    { field: 'enterprise.name', label: '企业名称' },
-    { field: 'enterprise.introduction', label: '企业简介', type: 'text' },
-    { field: 'enterprise.addressFull', label: '企业地址' },
+  { key: 'batch', title: '检测信息', icon: 'Tickets', fields: [
+    { field: 'batch.testResult', label: '检测结果', type: 'badge' },
+    { field: 'batch.name', label: '批次名称' },
+    { field: 'batch.testOrg', label: '检测机构' },
+    { field: 'batch.testTime', label: '检测时间' },
+    { field: 'batch.testCode', label: '检测编号' },
+    { field: 'batch.testMethod', label: '检测方法' },
+    { field: 'batch.testBasis', label: '检测依据' },
   ]},
   { key: 'product', title: '产品信息', icon: 'Goods', fields: [
     { field: 'goods.name', label: '商品名称' },
     { field: 'goods.introduction', label: '产品介绍', type: 'text' },
     { field: 'goods.storageMethod', label: '储存方式' },
-  ]},
-  { key: 'batch', title: '批次信息', icon: 'Tickets', fields: [
-    { field: 'batch.name', label: '批次名称' },
-    { field: 'batch.testOrg', label: '检测机构' },
-    { field: 'batch.testResult', label: '检测结果', type: 'badge' },
-    { field: 'batch.testTime', label: '检测时间' },
-    { field: 'batch.testMethod', label: '检测方法' },
-    { field: 'batch.testBasis', label: '检测依据' },
   ]},
   { key: 'base', title: '基地信息', icon: 'Location', fields: [
     { field: 'base.name', label: '基地名称' },
@@ -434,11 +438,34 @@ const defaultSections = [
     { field: 'base.manager', label: '负责人' },
     { field: 'base.certification', label: '基地认证' },
   ]},
+  { key: 'enterprise', title: '企业信息', icon: 'OfficeBuilding', fields: [
+    { field: 'enterprise.name', label: '企业名称' },
+    { field: 'enterprise.introduction', label: '企业简介', type: 'text' },
+    { field: 'enterprise.addressFull', label: '企业地址' },
+  ]},
 ]
 
 const themeKey = computed(() => templateConfig.value?.theme?.key || 'standard-green')
 const currentLayout = computed(() => templateConfig.value?.layout || 'free')
 const pageTransition = computed(() => templateConfig.value?.pageTransition || '')
+
+// 真实性结论条
+const truthStatus = computed<{ ok: boolean; title: string }>(() => {
+  if (isDirectMode.value) {
+    if (!directVerifyResult.value) return { ok: true, title: '溯源信息查询成功' }
+    return directVerifyResult.value.verified
+      ? { ok: true, title: '正品 · 已通过防伪验证' }
+      : { ok: false, title: '防伪验证未通过' }
+  }
+  if (verifyResult.value) {
+    return verifyResult.value.verified
+      ? { ok: true, title: '正品 · 防伪码验证通过' }
+      : { ok: false, title: '防伪码不匹配，谨防假冒' }
+  }
+  return { ok: true, title: '溯源信息查询成功' }
+})
+const truthIcon = computed(() => truthStatus.value.ok ? '✅' : '❌')
+const truthBarClass = computed(() => truthStatus.value.ok ? 'truth-ok' : 'truth-fail')
 
 const backgroundImage = computed(() => templateConfig.value?.backgroundImage || '')
 const pageBackgroundColor = computed(() => templateConfig.value?.pageBackgroundColor || '')
@@ -840,6 +867,24 @@ onMounted(async () => {
   background: rgba(0,0,0,0.5); color: #fff; font-size: 12px;
   padding: 4px 12px; border-radius: 14px; white-space: nowrap;
   backdrop-filter: blur(4px);
+}
+
+// 真实性结论条
+.truth-bar {
+  padding: 14px 20px;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  &.truth-ok { background: linear-gradient(135deg, #10b981, #059669); }
+  &.truth-fail { background: linear-gradient(135deg, #ef4444, #dc2626); }
+  .truth-main {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 17px; font-weight: 600;
+  }
+  .truth-meta {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px;
+    margin-top: 6px; font-size: 13px; opacity: 0.95;
+  }
+  .truth-item strong { font-weight: 700; }
 }
 
 // 扫码即防伪卡片
@@ -1430,12 +1475,7 @@ onMounted(async () => {
     .page-element.el-type-product-info,
     .page-element.el-type-cert-info,
     .page-element.el-type-test-info,
-    .page-element.el-type-base-info,
-    .page-element.el-type-breed-archive,
-    .page-element.el-type-farm-info,
-    .page-element.el-type-transport-info,
-    .page-element.el-type-slaughter-info,
-    .page-element.el-type-cutting-record {
+    .page-element.el-type-base-info {
       flex: 0 0 calc(50% - 6px) !important;
       .trace-section {
         height: 100%;
@@ -1502,12 +1542,7 @@ onMounted(async () => {
     .page-element.el-type-product-info,
     .page-element.el-type-cert-info,
     .page-element.el-type-test-info,
-    .page-element.el-type-base-info,
-    .page-element.el-type-breed-archive,
-    .page-element.el-type-farm-info,
-    .page-element.el-type-transport-info,
-    .page-element.el-type-slaughter-info,
-    .page-element.el-type-cutting-record {
+    .page-element.el-type-base-info {
       position: relative;
       z-index: 1;
       width: calc(50% - 24px);
@@ -1537,12 +1572,7 @@ onMounted(async () => {
       .page-element.el-type-product-info,
       .page-element.el-type-cert-info,
       .page-element.el-type-test-info,
-      .page-element.el-type-base-info,
-      .page-element.el-type-breed-archive,
-      .page-element.el-type-farm-info,
-      .page-element.el-type-transport-info,
-      .page-element.el-type-slaughter-info,
-      .page-element.el-type-cutting-record {
+      .page-element.el-type-base-info {
         flex: 0 0 100% !important;
       }
     }
@@ -1562,12 +1592,7 @@ onMounted(async () => {
       .page-element.el-type-product-info,
       .page-element.el-type-cert-info,
       .page-element.el-type-test-info,
-      .page-element.el-type-base-info,
-      .page-element.el-type-breed-archive,
-      .page-element.el-type-farm-info,
-      .page-element.el-type-transport-info,
-      .page-element.el-type-slaughter-info,
-      .page-element.el-type-cutting-record {
+      .page-element.el-type-base-info {
         width: calc(100% - 36px);
         margin-left: 36px !important;
         margin-right: 0 !important;
