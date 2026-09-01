@@ -53,7 +53,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
-import * as echarts from 'echarts'
+import * as echarts from '@/utils/echarts'
 import { getEntDataScreen } from '@/api/enterprise'
 
 const loading = ref(false)

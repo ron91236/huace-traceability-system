@@ -65,7 +65,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import * as echarts from 'echarts'
+import * as echarts from '@/utils/echarts'
 import { getDlScanAnalysis, getDlScanDetail, getDlGeoAnalysis } from '@/api/digital-label'
 import { useDlAdmin } from '@/composables/useDlAdmin'
 

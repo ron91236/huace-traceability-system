@@ -69,7 +69,6 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getVoidedCodeRanges, batchImportVoidedCodeRanges, deleteVoidedCodeRange } from '@/api/admin'
-import * as XLSX from 'xlsx'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -124,6 +123,7 @@ async function handleAdd() {
 
 async function handleExcelImport(file: File) {
   try {
+    const XLSX = await import('xlsx')
     const buffer = await file.arrayBuffer()
     const workbook = XLSX.read(buffer)
     const sheet = workbook.Sheets[workbook.SheetNames[0]]
@@ -148,7 +148,8 @@ async function handleExcelImport(file: File) {
   return false
 }
 
-function downloadTemplate() {
+async function downloadTemplate() {
+  const XLSX = await import('xlsx')
   const wb = XLSX.utils.book_new()
   const data = [['流水号的位数', '开始流水号', '结束流水号', '备注'], [10, 54934651, 54941150, '']]
   const ws = XLSX.utils.aoa_to_sheet(data)

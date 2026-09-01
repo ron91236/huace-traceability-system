@@ -38,7 +38,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import * as echarts from 'echarts'
+import * as echarts from '@/utils/echarts'
 import { getDlLabelAnalysis } from '@/api/digital-label'
 import { useDlAdmin } from '@/composables/useDlAdmin'
 

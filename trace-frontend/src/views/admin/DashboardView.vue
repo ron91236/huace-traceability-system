@@ -172,7 +172,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import * as echarts from 'echarts'
+import * as echarts from '@/utils/echarts'
 import { getAdminDashboard, getAdminDataScreen } from '@/api/admin'
 import { useUserStore } from '@/stores/user'
 import {
