@@ -2,6 +2,7 @@ package com.huace.trace.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -82,6 +83,14 @@ public class RedisConfig {
         // 注册 Java 8 日期时间模块，支持 LocalDate/LocalDateTime
         mapper.registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        // 启用受限的多态类型序列化：缓存 POJO（PageResult/实体等）需带 @class 才能正确反序列化；
+        // 白名单仅放行项目内类型与 JDK 集合/时间类型，防止反序列化注入
+        BasicPolymorphicTypeValidator ptv = BasicPolymorphicTypeValidator.builder()
+                .allowIfSubType("com.huace.trace.")
+                .allowIfSubType("java.util.")
+                .allowIfSubType("java.time.")
+                .build();
+        mapper.activateDefaultTypingAsProperty(ptv, ObjectMapper.DefaultTyping.NON_FINAL, "@class");
         return mapper;
     }
 }
