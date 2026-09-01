@@ -78,7 +78,8 @@ public class RedisConfig {
                 .build();
     }
 
-    private ObjectMapper redisObjectMapper() {
+    // 包级可见，供 RedisTypingTest 直接验证序列化往返
+    ObjectMapper redisObjectMapper() {
         ObjectMapper mapper = new ObjectMapper();
         // 注册 Java 8 日期时间模块，支持 LocalDate/LocalDateTime
         mapper.registerModule(new JavaTimeModule());
@@ -89,6 +90,20 @@ public class RedisConfig {
                 .allowIfSubType("com.huace.trace.")
                 .allowIfSubType("java.util.")
                 .allowIfSubType("java.time.")
+                // Map<String,Object> 中的标量值会以 @class 类型信息写入缓存，需显式放行安全标量类型
+                .allowIfSubType("java.lang.Long")
+                .allowIfSubType("java.lang.Integer")
+                .allowIfSubType("java.lang.String")
+                .allowIfSubType("java.lang.Boolean")
+                .allowIfSubType("java.lang.Double")
+                .allowIfSubType("java.lang.Float")
+                .allowIfSubType("java.lang.Short")
+                .allowIfSubType("java.lang.Byte")
+                .allowIfSubType("java.lang.Character")
+                .allowIfSubType("java.math.BigDecimal")
+                .allowIfSubType("java.math.BigInteger")
+                .allowIfSubType("java.sql.Date")
+                .allowIfSubType("java.sql.Timestamp")
                 .build();
         mapper.activateDefaultTypingAsProperty(ptv, ObjectMapper.DefaultTyping.NON_FINAL, "@class");
         return mapper;
