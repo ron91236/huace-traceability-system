@@ -10,6 +10,8 @@ import com.huace.trace.entity.mongo.CodePackageItemMongo;
 import com.huace.trace.mapper.*;
 import com.huace.trace.util.FileUploadUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,6 +35,7 @@ public class CodePackageService {
     private final FileUploadUtil fileUploadUtil;
     private final MongoCodeItemService mongoCodeItemService;
 
+    @Cacheable(value = "adminList", key = "'cp:list:' + #page + ':' + #size + ':' + (#keyword == null ? '' : #keyword)")
     public PageResult<CodePackage> list(int page, int size, String keyword) {
         LambdaQueryWrapper<CodePackage> w = new LambdaQueryWrapper<>();
         if (keyword != null && !keyword.isEmpty()) {
@@ -75,6 +78,7 @@ public class CodePackageService {
     }
 
     @Transactional
+    @CacheEvict(value = "adminList", allEntries = true)
     public void importFile(MultipartFile file) throws Exception {
         String ext = FileUtil.extName(file.getOriginalFilename());
         if (ext == null || (!ext.equalsIgnoreCase("csv") && !ext.equalsIgnoreCase("txt"))) {
@@ -182,6 +186,7 @@ public class CodePackageService {
         codePackageMapper.updateById(cp);
     }
 
+    @CacheEvict(value = "adminList", allEntries = true)
     public void delete(Long id) {
         CodePackage cp = codePackageMapper.selectById(id);
         if (cp == null) throw new BusinessException("码包不存在");

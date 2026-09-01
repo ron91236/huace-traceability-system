@@ -61,10 +61,18 @@ public class RedisConfig {
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer))
                 .disableCachingNullValues();
 
+        // 管理端列表缓存 TTL 短（60秒），配合写操作时的主动失效保持新鲜
+        RedisCacheConfiguration adminListConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofSeconds(60))
+                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer))
+                .disableCachingNullValues();
+
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
                 .withCacheConfiguration("tracePage", tracePageConfig)
                 .withCacheConfiguration("dataScreen", dataScreenConfig)
+                .withCacheConfiguration("adminList", adminListConfig)
                 .transactionAware()
                 .build();
     }

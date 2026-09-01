@@ -9,6 +9,8 @@ import com.huace.trace.entity.VoidedCodeRange;
 import com.huace.trace.mapper.CodePackageMapper;
 import com.huace.trace.mapper.VoidedCodeRangeMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,7 @@ public class VoidedCodeRangeService {
     private final VoidedCodeRangeMapper voidedCodeRangeMapper;
     private final CodePackageMapper codePackageMapper;
 
+    @Cacheable(value = "adminList", key = "'voided:' + #page + ':' + #size")
     public PageResult<VoidedCodeRange> list(int page, int size) {
         LambdaQueryWrapper<VoidedCodeRange> w = new LambdaQueryWrapper<>();
         w.orderByDesc(VoidedCodeRange::getId);
@@ -46,6 +49,7 @@ public class VoidedCodeRangeService {
     }
 
     @Transactional
+    @CacheEvict(value = "adminList", allEntries = true)
     public void batchImport(List<VoidedCodeRange> ranges) {
         for (VoidedCodeRange range : ranges) {
             try {
@@ -62,6 +66,7 @@ public class VoidedCodeRangeService {
         }
     }
 
+    @CacheEvict(value = "adminList", allEntries = true)
     public void delete(Long id) {
         voidedCodeRangeMapper.deleteById(id);
     }

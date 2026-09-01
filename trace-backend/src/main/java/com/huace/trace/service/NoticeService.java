@@ -8,6 +8,8 @@ import com.huace.trace.entity.Notice;
 import com.huace.trace.mapper.EnterpriseMapper;
 import com.huace.trace.mapper.NoticeMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -20,6 +22,7 @@ public class NoticeService {
     private final NoticeMapper noticeMapper;
     private final EnterpriseMapper enterpriseMapper;
 
+    @Cacheable(value = "adminList", key = "'notice:' + #page + ':' + #size + ':' + (#keyword == null ? '' : #keyword) + ':' + (#enterpriseId == null ? 'all' : #enterpriseId)")
     public PageResult<Notice> list(int page, int size, String keyword, Long enterpriseId) {
         LambdaQueryWrapper<Notice> w = new LambdaQueryWrapper<>();
         if (enterpriseId != null) {
@@ -44,6 +47,9 @@ public class NoticeService {
         return new PageResult<>(r.getRecords(), r.getTotal());
     }
 
+    @CacheEvict(value = "adminList", allEntries = true)
     public void create(Notice n) { noticeMapper.insert(n); }
+
+    @CacheEvict(value = "adminList", allEntries = true)
     public void delete(Long id) { noticeMapper.deleteById(id); }
 }

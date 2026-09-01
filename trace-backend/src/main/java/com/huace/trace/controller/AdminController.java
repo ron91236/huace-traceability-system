@@ -20,6 +20,7 @@ import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.util.CellRangeAddress;
 import java.net.URLEncoder;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -988,6 +989,7 @@ public class AdminController {
     }
 
     @GetMapping("/code-packages/all")
+    @Cacheable(value = "adminList", key = "'cp:all'")
     public Result<List<Map<String, Object>>> allCodePackages() {
         List<CodePackage> packages = codePackageMapper.selectList(
                 new LambdaQueryWrapper<CodePackage>().orderByDesc(CodePackage::getId));
