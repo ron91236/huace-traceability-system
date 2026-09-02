@@ -25,6 +25,7 @@ const adminRoutes: RouteRecordRaw[] = [
   { path: 'iot-device', name: 'AdminIotDevice', component: () => import('@/views/admin/iot-device/IotDeviceList.vue'), meta: { title: 'IoT设备总览' } },
   { path: 'vr-manage', name: 'AdminVrManage', component: () => import('@/views/admin/vr-manage/VrManageList.vue'), meta: { title: 'VR全景管理' } },
   { path: 'poster', name: 'AdminPoster', component: () => import('@/views/admin/poster/PosterList.vue'), meta: { title: '海报管理' } },
+  { path: 'hgz', name: 'AdminHgz', component: () => import('@/views/enterprise/hgz/HgzList.vue'), meta: { title: '合格证管理' } },
 ]
 
 // 企业端路由
@@ -45,6 +46,7 @@ const enterpriseRoutes: RouteRecordRaw[] = [
   { path: 'video-source', name: 'EntVideoSource', component: () => import('@/views/enterprise/video-source/VideoSourceList.vue'), meta: { title: '视频源管理' } },
   { path: 'iot-device', name: 'EntIotDevice', component: () => import('@/views/enterprise/iot-device/IotDeviceList.vue'), meta: { title: 'IoT设备管理' } },
   { path: 'iot-alert', name: 'EntIotAlert', component: () => import('@/views/enterprise/iot-alert/IotAlertList.vue'), meta: { title: 'IoT告警' } },
+  { path: 'hgz', name: 'EntHgz', component: () => import('@/views/enterprise/hgz/HgzList.vue'), meta: { title: '合格证管理' } },
 ]
 
 // 数字标签系统（独立布局，管理员与企业用户均可进入；管理员全局只读查看）
@@ -91,9 +93,12 @@ const routes: RouteRecordRaw[] = [
   // 数据大屏（独立全屏路由，不嵌入Layout）
   { path: '/screen/admin', name: 'AdminScreen', component: () => import('@/views/admin/DataScreenView.vue'), meta: { title: '数据大屏', requireAuth: true, requireAdmin: true } },
   { path: '/screen/enterprise', name: 'EntScreen', component: () => import('@/views/enterprise/DataScreenView.vue'), meta: { title: '数据大屏', requireAuth: true, requireEnterprise: true } },
+  // 合格证打印（独立全屏路由，不嵌入Layout便于打印）
+  { path: '/hgz-print/:id', name: 'HgzPrint', component: () => import('@/views/enterprise/hgz/HgzPrint.vue'), meta: { title: '打印合格证', requireAuth: true } },
   { path: '/trace/:serialNo', name: 'Trace', component: () => import('@/views/trace/TraceView.vue'), meta: { title: '溯源查询', public: true } },
   { path: '/trace/batch/:batchId', name: 'BatchTrace', component: () => import('@/views/trace/TraceView.vue'), meta: { title: '批次溯源', public: true } },
   { path: '/cert/:id', name: 'CertPublic', component: () => import('@/views/cert/CertPublicView.vue'), meta: { title: '证书信息', public: true } },
+  { path: '/hgz/:code', name: 'HgzPublic', component: () => import('@/views/hgz/HgzView.vue'), meta: { title: '承诺达标合格证', public: true } },
   { path: '/dl/scan/:barcode', name: 'DlScanPage', component: () => import('@/views/dl/DlScanPage.vue'), meta: { title: '食品数字标签', public: true } },
   { path: '/403', name: 'Forbidden', component: () => import('@/views/Forbidden.vue'), meta: { title: '无权限', public: true } },
   { path: '/', name: 'Home', component: () => import('@/views/login/LoginView.vue'), meta: { title: '溯源系统', public: true },

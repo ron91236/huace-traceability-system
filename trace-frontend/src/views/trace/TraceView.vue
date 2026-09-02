@@ -304,6 +304,31 @@
         </div>
       </div>
 
+      <!-- 承诺达标合格证（有证才展示） -->
+      <div v-if="traceData?.hgz" class="trace-section hgz-section">
+        <div class="section-title">
+          <span class="hgz-section-icon">📜</span>
+          <span>承诺达标合格证</span>
+        </div>
+        <div class="hgz-card">
+          <div class="hgz-card-head">
+            <span class="hgz-card-title">承诺达标合格证</span>
+            <span class="hgz-card-code">{{ traceData.hgz.code }}</span>
+          </div>
+          <div class="hgz-card-fields">
+            <div v-if="traceData.hgz.productName" class="hgz-field"><span class="hgz-label">产品名称：</span>{{ traceData.hgz.productName }}</div>
+            <div v-if="traceData.hgz.number" class="hgz-field"><span class="hgz-label">数量(重量)：</span>{{ traceData.hgz.number }}</div>
+            <div v-if="traceData.hgz.placeOfOrigin" class="hgz-field"><span class="hgz-label">产地：</span>{{ traceData.hgz.placeOfOrigin }}</div>
+            <div v-if="traceData.hgz.promiseUser" class="hgz-field"><span class="hgz-label">承诺主体：</span>{{ traceData.hgz.promiseUser }}</div>
+            <div v-if="traceData.hgz.useTime" class="hgz-field"><span class="hgz-label">开具日期：</span>{{ traceData.hgz.useTime }}</div>
+          </div>
+          <div class="hgz-card-actions">
+            <a class="hgz-view-btn" :href="traceData.hgz.qrUrl" target="_blank">查看合格证 ›</a>
+            <a v-if="traceData.hgz.queryUrl && !isBatchMode" class="hgz-view-btn hgz-view-btn-secondary" :href="traceData.hgz.queryUrl" target="_blank">查看批次溯源 ›</a>
+          </div>
+        </div>
+      </div>
+
       <!-- 底部信息 -->
       <div class="trace-footer">
         <p>本信息由产品溯源系统提供 | 查询时间：{{ queryTime }}</p>
@@ -1605,6 +1630,100 @@ onMounted(async () => {
   }
   .modern-section .section-title-text {
     font-size: 15px;
+  }
+}
+
+/* ============ 承诺达标合格证卡片 ============ */
+.hgz-section {
+  .hgz-section-icon {
+    font-size: 16px;
+    margin-right: 4px;
+  }
+
+  .hgz-card {
+    margin-top: 12px;
+    border: 2px solid #1e7e3c;
+    border-radius: 10px;
+    background: #fff;
+    padding: 14px 16px 12px;
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #1e7e3c, #34d399, #1e7e3c);
+    }
+  }
+
+  .hgz-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1px solid #e3efe6;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+
+    .hgz-card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e7e3c;
+      letter-spacing: 2px;
+    }
+
+    .hgz-card-code {
+      font-size: 11px;
+      color: #909399;
+    }
+  }
+
+  .hgz-card-fields {
+    .hgz-field {
+      font-size: 13px;
+      color: #303133;
+      line-height: 2;
+      word-break: break-all;
+
+      .hgz-label {
+        color: #909399;
+      }
+    }
+  }
+
+  .hgz-card-actions {
+    margin-top: 10px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    .hgz-view-btn {
+      display: inline-block;
+      padding: 7px 18px;
+      background: #1e7e3c;
+      color: #fff;
+      font-size: 13px;
+      border-radius: 20px;
+      text-decoration: none;
+      transition: background 0.2s;
+
+      &:hover {
+        background: #16602c;
+      }
+
+      &.hgz-view-btn-secondary {
+        background: #fff;
+        color: #1e7e3c;
+        border: 1px solid #1e7e3c;
+
+        &:hover {
+          background: #f0faf4;
+        }
+      }
+    }
   }
 }
 </style>

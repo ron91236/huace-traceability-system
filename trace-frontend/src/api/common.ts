@@ -20,6 +20,9 @@ export const verifyAntiFake = (data: { serialNo: string; antiFakeCode: string })
 export const directVerify = (serialNo: string) => request.get(`/trace/direct-verify/${serialNo}`)
 export const getCertPublicInfo = (id: number) => request.get(`/trace/cert/${id}`)
 
+// 承诺达标合格证（公开）
+export const getHgzPublic = (code: string) => request.get(`/hgz/${code}`)
+
 // 溯源扩展数据（视频/IoT - 公开）
 export const getTraceVideos = (serialNo: string) => request.get(`/trace/${serialNo}/videos`)
 export const getTraceIotLatest = (serialNo: string) => request.get(`/trace/${serialNo}/iot/latest`)

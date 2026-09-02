@@ -38,6 +38,7 @@ public class TracePageService {
     private final MongoCodeItemService mongoCodeItemService;
     private final OrderCodeMapper orderCodeMapper;
     private final IpRegionService ipRegionService;
+    private final HgzService hgzService;
 
     /**
      * 清除全部溯源页缓存。
@@ -213,6 +214,10 @@ public class TracePageService {
             }
         }
 
+        // 5.5 承诺达标合格证（按批次→商品→企业反查最新有效证，无证不注入）
+        Map<String, Object> hgzInfo = buildHgzBlock(item.getEnterpriseId(), item.getBatchId(), item.getGoodsId());
+        if (hgzInfo != null) result.put("hgz", hgzInfo);
+
         // 6.5 生产信息（从订单绑定关系获取）
         if (item.getOrderCodeId() != null) {
             OrderCode oc = orderCodeMapper.selectById(item.getOrderCodeId());
@@ -377,7 +382,28 @@ public class TracePageService {
             }
         }
 
+        // 5. 承诺达标合格证（批次模式：按批次→商品→企业反查）
+        Map<String, Object> hgzInfo = buildHgzBlock(batch.getEnterpriseId(), batchId, batch.getGoodsId());
+        if (hgzInfo != null) result.put("hgz", hgzInfo);
+
         return result;
+    }
+
+    /** 反查最新有效合格证，构造溯源页展示块；无证返回 null */
+    private Map<String, Object> buildHgzBlock(Long enterpriseId, Long batchId, Long goodsId) {
+        com.huace.trace.dto.HgzPublicVO hgz = hgzService.findLatestForTrace(enterpriseId, batchId, goodsId);
+        if (hgz == null) return null;
+        Map<String, Object> info = new HashMap<>();
+        info.put("code", hgz.getCode());
+        info.put("userType", hgz.getUserType());
+        info.put("productName", hgz.getProductName());
+        info.put("number", hgz.getNumber());
+        info.put("placeOfOrigin", hgz.getPlaceOfOrigin());
+        info.put("promiseUser", hgz.getPromiseUser());
+        info.put("useTime", hgz.getUseTime());
+        info.put("qrUrl", hgz.getQrUrl());
+        info.put("queryUrl", hgz.getQueryUrl());
+        return info;
     }
 
     /**

@@ -69,11 +69,19 @@ public class RedisConfig {
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer))
                 .disableCachingNullValues();
 
+        // 合格证公开页缓存 TTL 短（5分钟），作废/编辑时主动失效
+        RedisCacheConfiguration hgzConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofMinutes(5))
+                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer))
+                .disableCachingNullValues();
+
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
                 .withCacheConfiguration("tracePage", tracePageConfig)
                 .withCacheConfiguration("dataScreen", dataScreenConfig)
                 .withCacheConfiguration("adminList", adminListConfig)
+                .withCacheConfiguration("hgz", hgzConfig)
                 .transactionAware()
                 .build();
     }

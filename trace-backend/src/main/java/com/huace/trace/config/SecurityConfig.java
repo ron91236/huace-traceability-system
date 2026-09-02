@@ -34,6 +34,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/trace/**").permitAll()
                 .requestMatchers("/api/dl/**").permitAll()
+                // 合格证公开查询
+                .requestMatchers("/api/hgz/**").permitAll()
                 .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers("/poster/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/api-docs/**", "/swagger-ui.html").permitAll()
@@ -42,6 +44,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 // 数字标签：管理员（全局只读）与企业用户均可访问
                 .requestMatchers("/api/enterprise/dl/**").hasAnyRole("ADMIN", "ENTERPRISE")
+                // 承诺达标合格证：管理员（全局查看/作废）与企业用户均可访问
+                .requestMatchers("/api/enterprise/hgz/**").hasAnyRole("ADMIN", "ENTERPRISE")
                 // 企业端
                 .requestMatchers("/api/enterprise/**").hasRole("ENTERPRISE")
                 // 其他需要认证

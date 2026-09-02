@@ -74,6 +74,10 @@
             <el-icon><PictureFilled /></el-icon>
             <span>海报管理</span>
           </el-menu-item>
+          <el-menu-item index="/admin/hgz">
+            <el-icon><Stamp /></el-icon>
+            <span>合格证管理</span>
+          </el-menu-item>
           <el-menu-item index="/dl/dashboard">
             <el-icon><Collection /></el-icon>
             <span>数字标签系统</span>

@@ -1,6 +1,7 @@
 package com.huace.trace.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.huace.trace.dto.HgzPublicVO;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Date;
@@ -57,5 +58,51 @@ class RedisTypingTest {
         // 白名单外的类型必须被拒绝，防止缓存被篡改后反序列化执行任意类
         String evil = "{\"@class\":\"java.lang.ProcessBuilder\",\"command\":[\"rm\",\"-rf\",\"/\"]}";
         assertThrows(Exception.class, () -> mapper.readValue(evil, Object.class));
+    }
+
+    @Test
+    void hgzPublicVoServesRedisCacheRoundTrip() throws Exception {
+        ObjectMapper mapper = new RedisConfig().redisObjectMapper();
+
+        HgzPublicVO vo = new HgzPublicVO();
+        vo.setCode("HGZ20260902-ABCD");
+        vo.setUserType(1);
+        vo.setProductName("阳光玫瑰葡萄");
+        vo.setNumber("500公斤");
+        vo.setPlaceOfOrigin("江苏省苏州市吴中区");
+        vo.setPromiseUser("某某农业科技有限公司");
+        vo.setContact("13800000000");
+        vo.setUseTime(LocalDate.of(2026, 9, 2));
+        vo.setIsShowEnterprise(1);
+        vo.setStatus(1);
+        vo.setQrUrl("https://trace.cti-pit.com/hgz/HGZ20260902-ABCD");
+        vo.setQueryUrl("https://trace.cti-pit.com/trace/batch/123");
+        vo.setBatchId(123L);
+        vo.setGoodsId(45L);
+        vo.setBatchName("2026秋葡萄一号批次");
+        vo.setEnterpriseName("某某农业科技有限公司");
+        Map<String, Object> promise = new HashMap<>();
+        promise.put("title", "不使用禁用的农药兽药、停用兽药及非法添加物");
+        promise.put("isSelect", true);
+        Map<String, Object> basis = new HashMap<>();
+        basis.put("title", "委托检测合格");
+        basis.put("isSelect", true);
+        basis.put("image", "/uploads/2026/09/02/report.png");
+        vo.setPromiseList(Arrays.asList(promise));
+        vo.setBasisList(Arrays.asList(basis));
+
+        String json = mapper.writeValueAsString(vo);
+        Object back = mapper.readValue(json, Object.class);
+
+        assertTrue(back instanceof HgzPublicVO, "应反序列化为 HgzPublicVO");
+        HgzPublicVO r = (HgzPublicVO) back;
+        assertEquals(vo.getCode(), r.getCode());
+        assertEquals(vo.getProductName(), r.getProductName());
+        assertEquals(LocalDate.of(2026, 9, 2), r.getUseTime());
+        assertEquals(vo.getQrUrl(), r.getQrUrl());
+        assertEquals(1, r.getPromiseList().size());
+        assertEquals("不使用禁用的农药兽药、停用兽药及非法添加物", r.getPromiseList().get(0).get("title"));
+        assertEquals(Boolean.TRUE, r.getBasisList().get(0).get("isSelect"));
+        assertEquals("/uploads/2026/09/02/report.png", r.getBasisList().get(0).get("image"));
     }
 }

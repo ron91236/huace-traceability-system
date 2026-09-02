@@ -98,3 +98,12 @@ export const getAssignedTemplates = () => request.get('/enterprise/assigned-temp
 
 // 企业可用标签规格（按证书类型过滤）
 export const getEnterpriseLabelSpecs = () => request.get('/enterprise/label-specs')
+
+// 承诺达标合格证
+export const getHgzList = (params: any) => request.get('/enterprise/hgz', { params })
+export const getHgzDefaults = () => request.get('/enterprise/hgz/defaults')
+export const createHgz = (data: any) => request.post('/enterprise/hgz', data)
+export const getHgzDetail = (id: number) => request.get(`/enterprise/hgz/${id}`)
+export const updateHgz = (id: number, data: any) => request.put(`/enterprise/hgz/${id}`, data)
+export const voidHgz = (id: number) => request.post(`/enterprise/hgz/${id}/void`)
+export const getHgzQrcode = (id: number) => request.get(`/enterprise/hgz/${id}/qrcode`)
