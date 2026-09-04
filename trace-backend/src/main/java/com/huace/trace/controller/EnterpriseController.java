@@ -97,7 +97,8 @@ public class EnterpriseController {
                 .set(Enterprise::getQualifications, body.getQualifications())
                 .set(Enterprise::getMainType, body.getMainType())
                 .set(Enterprise::getPromoVideo, body.getPromoVideo())
-                .set(Enterprise::getStandardSystem, body.getStandardSystem()));
+                .set(Enterprise::getStandardSystem, body.getStandardSystem())
+                .set(Enterprise::getAntiFakeInputHint, body.getAntiFakeInputHint()));
         // 企业信息变更后清除溯源页缓存，保证已绑定溯源码展示最新数据
         tracePageService.evictAllCache();
         return Result.ok();

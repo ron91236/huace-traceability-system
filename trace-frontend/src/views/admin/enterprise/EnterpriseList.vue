@@ -73,6 +73,7 @@
           <el-col :span="12"><el-form-item label="邮编"><el-input v-model="form.zipcode" /></el-form-item></el-col>
           <el-col :span="24"><el-form-item label="详细地址"><el-input v-model="form.address" /></el-form-item></el-col>
           <el-col :span="24"><el-form-item label="企业介绍"><el-input v-model="form.introduction" type="textarea" :rows="3" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="防伪码输入提示"><el-input v-model="form.antiFakeInputHint" placeholder="如：输入后四位防伪码（留空显示默认提示）" /></el-form-item></el-col>
           <el-col :span="24">
             <el-form-item label="溯源模板">
               <el-select v-model="form.assignedTemplateIdsList" multiple placeholder="请选择分配的溯源模板" style="width:100%" filterable>
@@ -139,6 +140,7 @@ const form = reactive<any>({
   province: '', city: '', district: '', zipcode: '', address: '', introduction: '',
   assignedTemplateIds: '',
   assignedTemplateIdsList: [],
+  antiFakeInputHint: '',
 })
 
 const traceTemplates = ref<any[]>([])

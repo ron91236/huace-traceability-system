@@ -36,7 +36,6 @@
         <div class="dv-details">
           <p v-if="directVerifyResult.enterpriseName">企业：{{ directVerifyResult.enterpriseName }}</p>
           <p v-if="directVerifyResult.productName">产品：{{ directVerifyResult.productName }}</p>
-          <p v-if="directVerifyResult.certName">认证机构：{{ directVerifyResult.certName }}</p>
           <p>查询次数：第 <strong>{{ directVerifyResult.scanCount }}</strong> 次</p>
           <p style="font-size:12px;color:#999">查询时间：{{ directVerifyResult.queryTime || '' }}</p>
         </div>
@@ -140,7 +139,7 @@
                 <span>防伪验证</span>
               </div>
               <div class="af-input-bar">
-                <input v-model="antiFakeCodeInput" class="af-code-input" placeholder="请输入完整防伪码或后4-6位" />
+                <input v-model="antiFakeCodeInput" class="af-code-input" :placeholder="antiFakePlaceholder" />
                 <button class="af-verify-btn" :disabled="verifying" @click="handleVerifyAntiFake">{{ verifying ? '验证中...' : '验证' }}</button>
               </div>
               <div v-if="verifyResult" :class="['af-result', verifyResult.verified ? 'success' : 'fail']">
@@ -149,8 +148,7 @@
                   <p class="af-result-msg">{{ verifyResult.message }}</p>
                   <p v-if="verifyResult.enterpriseName" class="af-result-detail">生产企业：{{ verifyResult.enterpriseName }}</p>
                   <p v-if="verifyResult.productName" class="af-result-detail">产品名称：{{ verifyResult.productName }}</p>
-                  <p v-if="verifyResult.certName" class="af-result-detail">认证机构：{{ verifyResult.certName }}</p>
-                  <p class="af-result-detail">扫码次数：第 <strong>{{ verifyResult.scanCount || 1 }}</strong> 次</p>
+                  <p class="af-result-detail">查询次数：第 <strong>{{ verifyResult.scanCount || 1 }}</strong> 次</p>
                   <p class="af-result-detail af-time">查询时间：{{ verifyResult.queryTime || '' }}</p>
                 </div>
               </div>
@@ -213,7 +211,7 @@
         <div v-if="hasAntiCounterfeit && !isBatchMode" class="anti-fake-section">
           <div class="section-title"><el-icon><Lock /></el-icon><span>防伪验证</span></div>
           <div class="af-input-bar" style="margin-bottom:12px">
-            <input v-model="antiFakeCodeInput" class="af-code-input" placeholder="请输入防伪码" />
+            <input v-model="antiFakeCodeInput" class="af-code-input" :placeholder="antiFakePlaceholder" />
             <button class="af-verify-btn" :disabled="verifying" @click="handleVerifyAntiFake">{{ verifying ? '验证中...' : '验证' }}</button>
           </div>
           <div v-if="verifyResult" :class="['af-result', verifyResult.verified ? 'success' : 'fail']">
@@ -222,8 +220,7 @@
               <p class="af-result-msg">{{ verifyResult.message }}</p>
               <p v-if="verifyResult.enterpriseName" class="af-result-detail">生产企业：{{ verifyResult.enterpriseName }}</p>
               <p v-if="verifyResult.productName" class="af-result-detail">产品名称：{{ verifyResult.productName }}</p>
-              <p v-if="verifyResult.certName" class="af-result-detail">认证机构：{{ verifyResult.certName }}</p>
-              <p class="af-result-detail">扫码次数：第 <strong>{{ verifyResult.scanCount || 1 }}</strong> 次</p>
+              <p class="af-result-detail">查询次数：第 <strong>{{ verifyResult.scanCount || 1 }}</strong> 次</p>
               <p class="af-result-detail af-time">查询时间：{{ verifyResult.queryTime || '' }}</p>
             </div>
           </div>
@@ -378,6 +375,14 @@ const queryTime = ref('')
 const antiFakeCodeInput = ref('')
 const verifyResult = ref<any>(null)
 const verifying = ref(false)
+
+// 防伪输入提示语：企业配置优先，默认提示兜底
+const antiFakePlaceholder = computed(() => {
+  const hint = traceData.value?.enterprise?.antiFakeInputHint
+  if (!hint || !hint.trim()) return '请输入完整防伪码或后4-6位'
+  const t = hint.trim()
+  return t.startsWith('请') ? t : '请' + t
+})
 
 // 扫码即防伪
 const isDirectMode = computed(() => route.query.direct === '1')

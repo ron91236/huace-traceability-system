@@ -17,6 +17,7 @@
           <el-col :span="12"><el-form-item label="联系电话" prop="phone"><el-input v-model="form.phone" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="邮箱"><el-input v-model="form.email" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="统一社会信用代码"><el-input v-model="form.creditCode" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="防伪码输入提示"><el-input v-model="form.antiFakeInputHint" placeholder="如：输入后四位防伪码（留空显示默认提示）" /></el-form-item></el-col>
         </el-row>
         <el-divider content-position="left">地址信息</el-divider>
         <el-row :gutter="16">
@@ -103,6 +104,7 @@ const form = reactive<any>({
   creditCode: '', province: '', city: '', district: '', address: '', zipcode: '',
   introduction: '', honors: '', qualifications: '', standardSystem: '',
   enterpriseImage: '', licenseImage: '', promoVideo: '', mainType: '',
+  antiFakeInputHint: '',
 })
 
 const rules = {

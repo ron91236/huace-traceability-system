@@ -57,7 +57,7 @@ public class TracePageService {
         return queryBySerialNo(serialNo, null);
     }
 
-    @Cacheable(value = "tracePage", key = "'serial:' + #serialNo + ':v2'")
+    @Cacheable(value = "tracePage", key = "'serial:' + #serialNo + ':v3'")
     public Map<String, Object> queryBySerialNo(String serialNo, HttpServletRequest request) {
         // 1. 优先从 MongoDB 查询码包明细（亿级数据外部存储）
         CodePackageItem item = mongoCodeItemService.findBoundBySerialNo(serialNo)
@@ -127,6 +127,7 @@ public class TracePageService {
                 enterpriseInfo.put("mainType", enterprise.getMainType());
                 enterpriseInfo.put("promoVideo", enterprise.getPromoVideo());
                 enterpriseInfo.put("standardSystem", enterprise.getStandardSystem());
+                enterpriseInfo.put("antiFakeInputHint", enterprise.getAntiFakeInputHint());
                 result.put("enterprise", enterpriseInfo);
             }
         }
@@ -450,11 +451,6 @@ public class TracePageService {
             Goods goods = goodsMapper.selectById(item.getGoodsId());
             result.put("productName", goods != null ? goods.getName() : "");
         }
-        // 查询认证机构
-        if (item.getCertId() != null) {
-            EnterpriseCert cert = certMapper.selectById(item.getCertId());
-            result.put("certName", cert != null ? cert.getCertName() : "");
-        }
         result.put("serialNo", item.getSerialNo());
         result.put("queryTime", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")));
         return result;
@@ -494,11 +490,6 @@ public class TracePageService {
         if (item.getGoodsId() != null) {
             Goods goods = goodsMapper.selectById(item.getGoodsId());
             result.put("productName", goods != null ? goods.getName() : "");
-        }
-        // 查询认证机构
-        if (item.getCertId() != null) {
-            EnterpriseCert cert = certMapper.selectById(item.getCertId());
-            result.put("certName", cert != null ? cert.getCertName() : "");
         }
         result.put("queryTime", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")));
         return result;
