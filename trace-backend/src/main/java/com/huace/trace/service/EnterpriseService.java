@@ -23,6 +23,7 @@ public class EnterpriseService {
     private final EnterpriseMapper enterpriseMapper;
     private final SysUserMapper sysUserMapper;
     private final PasswordEncoder passwordEncoder;
+    private final TracePageService tracePageService;
 
     public PageResult<Enterprise> list(int page, int size, String keyword) {
         LambdaQueryWrapper<Enterprise> wrapper = new LambdaQueryWrapper<>();
@@ -101,6 +102,9 @@ public class EnterpriseService {
             enterprise.setLoginPasswordHash(passwordEncoder.encode(rawPassword));
         }
         enterpriseMapper.updateById(enterprise);
+
+        // 企业配置（如防伪码输入提示语）变更后清除溯源页缓存，保证扫码页即时生效
+        tracePageService.evictAllCache();
 
         // 同步更新 sys_user
         if (StringUtils.hasText(enterprise.getLoginAccount())) {
