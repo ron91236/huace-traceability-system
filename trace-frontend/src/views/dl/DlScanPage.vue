@@ -12,6 +12,7 @@
           字 {{ bigFont ? '标准' : '大号' }}
         </button>
       </div>
+      <div v-if="speechNotice" class="speech-notice">{{ speechNotice }}</div>
     </div>
 
     <div v-if="loading" class="scan-loading">加载中...</div>
@@ -114,10 +115,18 @@ const error = ref('')
 const data = ref<any>({})
 const bigFont = ref(false)
 const speaking = ref(false)
+const speechNotice = ref('')
+let speechNoticeTimer: ReturnType<typeof setTimeout> | null = null
 const ingredientsExpanded = ref(false)
 const previewVisible = ref(false)
 const previewUrl = ref('')
 let utterance: SpeechSynthesisUtterance | null = null
+
+function showSpeechNotice(msg: string) {
+  speechNotice.value = msg
+  if (speechNoticeTimer) clearTimeout(speechNoticeTimer)
+  speechNoticeTimer = setTimeout(() => { speechNotice.value = '' }, 3000)
+}
 
 // 按食品分类匹配模板颜色
 const themeClass = computed(() => {
@@ -161,6 +170,10 @@ function toggleSpeech() {
     speaking.value = false
     return
   }
+  if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+    showSpeechNotice('您的浏览器不支持语音播报')
+    return
+  }
   const v = data.value.version || {}
   const text = [
     `${v.foodName}。`,
@@ -170,10 +183,26 @@ function toggleSpeech() {
     v.shelfLife ? `保质期：${v.shelfLife}。` : '',
     v.storageCondition ? `贮存条件：${v.storageCondition}。` : '',
   ].join('')
-  if (!window.speechSynthesis || !text) return
+  if (!text.trim()) return
+
+  // 先取消之前可能残留的播报
+  window.speechSynthesis.cancel()
+
   utterance = new SpeechSynthesisUtterance(text)
   utterance.lang = 'zh-CN'
+  utterance.rate = 0.9
+
+  // 尝试选择中文语音（部分浏览器需要显式指定）
+  const voices = window.speechSynthesis.getVoices()
+  const zhVoice = voices.find(v => v.lang.startsWith('zh'))
+  if (zhVoice) utterance.voice = zhVoice
+
   utterance.onend = () => { speaking.value = false }
+  utterance.onerror = () => {
+    speaking.value = false
+    showSpeechNotice('语音播报失败，请检查设备音量')
+  }
+
   speaking.value = true
   window.speechSynthesis.speak(utterance)
 }
@@ -337,6 +366,17 @@ onBeforeUnmount(() => {
 }
 
 .scan-footer { text-align: center; color: #9ca3af; font-size: 12px; margin-top: 24px; }
+
+.speech-notice {
+  text-align: center;
+  font-size: 13px;
+  color: #fff;
+  background: rgba(255,255,255,0.15);
+  border-radius: 6px;
+  margin: 10px auto 0;
+  padding: 6px 16px;
+  max-width: 280px;
+}
 
 .image-preview {
   position: fixed;
