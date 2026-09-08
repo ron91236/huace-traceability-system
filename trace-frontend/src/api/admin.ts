@@ -210,3 +210,9 @@ export const deletePoster = (id: number) => request.delete(`/admin/posters/${id}
 export const getPosterQrcode = (id: number) => request.get(`/admin/posters/${id}/qrcode`)
 export const getPosterHtml = (id: number) => request.get(`/admin/posters/${id}/html`)
 export const updatePosterHtml = (id: number, content: string) => request.put(`/admin/posters/${id}/html`, { content })
+
+// 标签库存管理
+export const getPackageInventory = () => request.get('/admin/label-inventory/package')
+export const getSpecInventory = () => request.get('/admin/label-inventory/spec')
+export const getPackageInventoryById = (packageId: number) => request.get(`/admin/label-inventory/package/${packageId}`)
+export const getInventoryLogs = (params: any) => request.get('/admin/label-inventory/logs', { params })

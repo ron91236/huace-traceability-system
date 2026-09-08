@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.huace.trace.common.BusinessException;
 import com.huace.trace.common.PageResult;
 import com.huace.trace.entity.CodePackage;
+import com.huace.trace.entity.CodePackageItem;
 import com.huace.trace.entity.VoidedCodeRange;
+import com.huace.trace.mapper.CodePackageItemMapper;
 import com.huace.trace.mapper.CodePackageMapper;
 import com.huace.trace.mapper.VoidedCodeRangeMapper;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,8 @@ public class VoidedCodeRangeService {
 
     private final VoidedCodeRangeMapper voidedCodeRangeMapper;
     private final CodePackageMapper codePackageMapper;
+    private final CodePackageItemMapper codePackageItemMapper;
+    private final LabelInventoryService labelInventoryService;
 
     @Cacheable(value = "adminList", key = "'voided:' + #page + ':' + #size")
     public PageResult<VoidedCodeRange> list(int page, int size) {
@@ -63,6 +67,34 @@ public class VoidedCodeRangeService {
                 throw new BusinessException("身份码格式不正确，必须为数字");
             }
             voidedCodeRangeMapper.insert(range);
+
+            // 记录库存扣减（作废）
+            if (range.getCodePackageId() != null) {
+                CodePackage cp = codePackageMapper.selectById(range.getCodePackageId());
+                Long labelSpecId = cp != null ? cp.getLabelSpecId() : null;
+                // 如果码包没有标签规格，尝试从码包明细中获取
+                if (labelSpecId == null) {
+                    CodePackageItem firstItem = codePackageItemMapper.selectOne(
+                            new LambdaQueryWrapper<CodePackageItem>()
+                                    .eq(CodePackageItem::getPackageId, range.getCodePackageId())
+                                    .last("LIMIT 1"));
+                    if (firstItem != null) {
+                        labelSpecId = firstItem.getLabelSpecId();
+                    }
+                }
+                if (labelSpecId != null) {
+                    labelInventoryService.recordVoid(
+                            range.getCodePackageId(),
+                            labelSpecId,
+                            range.getCount(),
+                            range.getSerialStart(),
+                            range.getSerialEnd(),
+                            range.getId(),
+                            "系统",
+                            "导入作废码段"
+                    );
+                }
+            }
         }
     }
 

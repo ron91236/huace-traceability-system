@@ -75,6 +75,7 @@ public class AdminController {
     private final AddressMapper addressMapper;
     private final VrPanoramaService vrPanoramaService;
     private final PosterService posterService;
+    private final LabelInventoryService labelInventoryService;
 
     // ==================== 证书类型 ====================
     @GetMapping("/cert-types")
@@ -945,6 +946,18 @@ public class AdminController {
                     .eq(CodePackageItem::getPackageId, orderCode.getCodePackageId())
                     .apply("serial_no >= {0}", startStr)
                     .apply("serial_no <= {0}", endStr));
+
+            // 记录库存扣减（发货）
+            int shipQuantity = (int)(end - start + 1);
+            labelInventoryService.recordShipment(
+                    orderCode.getCodePackageId(),
+                    orderCode.getLabelSpecId(),
+                    shipQuantity,
+                    id,
+                    orderCode.getId(),
+                    "系统",
+                    "绑定订单码段"
+            );
         }
         // 绑定条码影响码包明细状态，清除溯源页缓存
         tracePageService.evictAllCache();
@@ -1370,5 +1383,31 @@ public class AdminController {
     public Result<Void> updatePosterHtml(@PathVariable Long id, @RequestBody Map<String, String> body) {
         posterService.updateHtml(id, body.get("content"));
         return Result.ok();
+    }
+
+    // ==================== 标签库存管理 ====================
+
+    @GetMapping("/label-inventory/package")
+    public Result<List<com.huace.trace.dto.LabelInventoryVO>> getPackageInventory() {
+        return Result.ok(labelInventoryService.getPackageInventory());
+    }
+
+    @GetMapping("/label-inventory/spec")
+    public Result<List<com.huace.trace.dto.LabelInventoryVO>> getSpecInventory() {
+        return Result.ok(labelInventoryService.getSpecInventory());
+    }
+
+    @GetMapping("/label-inventory/package/{packageId}")
+    public Result<com.huace.trace.dto.LabelInventoryVO> getPackageInventoryById(@PathVariable Long packageId) {
+        return Result.ok(labelInventoryService.getPackageInventoryById(packageId));
+    }
+
+    @GetMapping("/label-inventory/logs")
+    public Result<PageResult<LabelInventoryLog>> getInventoryLogs(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Long packageId,
+            @RequestParam(required = false) String changeType) {
+        return Result.ok(labelInventoryService.getLogList(page, size, packageId, changeType));
     }
 }

@@ -35,6 +35,7 @@ public class CodePackageService {
     private final FileUploadUtil fileUploadUtil;
     private final MongoCodeItemService mongoCodeItemService;
     private final CodePackageAuditLogMapper auditLogMapper;
+    private final LabelInventoryService labelInventoryService;
 
     @Cacheable(value = "adminList", key = "'cp:list:' + #page + ':' + #size + ':' + (#keyword == null ? '' : #keyword)")
     public PageResult<CodePackage> list(int page, int size, String keyword) {
@@ -137,6 +138,17 @@ public class CodePackageService {
         // 更新码包总数
         codePackage.setTotalCount(items.size());
         codePackageMapper.updateById(codePackage);
+
+        // 记录库存入库
+        if (codePackage.getLabelSpecId() != null && !items.isEmpty()) {
+            labelInventoryService.recordInbound(
+                    codePackage.getId(),
+                    codePackage.getLabelSpecId(),
+                    items.size(),
+                    "系统",
+                    "导入码包"
+            );
+        }
     }
 
     @Transactional
