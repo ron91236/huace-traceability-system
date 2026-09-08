@@ -758,6 +758,28 @@ public class AdminController {
         return Result.ok();
     }
 
+    @PostMapping("/code-packages/{id}/dispatch")
+    public Result<Void> dispatchCodePackage(@PathVariable Long id,
+                                             @AuthenticationPrincipal UserPrincipal principal,
+                                             @RequestBody(required = false) Map<String, String> body) {
+        String reason = body != null ? body.get("reason") : null;
+        codePackageService.dispatch(id, principal.getUsername(), reason);
+        return Result.ok();
+    }
+
+    @PostMapping("/code-packages/{id}/undispatch")
+    public Result<Void> undispatchCodePackage(@PathVariable Long id,
+                                               @AuthenticationPrincipal UserPrincipal principal,
+                                               @RequestBody Map<String, String> body) {
+        codePackageService.undispatch(id, principal.getUsername(), body.get("reason"));
+        return Result.ok();
+    }
+
+    @GetMapping("/code-packages/{id}/audit-history")
+    public Result<java.util.List<CodePackageAuditLog>> getCodePackageAuditHistory(@PathVariable Long id) {
+        return Result.ok(codePackageService.getAuditHistory(id));
+    }
+
     // ==================== 码中台 - 码包生成 ====================
     @PostMapping("/code-packages/generate")
     public Result<Map<String, Object>> generateCodePackage(@RequestBody Map<String, Object> params) {
@@ -887,6 +909,8 @@ public class AdminController {
 
         // 更新码包明细为已绑定状态
         if (start > 0 && end > 0 && orderCode.getCodePackageId() != null) {
+            CodePackage cp = codePackageMapper.selectById(orderCode.getCodePackageId());
+            codePackageService.assertNotDispatched(cp);
             Order order = orderMapper.selectById(id);
             Long enterpriseId = order != null ? order.getEnterpriseId() : null;
             Long certId = order != null ? order.getCertId() : null;
@@ -961,6 +985,8 @@ public class AdminController {
         OrderCode oc = orderCodeMapper.selectById(id);
         if (oc != null) {
             if (oc.getCodePackageId() != null) {
+                CodePackage cp = codePackageMapper.selectById(oc.getCodePackageId());
+                codePackageService.assertNotDispatched(cp);
                 // MySQL 码包明细恢复为未绑定状态
                 codePackageItemMapper.update(null, new LambdaUpdateWrapper<CodePackageItem>()
                         .eq(CodePackageItem::getPackageId, oc.getCodePackageId())

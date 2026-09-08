@@ -119,6 +119,12 @@ export const importCodePackage = (file: File) => {
 }
 export const getCodePackageDetail = (id: number) => request.get(`/admin/code-packages/${id}`)
 export const deleteCodePackage = (id: number) => request.delete(`/admin/code-packages/${id}`)
+export const dispatchCodePackage = (id: number, data?: { reason?: string }) =>
+  request.post(`/admin/code-packages/${id}/dispatch`, data)
+export const undispatchCodePackage = (id: number, data: { reason: string }) =>
+  request.post(`/admin/code-packages/${id}/undispatch`, data)
+export const getCodePackageAuditHistory = (id: number) =>
+  request.get(`/admin/code-packages/${id}/audit-history`)
 export const generateCodePackage = (data: any) => request.post('/admin/code-packages/generate', data)
 export const getLastSerialByRule = (serialDigits: number) => request.get('/admin/code-packages/last-serial', { params: { serialDigits } })
 export const exportCodePackage = async (id: number) => {

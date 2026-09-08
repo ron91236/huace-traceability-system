@@ -31,6 +31,13 @@ public class CodePackage {
     private String productDesc;
     private String creator;
     private String packagingType;
+    // 下发锁定字段
+    private Boolean dispatched;
+    private LocalDateTime dispatchedAt;
+    private String dispatchedBy;
+    private LocalDateTime undispatchedAt;
+    private String undispatchedBy;
+    private String undispatchReason;
     // 通用字段
     private String status;
     private LocalDateTime importTime;

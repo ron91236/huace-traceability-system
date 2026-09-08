@@ -34,6 +34,7 @@ public class CodePackageService {
     private final LabelSpecMapper labelSpecMapper;
     private final FileUploadUtil fileUploadUtil;
     private final MongoCodeItemService mongoCodeItemService;
+    private final CodePackageAuditLogMapper auditLogMapper;
 
     @Cacheable(value = "adminList", key = "'cp:list:' + #page + ':' + #size + ':' + (#keyword == null ? '' : #keyword)")
     public PageResult<CodePackage> list(int page, int size, String keyword) {
@@ -142,6 +143,7 @@ public class CodePackageService {
     public void bind(Long packageId, Map<String, Object> bindData) {
         CodePackage cp = codePackageMapper.selectById(packageId);
         if (cp == null) throw new BusinessException("码包不存在");
+        assertNotDispatched(cp);
 
         Long enterpriseId = toLong(bindData.get("enterpriseId"));
         Long goodsId = toLong(bindData.get("goodsId"));
@@ -190,6 +192,7 @@ public class CodePackageService {
     public void delete(Long id) {
         CodePackage cp = codePackageMapper.selectById(id);
         if (cp == null) throw new BusinessException("码包不存在");
+        assertNotDispatched(cp);
         if (!"UNBOUND".equals(cp.getStatus())) {
             String statusLabel = "PARTIAL".equals(cp.getStatus()) ? "部分绑定" : "已绑定";
             throw new BusinessException("只能删除未绑定状态的码包，当前状态：" + statusLabel);
@@ -200,9 +203,70 @@ public class CodePackageService {
         codePackageMapper.deleteById(id);
     }
 
+    @Transactional
+    @CacheEvict(value = "adminList", allEntries = true)
+    public void dispatch(Long packageId, String operatorName, String reason) {
+        CodePackage cp = codePackageMapper.selectById(packageId);
+        if (cp == null) throw new BusinessException("码包不存在");
+        if (Boolean.TRUE.equals(cp.getDispatched())) {
+            throw new BusinessException("该码包已处于下发状态");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        cp.setDispatched(true);
+        cp.setDispatchedAt(now);
+        cp.setDispatchedBy(operatorName);
+        codePackageMapper.updateById(cp);
+
+        CodePackageAuditLog log = new CodePackageAuditLog();
+        log.setPackageId(packageId);
+        log.setAction("DISPATCH");
+        log.setOperatorName(operatorName);
+        log.setReason(reason);
+        auditLogMapper.insert(log);
+    }
+
+    @Transactional
+    @CacheEvict(value = "adminList", allEntries = true)
+    public void undispatch(Long packageId, String operatorName, String reason) {
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new BusinessException("解除下发状态必须填写原因");
+        }
+        CodePackage cp = codePackageMapper.selectById(packageId);
+        if (cp == null) throw new BusinessException("码包不存在");
+        if (!Boolean.TRUE.equals(cp.getDispatched())) {
+            throw new BusinessException("该码包当前未处于下发状态");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        cp.setDispatched(false);
+        cp.setUndispatchedAt(now);
+        cp.setUndispatchedBy(operatorName);
+        cp.setUndispatchReason(reason);
+        codePackageMapper.updateById(cp);
+
+        CodePackageAuditLog log = new CodePackageAuditLog();
+        log.setPackageId(packageId);
+        log.setAction("UNDISPATCH");
+        log.setOperatorName(operatorName);
+        log.setReason(reason);
+        auditLogMapper.insert(log);
+    }
+
+    public List<CodePackageAuditLog> getAuditHistory(Long packageId) {
+        return auditLogMapper.selectList(
+                new LambdaQueryWrapper<CodePackageAuditLog>()
+                        .eq(CodePackageAuditLog::getPackageId, packageId)
+                        .orderByAsc(CodePackageAuditLog::getCreatedAt));
+    }
+
     private Long toLong(Object obj) {
         if (obj == null) return null;
         if (obj instanceof Number) return ((Number) obj).longValue();
         return Long.parseLong(obj.toString());
+    }
+
+    public void assertNotDispatched(CodePackage cp) {
+        if (Boolean.TRUE.equals(cp.getDispatched())) {
+            throw new BusinessException("码包已下发印刷厂，禁止修改。如需修改请先解除下发状态。");
+        }
     }
 }

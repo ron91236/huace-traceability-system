@@ -43,6 +43,11 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="下发状态" width="90">
+          <template #default="{ row }">
+            <el-tag v-if="row.dispatched" type="danger" size="small">已下发</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button size="small" type="primary" link @click="handleExport(row.id)">导出</el-button>
