@@ -91,7 +91,7 @@ class TracePageServiceTest {
         assertEquals("验证通过，该产品为正品", result.get("message"));
         assertEquals("河南福鹿家鲜啤酒业有限公司", result.get("enterpriseName"));
         assertEquals("德式小麦", result.get("productName"));
-        assertEquals("全程可追溯产品验证证书", result.get("certName"));
+        assertNull(result.get("certName"), "认证机构字段已移除");
         verify(codePackageItemMapper).updateById(any(CodePackageItem.class));
         verify(mongoCodeItemService).updateScanCount(eq("00000626"), eq(6));
     }
