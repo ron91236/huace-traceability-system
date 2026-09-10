@@ -44,84 +44,66 @@ const props = withDefaults(defineProps<{
 
 const mapRef = ref<HTMLElement | null>(null)
 let map: any = null
-let tencentMapLoaded = false
+let amapLoaded = false
 
-async function loadTencentMap(key: string): Promise<void> {
-  if ((window as any).T?.Map) return
-  if (tencentMapLoaded) return
-  tencentMapLoaded = true
+async function loadAmap(key: string): Promise<void> {
+  if ((window as any).AMap) return
+  if (amapLoaded) return
+  amapLoaded = true
   return new Promise((resolve, reject) => {
     const script = document.createElement('script')
-    script.src = `https://map.qq.com/api/js?v=2.exp&key=${key}`
+    script.src = `https://webapi.amap.com/maps?v=2.0&key=${key}`
     script.onload = () => resolve()
-    script.onerror = () => reject(new Error('腾讯地图加载失败'))
+    script.onerror = () => reject(new Error('高德地图加载失败'))
     document.head.appendChild(script)
   })
 }
 
 function renderMap() {
   if (!mapRef.value || !props.points?.length) return
-  const T = (window as any).T
-  if (!T?.Map) return
-
-  const mapKey = props.trackInfo?.mapKey || 'YOUR_TENCENT_MAP_KEY'
+  const AMap = (window as any).AMap
+  if (!AMap) return
 
   if (!map) {
-    map = new T.Map(mapRef.value)
+    map = new AMap.Map(mapRef.value, { zoom: 14 })
   }
 
-  // Clear previous overlays
-  try { map.clearOverLays?.() } catch {}
+  // 清除已有覆盖物
+  try { map.clearMap?.() } catch {}
 
-  const TLngLat = T.LngLat
-  const path: any[] = []
+  const path = props.points.map(p => [p.lng, p.lat])
 
-  for (const p of props.points) {
-    path.push(new TLngLat(p.lng, p.lat))
-  }
-
-  // Draw polyline
+  // 轨迹线
   if (path.length > 1) {
-    const polyline = new T.Polyline(path, {
-      color: '#059669',
-      weight: 4,
-      opacity: 0.85,
+    const polyline = new AMap.Polyline({
+      path,
+      strokeColor: '#059669',
+      strokeWeight: 4,
+      strokeOpacity: 0.85,
       lineJoin: 'round',
     })
-    map.addOverLay(polyline)
+    map.add(polyline)
   }
 
-  // Start marker (green)
+  // 起点标记
   if (path.length > 0) {
-    const startMarker = new T.Marker(path[0])
-    map.addOverLay(startMarker)
-    const startLabel = new T.Label({ text: '起点', offset: new T.Point(10, -20) })
-    startMarker.bindLabel(startLabel)
+    map.add(new AMap.Marker({
+      position: path[0],
+      label: { content: '起点', offset: new AMap.Pixel(10, -20) },
+    }))
   }
 
-  // End / current marker (red)
+  // 终点/当前位置标记
   if (path.length > 1) {
-    const endMarker = new T.Marker(path[path.length - 1])
-    map.addOverLay(endMarker)
-    const endLabel = new T.Label({ text: '当前位置', offset: new T.Point(10, -20) })
-    endMarker.bindLabel(endLabel)
+    map.add(new AMap.Marker({
+      position: path[path.length - 1],
+      label: { content: '当前位置', offset: new AMap.Pixel(10, -20) },
+    }))
   }
 
-  // Fit bounds
-  if (path.length > 1) {
-    const bounds = new T.Bounds(
-      new TLngLat(
-        Math.min(...props.points.map(p => p.lng)),
-        Math.min(...props.points.map(p => p.lat))
-      ),
-      new TLngLat(
-        Math.max(...props.points.map(p => p.lng)),
-        Math.max(...props.points.map(p => p.lat))
-      )
-    )
-    map.setViewport(bounds, { padding: [30, 30, 30, 30] })
-  } else if (path.length === 1) {
-    map.centerAndZoom(path[0], 14)
+  // 自适应视野
+  if (path.length > 0) {
+    map.setFitView()
   }
 }
 
@@ -130,9 +112,10 @@ const points = ref(props.points || [])
 onMounted(async () => {
   points.value = props.points || []
   if (!points.value.length) return
-  const mapKey = props.trackInfo?.mapKey || 'YOUR_TENCENT_MAP_KEY'
+  const mapKey = props.trackInfo?.mapKey || ''
+  if (!mapKey) return
   try {
-    await loadTencentMap(mapKey)
+    await loadAmap(mapKey)
     await nextTick()
     renderMap()
   } catch (e) {
@@ -150,10 +133,11 @@ onUnmounted(() => {
 watch(() => props.points, async (newVal) => {
   points.value = newVal || []
   if (!points.value.length) return
-  const mapKey = props.trackInfo?.mapKey || 'YOUR_TENCENT_MAP_KEY'
-  if (!(window as any).T?.Map) {
+  const mapKey = props.trackInfo?.mapKey || ''
+  if (!mapKey) return
+  if (!(window as any).AMap) {
     try {
-      await loadTencentMap(mapKey)
+      await loadAmap(mapKey)
     } catch { return }
   }
   await nextTick()

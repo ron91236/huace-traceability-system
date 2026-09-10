@@ -425,8 +425,8 @@
             <!-- 地图元素 -->
             <template v-else-if="selectedElement.type === 'map'">
               <el-form-item label="API Key">
-                <el-input v-model="selectedElement.mapKey" placeholder="腾讯地图 API Key" />
-                <div style="font-size:11px;color:#999;margin-top:2px">在 <a href="https://lbs.qq.com/" target="_blank">lbs.qq.com</a> 申请</div>
+                <el-input v-model="selectedElement.mapKey" placeholder="高德地图 API Key" />
+                <div style="font-size:11px;color:#999;margin-top:2px">在 <a href="https://lbs.amap.com/" target="_blank">lbs.amap.com</a> 申请，服务平台选 Web端(JS API)</div>
               </el-form-item>
               <el-form-item label="中心坐标">
                 <el-input v-model="selectedElement.center" placeholder="经度,纬度 如 104.0657,30.6595" />

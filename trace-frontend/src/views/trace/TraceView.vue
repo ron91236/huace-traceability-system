@@ -666,11 +666,11 @@ function handlePageButton(btn: any) {
   }
 }
 
-// ==================== 腾讯地图集成 ====================
+// ==================== 高德地图集成 ====================
 const mapDomRefs: Record<string, HTMLElement | null> = {}
 const mapInstances: Record<string, any> = {}
-let tencentMapLoaded = false
-let tencentMapLoading: Promise<void> | null = null
+let amapLoaded = false
+let amapLoading: Promise<void> | null = null
 
 // 组件卸载时清理地图实例，防止内存泄漏
 onUnmounted(() => {
@@ -683,17 +683,17 @@ onUnmounted(() => {
   }
 })
 
-function loadTencentMap(key: string): Promise<void> {
-  if (tencentMapLoaded) return Promise.resolve()
-  if (tencentMapLoading) return tencentMapLoading
-  tencentMapLoading = new Promise<void>((resolve, reject) => {
+function loadAmap(key: string): Promise<void> {
+  if (amapLoaded) return Promise.resolve()
+  if (amapLoading) return amapLoading
+  amapLoading = new Promise<void>((resolve, reject) => {
     const script = document.createElement('script')
-    script.src = `https://map.qq.com/api/js?v=2.exp&key=${key}`
-    script.onload = () => { tencentMapLoaded = true; resolve() }
-    script.onerror = () => reject(new Error('腾讯地图加载失败'))
+    script.src = `https://webapi.amap.com/maps?v=2.0&key=${key}`
+    script.onload = () => { amapLoaded = true; resolve() }
+    script.onerror = () => reject(new Error('高德地图加载失败'))
     document.head.appendChild(script)
   })
-  return tencentMapLoading
+  return amapLoading
 }
 
 function setMapRef(elId: string, dom: HTMLElement | null) {
@@ -719,23 +719,23 @@ function initMapForElement(elId: string) {
     dom.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#999;font-size:13px;background:#f5f5f5;border-radius:8px">地图未配置API Key</div>'
     return
   }
-  loadTencentMap(apiKey).then(() => {
-    const T = (window as any).T
-    if (!T || !T.Map) return
+  loadAmap(apiKey).then(() => {
+    const AMap = (window as any).AMap
+    if (!AMap) return
     const centerParts = (mapEl.center || '104.0657,30.6595').split(',')
-    const center = new T.LngLat(parseFloat(centerParts[1]) || 30.6595, parseFloat(centerParts[0]) || 104.0657)
-    const map = new T.Map(dom)
-    map.centerAndZoom(center, mapEl.zoom || 10)
+    const map = new AMap.Map(dom, {
+      center: [parseFloat(centerParts[0]) || 104.0657, parseFloat(centerParts[1]) || 30.6595],
+      zoom: mapEl.zoom || 10,
+    })
     // 添加标记点
     const markers = mapEl.markers || []
     for (const m of markers) {
       if (m.lat && m.lng) {
-        const marker = new T.Marker(new T.LngLat(m.lng, m.lat))
-        map.addOverLay(marker)
-        if (m.label) {
-          const label = new T.Label({ text: m.label, offset: new T.Point(10, -20) })
-          marker.bindLabel(label)
-        }
+        const marker = new AMap.Marker({
+          position: [m.lng, m.lat],
+          ...(m.label ? { label: { content: m.label, offset: new AMap.Pixel(10, -20) } } : {}),
+        })
+        map.add(marker)
       }
     }
     mapInstances[elId] = map
