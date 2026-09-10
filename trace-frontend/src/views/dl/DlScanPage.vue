@@ -97,6 +97,7 @@
 
     <!-- 图片预览 -->
     <div v-if="previewVisible" class="image-preview" @click="previewVisible = false">
+      <button class="preview-close" @click.stop="previewVisible = false">✕</button>
       <img :src="previewUrl" />
     </div>
   </div>
@@ -387,5 +388,23 @@ onBeforeUnmount(() => {
   justify-content: center;
   z-index: 999;
   img { max-width: 95%; max-height: 90vh; }
+  .preview-close {
+    position: absolute;
+    top: max(16px, env(safe-area-inset-top, 0px) + 12px);
+    right: 16px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.25);
+    color: #fff;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+  }
 }
 </style>

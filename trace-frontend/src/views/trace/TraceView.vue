@@ -1072,15 +1072,24 @@ onMounted(async () => {
         overflow: hidden;
         box-shadow: 0 4px 12px rgba(0,0,0,0.06);
       }
-      // 多图纵向自适应排列：容器高度随图片比例自动撑开
+      // 多图横向滑动浏览
       .field-image-list {
         display: flex;
-        flex-direction: column;
+        overflow-x: auto;
         gap: 10px;
+        padding: 4px 0;
+        &::-webkit-scrollbar {
+          height: 4px;
+        }
+        &::-webkit-scrollbar-thumb {
+          background: rgba(0,0,0,0.2);
+          border-radius: 2px;
+        }
         .field-image-item {
-          width: 100%;
-          height: auto;
-          display: block;
+          width: 200px;
+          height: 200px;
+          flex-shrink: 0;
+          border-radius: 8px;
         }
       }
       video { background: #000; }
@@ -1730,5 +1739,18 @@ onMounted(async () => {
       }
     }
   }
+}
+</style>
+
+<style lang="scss">
+/* 图片预览器关闭按钮可见性（el-image-viewer teleport到body，需非scoped样式） */
+.el-image-viewer__wrapper .el-image-viewer__close {
+  display: flex !important;
+  opacity: 1 !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  z-index: 10 !important;
+  width: 44px !important;
+  height: 44px !important;
+  top: max(40px, env(safe-area-inset-top, 0px) + 16px) !important;
 }
 </style>
