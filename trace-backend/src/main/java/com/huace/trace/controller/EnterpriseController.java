@@ -568,22 +568,33 @@ public class EnterpriseController {
     @GetMapping("/label-specs")
     public Result<List<LabelSpec>> getEnterpriseLabelSpecs(
             @AuthenticationPrincipal UserPrincipal principal) {
-        List<Long> specIds = enterpriseCertMapper.selectList(
+        List<EnterpriseCert> certs = enterpriseCertMapper.selectList(
                 new LambdaQueryWrapper<EnterpriseCert>()
-                        .eq(EnterpriseCert::getEnterpriseId, principal.getUserId())
-                        .isNotNull(EnterpriseCert::getLabelSpecId))
-                .stream()
+                        .eq(EnterpriseCert::getEnterpriseId, principal.getUserId()));
+        List<Long> specIds = certs.stream()
                 .map(EnterpriseCert::getLabelSpecId)
+                .filter(java.util.Objects::nonNull)
                 .distinct()
                 .toList();
-        if (specIds.isEmpty()) {
-            return Result.ok(List.of());
+
+        LambdaQueryWrapper<LabelSpec> qw = new LambdaQueryWrapper<LabelSpec>()
+                .eq(LabelSpec::getIsVoid, 0);
+        if (!specIds.isEmpty()) {
+            qw.in(LabelSpec::getId, specIds);
+        } else {
+            // 历史认证记录未设定规格，退回按证书类型匹配，否则订单明细无规格可选
+            List<Long> certTypeIds = certs.stream()
+                    .map(EnterpriseCert::getCertTypeId)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .toList();
+            if (certTypeIds.isEmpty()) {
+                return Result.ok(List.of());
+            }
+            qw.and(w -> w.in(LabelSpec::getCertTypeId, certTypeIds)
+                    .or().isNull(LabelSpec::getCertTypeId));
         }
-        return Result.ok(labelSpecMapper.selectList(
-                new LambdaQueryWrapper<LabelSpec>()
-                        .eq(LabelSpec::getIsVoid, 0)
-                        .in(LabelSpec::getId, specIds)
-                        .orderByDesc(LabelSpec::getId)));
+        return Result.ok(labelSpecMapper.selectList(qw.orderByDesc(LabelSpec::getId)));
     }
 
     // ==================== 本企业产品（证书产品 ∪ 商品已用产品） ====================

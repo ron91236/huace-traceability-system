@@ -204,10 +204,15 @@ server {
         client_max_body_size 50m;
     }
 
-    # 上传文件访问
+    # 海报源文件按slug复用文件名，编辑后会被覆盖，禁止缓存
+    location ^~ /uploads/posters/ {
+        alias /data/trace/uploads/posters/;
+        add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+    }
+
+    # 上传文件访问（UUID命名，内容不变，可长期缓存）
     location ^~ /uploads/ {
         alias /data/trace/uploads/;
-        expires 30d;
         add_header Cache-Control "public, max-age=2592000, immutable";
     }
 
