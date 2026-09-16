@@ -62,11 +62,11 @@
         <el-form-item label="海报标题">
           <el-input v-model="uploadTitle" placeholder="可选，默认使用文件名" />
         </el-form-item>
-        <el-form-item label="HTML文件" required>
-          <el-upload ref="uploadRef" :auto-upload="false" :limit="1" accept=".html,.htm" :on-change="onFileChange" :on-exceed="() => ElMessage.warning('只能上传一个文件')">
-            <el-button type="primary"><el-icon><Upload /></el-icon> 选择HTML文件</el-button>
+        <el-form-item label="海报文件" required>
+          <el-upload ref="uploadRef" :auto-upload="false" :limit="1" accept=".html,.htm,.jpg,.jpeg,.png,.gif,.bmp,.webp" :on-change="onFileChange" :on-exceed="() => ElMessage.warning('只能上传一个文件')">
+            <el-button type="primary"><el-icon><Upload /></el-icon> 选择文件</el-button>
             <template #tip>
-              <div class="el-upload__tip">仅支持 .html 文件，上传后自动生成二维码</div>
+              <div class="el-upload__tip">支持 .html 文件或长图片（jpg/png/gif/bmp/webp），上传后自动生成二维码，扫码即可查看</div>
             </template>
           </el-upload>
         </el-form-item>
@@ -195,7 +195,7 @@ function onFileChange(file: any) {
 }
 
 async function handleUpload() {
-  if (!selectedFile.value) return ElMessage.warning('请选择HTML文件')
+  if (!selectedFile.value) return ElMessage.warning('请选择海报文件')
   uploading.value = true
   try {
     await uploadPoster(selectedFile.value, uploadTitle.value || undefined)

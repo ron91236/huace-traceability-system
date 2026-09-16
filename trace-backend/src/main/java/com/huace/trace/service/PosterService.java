@@ -42,11 +42,20 @@ public class PosterService {
         return new PageResult<>(r.getRecords(), r.getTotal());
     }
 
+    private static final java.util.Set<String> IMAGE_EXTENSIONS =
+            java.util.Set.of("jpg", "jpeg", "png", "gif", "bmp", "webp");
+
     public Poster create(MultipartFile file, String title) throws IOException {
-        if (file == null || file.isEmpty()) throw new BusinessException("请上传HTML文件");
+        if (file == null || file.isEmpty()) throw new BusinessException("请上传文件");
         String originalName = file.getOriginalFilename();
-        if (originalName == null || !originalName.toLowerCase().endsWith(".html")) {
-            throw new BusinessException("仅支持上传HTML文件");
+        String ext = "";
+        if (originalName != null && originalName.contains(".")) {
+            ext = originalName.substring(originalName.lastIndexOf('.') + 1).toLowerCase();
+        }
+        boolean isHtml = "html".equals(ext) || "htm".equals(ext);
+        boolean isImage = IMAGE_EXTENSIONS.contains(ext);
+        if (!isHtml && !isImage) {
+            throw new BusinessException("仅支持上传HTML文件或图片文件（jpg/png/gif/bmp/webp）");
         }
         // 生成唯一slug
         String slug = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
@@ -56,10 +65,19 @@ public class PosterService {
         // 保存文件：slug.html
         String savedFileName = slug + ".html";
         Path targetPath = posterDir.resolve(savedFileName);
-        file.transferTo(targetPath.toFile());
+        String posterTitle = title != null && !title.isEmpty() ? title : originalName;
+        if (isHtml) {
+            file.transferTo(targetPath.toFile());
+        } else {
+            // 长图海报：保存图片并生成全宽滚动展示的HTML包装页
+            Path imagePath = posterDir.resolve(slug + "." + ext);
+            file.transferTo(imagePath.toFile());
+            String imageUrl = "/uploads/posters/" + slug + "." + ext;
+            Files.writeString(targetPath, buildImagePosterHtml(posterTitle, imageUrl));
+        }
 
         Poster poster = new Poster();
-        poster.setTitle(title != null && !title.isEmpty() ? title : originalName);
+        poster.setTitle(posterTitle);
         poster.setSlug(slug);
         poster.setFileName(originalName);
         poster.setFilePath("posters/" + savedFileName);
@@ -67,6 +85,26 @@ public class PosterService {
         posterMapper.insert(poster);
         fillUrl(poster);
         return poster;
+    }
+
+    /** 生成长图海报的HTML包装页：图片全宽展示、纵向滚动 */
+    private String buildImagePosterHtml(String title, String imageUrl) {
+        String safeTitle = escapeHtml(title == null ? "海报" : title);
+        return "<!DOCTYPE html>\n"
+                + "<html lang=\"zh-CN\">\n<head>\n"
+                + "<meta charset=\"UTF-8\">\n"
+                + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n"
+                + "<title>" + safeTitle + "</title>\n"
+                + "<style>html,body{margin:0;padding:0;background:#f5f5f5}"
+                + "img{display:block;width:100%;height:auto}</style>\n"
+                + "</head>\n<body>\n"
+                + "<img src=\"" + imageUrl + "\" alt=\"" + safeTitle + "\">\n"
+                + "</body>\n</html>\n";
+    }
+
+    private String escapeHtml(String s) {
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;");
     }
 
     public void update(Long id, String title, Integer status) {
@@ -80,10 +118,21 @@ public class PosterService {
     public void delete(Long id) {
         Poster poster = posterMapper.selectById(id);
         if (poster == null) throw new BusinessException("海报不存在");
-        // 删除文件
+        // 删除文件（含同 slug 的长图图片文件）
         try {
             Path filePath = Paths.get(uploadDir, poster.getFilePath());
-            Files.deleteIfExists(filePath);
+            Path posterDir = filePath.getParent();
+            String slug = poster.getSlug();
+            if (slug != null && posterDir != null && Files.isDirectory(posterDir)) {
+                try (var stream = Files.list(posterDir)) {
+                    stream.filter(p -> p.getFileName().toString().startsWith(slug + "."))
+                            .forEach(p -> {
+                                try { Files.deleteIfExists(p); } catch (Exception ignored) {}
+                            });
+                }
+            } else {
+                Files.deleteIfExists(filePath);
+            }
         } catch (Exception ignored) {}
         posterMapper.deleteById(id);
     }
