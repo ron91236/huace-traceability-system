@@ -77,7 +77,7 @@
         <div class="palette-group" v-for="group in elementPalette" :key="group.label">
           <div class="group-label">{{ group.label }}</div>
           <div class="palette-items">
-            <div v-for="el in group.items" :key="el.type" class="palette-item" @click="addElement(el.type)">
+            <div v-for="el in group.items" :key="el.type" class="palette-item" :data-type="el.type" @click="addElement(el.type)">
               <el-icon :size="16"><component :is="el.icon" /></el-icon>
               <span>{{ el.label }}</span>
             </div>
@@ -91,11 +91,11 @@
           <div class="serial-badge">溯源码：00000001</div>
           <div ref="phoneBodyRef" class="phone-body" style="overflow-y: auto; flex: 1;">
             <div v-if="currentPage.elements.length === 0" class="empty-hint">
-              点击左侧元素添加到页面
+              点击或从左侧拖拽元素到此处添加
             </div>
             <div v-for="(el, idx) in currentPage.elements" :key="el.id"
               :class="['canvas-element', { selected: selectedId === el.id }, { 'has-bg-btn': el.type === 'button' && el.bgImage }]"
-              :style="el.type === 'button' && el.style?.width && el.style.width !== '100%' ? { width: getButtonWidth(el), boxSizing: 'border-box' } : {}"
+              :style="canvasElStyle(el)"
               @click="selectElement(el)">
               <!-- 元素预览 -->
               <template v-if="el.type === 'text'">
@@ -169,6 +169,14 @@
           <el-form label-width="70px" size="small">
             <el-form-item label="元素名称">
               <el-input v-model="selectedElement.label" />
+            </el-form-item>
+            <el-form-item label="元素宽度">
+              <el-select v-model="selectedElement.style.width" style="width:100%">
+                <el-option label="整行（100%）" value="100%" />
+                <el-option label="半行（50%，可并排）" value="50%" />
+                <el-option label="三分之一（33%，可并排）" value="33%" />
+              </el-select>
+              <div style="font-size:11px;color:#999;margin-top:2px">半行/三分之一宽度的相邻元素会并排显示</div>
             </el-form-item>
 
             <!-- 文本元素 -->
@@ -688,6 +696,12 @@ function getButtonWidth(el: any): string {
   return w
 }
 
+function canvasElStyle(el: any) {
+  const w = el.style?.width
+  if (!w || w === '100%') return {}
+  return { width: getButtonWidth(el), boxSizing: 'border-box' as const }
+}
+
 function buttonPreviewStyle(el: any) {
   const s: any = { ...(el.style || {}) }
   delete s.width  // 按钮预览始终100%填满容器，宽度由canvas-element控制
@@ -712,6 +726,7 @@ function buttonPreviewStyle(el: any) {
 }
 
 function selectElement(el: ElementData) {
+  if (!el.style) el.style = {}
   selectedId.value = selectedId.value === el.id ? null : el.id
 }
 
@@ -771,7 +786,22 @@ function initSortable() {
       chosenClass: 'sortable-chosen',
       dragClass: 'sortable-drag',
       touchStartThreshold: 3,
+      group: { name: 'tpl-elements', put: true },
+      filter: '.empty-hint',
+      preventOnFilter: true,
+      onAdd: (evt: Sortable.SortableEvent) => {
+        const type = (evt.item as HTMLElement).dataset?.type
+        evt.item.remove()
+        if (!type) return
+        const page = form.value.pages[currentPageIdx.value]
+        if (!page) return
+        const el = createElementData(type)
+        const idx = evt.newIndex ?? page.elements.length
+        page.elements.splice(Math.max(0, Math.min(idx, page.elements.length)), 0, el)
+        selectedId.value = el.id
+      },
       onEnd: (evt: Sortable.SortableEvent) => {
+        if (evt.from !== evt.to) return
         const page = form.value.pages[currentPageIdx.value]
         if (!page || evt.oldIndex === undefined || evt.newIndex === undefined) return
         const elements = page.elements
@@ -783,8 +813,23 @@ function initSortable() {
   })
 }
 
+const paletteSortables: Sortable[] = []
+
+function initPaletteSortable() {
+  nextTick(() => {
+    document.querySelectorAll('.palette-items').forEach((el) => {
+      paletteSortables.push(new Sortable(el as HTMLElement, {
+        group: { name: 'tpl-elements', pull: 'clone', put: false },
+        sort: false,
+        animation: 150,
+      }))
+    })
+  })
+}
+
 onMounted(() => {
   initSortable()
+  initPaletteSortable()
 })
 
 watch(currentPageIdx, () => {
@@ -795,6 +840,9 @@ onUnmounted(() => {
   if (sortableInstance) {
     sortableInstance.destroy()
     sortableInstance = null
+  }
+  while (paletteSortables.length) {
+    paletteSortables.pop()?.destroy()
   }
 })
 
@@ -1191,8 +1239,9 @@ async function handleSave() {
   .palette-items { display: flex; flex-direction: column; gap: 3px; }
   .palette-item {
     display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px;
-    cursor: pointer; font-size: 12px; color: #555; transition: all 0.15s;
+    cursor: grab; font-size: 12px; color: #555; transition: all 0.15s;
     &:hover { background: #e8f5e9; color: #059669; }
+    &:active { cursor: grabbing; }
   }
 }
 

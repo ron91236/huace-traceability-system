@@ -96,8 +96,11 @@ export const createIotAlertRule = (data: any) => request.post('/enterprise/iot-a
 // 企业分配的溯源模板
 export const getAssignedTemplates = () => request.get('/enterprise/assigned-templates')
 
-// 企业可用标签规格（按证书类型过滤）
+// 企业可用标签规格（本企业账号设定的规格）
 export const getEnterpriseLabelSpecs = () => request.get('/enterprise/label-specs')
+
+// 本企业产品选项
+export const getEnterpriseProducts = () => request.get('/enterprise/products')
 
 // 承诺达标合格证
 export const getHgzList = (params: any) => request.get('/enterprise/hgz', { params })

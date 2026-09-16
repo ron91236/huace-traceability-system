@@ -8,23 +8,35 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 /**
- * PDF转图片服务 - 将PDF每页渲染为PNG图片，用于手机端滑动查看
+ * PDF转图片服务 - 将PDF每页渲染为JPEG图片，用于手机端滑动查看。
+ * 转换结果按PDF内容哈希缓存，重复扫码直接返回已有图片。
  */
 @Slf4j
 @Service
 public class PdfConvertService {
+
+    private static final int RENDER_DPI = 130;
+    private static final float JPEG_QUALITY = 0.82f;
+    private static final Pattern PAGE_FILE = Pattern.compile("^([0-9a-f]+)_p(\\d+)\\.jpg$");
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -42,40 +54,80 @@ public class PdfConvertService {
         if (pdfUrl == null || pdfUrl.isEmpty()) return imageUrls;
 
         try {
-            // 获取PDF文件（本地文件或远程URL）
             byte[] pdfBytes = loadPdfBytes(pdfUrl);
             if (pdfBytes == null || pdfBytes.length == 0) {
                 log.warn("PDF文件为空或无法读取: {}", pdfUrl);
                 return imageUrls;
             }
 
-            // 创建输出目录
-            String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
-            String outDir = uploadDir + "/" + datePath + "/pdf-images";
-            Files.createDirectories(Path.of(outDir));
+            String key = sha256Hex(pdfBytes).substring(0, 16);
+            Path cacheDir = Path.of(uploadDir, "pdf-images", key);
+            Files.createDirectories(cacheDir);
 
-            // 使用PDFBox渲染每页为图片
+            List<String> cached = readCachedPages(cacheDir, key);
+            if (!cached.isEmpty()) {
+                log.info("PDF转图片命中缓存: {} 页, 源: {}", cached.size(), pdfUrl);
+                return cached;
+            }
+
             try (PDDocument document = Loader.loadPDF(pdfBytes)) {
                 PDFRenderer renderer = new PDFRenderer(document);
-                String batchId = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
                 int totalPages = document.getNumberOfPages();
-
                 for (int i = 0; i < totalPages; i++) {
-                    // 渲染为150 DPI的PNG（手机端足够清晰，文件大小适中）
-                    BufferedImage image = renderer.renderImageWithDPI(i, 150, ImageType.RGB);
-                    String fileName = batchId + "_p" + (i + 1) + ".png";
-                    File outputFile = new File(outDir + "/" + fileName);
-                    javax.imageio.ImageIO.write(image, "PNG", outputFile);
-
-                    String imageUrl = urlPrefix + "/" + datePath + "/pdf-images/" + fileName;
-                    imageUrls.add(imageUrl);
+                    BufferedImage image = renderer.renderImageWithDPI(i, RENDER_DPI, ImageType.RGB);
+                    String fileName = key + "_p" + (i + 1) + ".jpg";
+                    writeJpeg(image, cacheDir.resolve(fileName).toFile());
+                    imageUrls.add(urlPrefix + "/pdf-images/" + key + "/" + fileName);
                 }
+                Files.writeString(cacheDir.resolve("done"), String.valueOf(totalPages));
                 log.info("PDF转图片完成: {} 页, 源: {}", totalPages, pdfUrl);
             }
         } catch (Exception e) {
             log.error("PDF转图片失败: {}", pdfUrl, e);
         }
         return imageUrls;
+    }
+
+    /** 缓存目录中已存在完整转换结果时，按页序返回URL */
+    private List<String> readCachedPages(Path cacheDir, String key) {
+        Path done = cacheDir.resolve("done");
+        if (!Files.exists(done)) return List.of();
+        try (Stream<Path> stream = Files.list(cacheDir)) {
+            return stream.map(p -> p.getFileName().toString())
+                    .filter(name -> name.startsWith(key + "_p") && name.endsWith(".jpg"))
+                    .sorted(Comparator.comparingInt(name -> {
+                        Matcher m = PAGE_FILE.matcher(name);
+                        return m.matches() ? Integer.parseInt(m.group(2)) : Integer.MAX_VALUE;
+                    }))
+                    .map(name -> urlPrefix + "/pdf-images/" + key + "/" + name)
+                    .toList();
+        } catch (IOException e) {
+            return List.of();
+        }
+    }
+
+    private void writeJpeg(BufferedImage image, File out) throws IOException {
+        ImageWriter writer = ImageIO.getImageWritersByFormatName("jpg").next();
+        try {
+            ImageWriteParam param = writer.getDefaultWriteParam();
+            param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            param.setCompressionQuality(JPEG_QUALITY);
+            try (ImageOutputStream ios = ImageIO.createImageOutputStream(out)) {
+                writer.setOutput(ios);
+                writer.write(null, new IIOImage(image, null, null), param);
+            }
+        } finally {
+            writer.dispose();
+        }
+    }
+
+    private String sha256Hex(byte[] bytes) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        StringBuilder sb = new StringBuilder();
+        for (byte b : digest.digest(bytes)) {
+            sb.append(Character.forDigit((b >> 4) & 0xF, 16)).append(Character.forDigit(b & 0xF, 16));
+        }
+        return sb.toString();
     }
 
     private byte[] loadPdfBytes(String pdfUrl) throws IOException {

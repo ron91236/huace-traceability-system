@@ -207,6 +207,8 @@ server {
     # 上传文件访问
     location ^~ /uploads/ {
         alias /data/trace/uploads/;
+        expires 30d;
+        add_header Cache-Control "public, max-age=2592000, immutable";
     }
 
     # 海报公开页面

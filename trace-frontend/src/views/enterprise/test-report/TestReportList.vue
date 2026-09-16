@@ -25,7 +25,9 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="testTime" label="检测时间" width="170" />
+        <el-table-column label="检测时间" width="170">
+          <template #default="{ row }">{{ row.testTime ? row.testTime.replace('T',' ').substring(0,19) : '' }}</template>
+        </el-table-column>
         <el-table-column label="操作" width="160">
           <template #default="{ row }">
             <el-button size="small" @click="openForm(row)">编辑</el-button>
@@ -58,7 +60,6 @@
                 list-type="picture-card"
                 :http-request="handleImageUpload"
                 accept="image/*"
-                multiple
                 :limit="10"
                 :on-remove="handleImageRemove"
                 :on-preview="handleImagePreview"

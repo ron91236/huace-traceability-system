@@ -10,18 +10,22 @@
       <el-table :data="list" v-loading="loading" border stripe>
         <el-table-column prop="productName" label="产品名称" width="120" />
         <el-table-column prop="name" label="商品名称" min-width="140" />
-        <el-table-column label="样品图" width="120" align="center">
+        <el-table-column label="样品图" width="140" align="center">
           <template #default="{ row }">
             <template v-if="row.sampleImage">
-              <el-image v-for="(url, idx) in row.sampleImage.split(',').filter(Boolean)" :key="idx" :src="url" fit="cover" style="width:36px;height:36px;border-radius:4px;margin:2px" :on-preview="() => previewImage(url)" />
+              <div class="image-scroll-container">
+                <el-image v-for="(url, idx) in row.sampleImage.split(',').filter(Boolean)" :key="idx" :src="url" fit="cover" class="scroll-image-item" :preview-src-list="row.sampleImage.split(',').filter(Boolean)" :initial-index="idx" />
+              </div>
             </template>
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column label="宣传图" width="120" align="center">
+        <el-table-column label="宣传图" width="140" align="center">
           <template #default="{ row }">
             <template v-if="row.promoImage">
-              <el-image v-for="(url, idx) in row.promoImage.split(',').filter(Boolean)" :key="idx" :src="url" fit="cover" style="width:36px;height:36px;border-radius:4px;margin:2px" :on-preview="() => previewImage(url)" />
+              <div class="image-scroll-container">
+                <el-image v-for="(url, idx) in row.promoImage.split(',').filter(Boolean)" :key="idx" :src="url" fit="cover" class="scroll-image-item" :preview-src-list="row.promoImage.split(',').filter(Boolean)" :initial-index="idx" />
+              </div>
             </template>
             <span v-else>-</span>
           </template>
@@ -31,7 +35,7 @@
         </el-table-column>
         <el-table-column prop="packageSpec" label="包装规格" width="100" />
         <el-table-column prop="weightSpec" label="重量规格" width="100" />
-        <el-table-column prop="createdAt" label="创建时间" width="170" />
+        <el-table-column label="创建时间" width="170"><template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T', ' ').substring(0,19) : '' }}</template></el-table-column>
         <el-table-column label="操作" width="230">
           <template #default="{ row }">
             <el-button size="small" @click="openForm(row)">编辑</el-button>
@@ -50,7 +54,8 @@
     <el-dialog v-model="dialogVisible" :title="editId ? '编辑商品' : '新增商品'" width="600px" :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" :rules="{ name: [{ required: true, message: '请输入', trigger: 'blur' }], productId: [{ required: true, message: '请选择', trigger: 'change' }] }" label-width="100px">
         <el-form-item label="产品名称" prop="productId">
-          <el-select v-model="form.productId" filterable style="width:100%"><el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.id" /></el-select>
+          <el-select v-model="form.productId" filterable placeholder="请选择产品名称" style="width:100%"><el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.id" /></el-select>
+          <div v-if="!products.length" style="font-size:12px;color:#909399;margin-top:4px">本企业暂无可用产品，请先在「企业认证」中申报产品产能</div>
         </el-form-item>
         <el-form-item label="商品名称" prop="name"><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="溯源模板">
@@ -88,7 +93,7 @@
             accept="image/*"
             :http-request="(opt: any) => handleMultiImageUpload(opt, 'sampleImage', 'sampleFileList')"
             :on-remove="(file: any) => handleImageRemove(file, 'sampleImage', 'sampleFileList')"
-            :on-preview="(file: any) => previewImage(file.url)"
+            :on-preview="(file: any) => handlePreview(file.url)"
           >
             <el-icon :size="28" color="#8c939d"><Plus /></el-icon>
           </el-upload>
@@ -100,7 +105,7 @@
             accept="image/*"
             :http-request="(opt: any) => handleMultiImageUpload(opt, 'promoImage', 'promoFileList')"
             :on-remove="(file: any) => handleImageRemove(file, 'promoImage', 'promoFileList')"
-            :on-preview="(file: any) => previewImage(file.url)"
+            :on-preview="(file: any) => handlePreview(file.url)"
           >
             <el-icon :size="28" color="#8c939d"><Plus /></el-icon>
           </el-upload>
@@ -111,6 +116,9 @@
         <el-button type="primary" :loading="submitting" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 图片预览 -->
+    <el-image-viewer v-if="previewVisible" :url-list="[previewUrl]" @close="previewVisible = false" />
   </div>
 </template>
 
@@ -118,8 +126,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getGoods, createGoods, updateGoods, deleteGoods, copyGoods, getAssignedTemplates } from '@/api/enterprise'
-import { getProductOptions, uploadFile } from '@/api/common'
+import { getGoods, createGoods, updateGoods, deleteGoods, copyGoods, getAssignedTemplates, getEnterpriseProducts } from '@/api/enterprise'
+import { uploadFile } from '@/api/common'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -135,10 +143,12 @@ const products = ref<any[]>([])
 const traceTemplates = ref<any[]>([])
 const sampleFileList = ref<any[]>([])
 const promoFileList = ref<any[]>([])
+const previewVisible = ref(false)
+const previewUrl = ref('')
 
 const form = reactive<any>({ productId: null, name: '', packageSpec: '', packageSpecUnit: '', weightSpec: '', storageMethod: '', eatingMethod: '', introduction: '', sampleImage: '', promoImage: '', traceTemplateId: null })
 
-onMounted(async () => { const [prodRes, tplRes] = await Promise.all([getProductOptions(), getAssignedTemplates()]); products.value = prodRes.data || []; traceTemplates.value = tplRes.data || []; loadData() })
+onMounted(async () => { const [prodRes, tplRes] = await Promise.all([getEnterpriseProducts(), getAssignedTemplates()]); products.value = prodRes.data || []; traceTemplates.value = tplRes.data || []; loadData() })
 
 async function loadData() {
   loading.value = true
@@ -193,8 +203,9 @@ function handleImageRemove(file: any, field: string, listName: string) {
   form[field] = fileListRef.value.map((f: any) => f.url).join(',')
 }
 
-function previewImage(url: string) {
-  window.open(url, '_blank')
+function handlePreview(url: string) {
+  previewUrl.value = url
+  previewVisible.value = true
 }
 
 async function handleSubmit() {
@@ -228,3 +239,26 @@ async function handleCopy(row: any) {
   loadData()
 }
 </script>
+
+<style scoped lang="scss">
+.image-scroll-container {
+  display: flex;
+  overflow-x: auto;
+  gap: 4px;
+  padding: 4px 0;
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #d9d9d9;
+    border-radius: 2px;
+  }
+  .scroll-image-item {
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+}
+</style>

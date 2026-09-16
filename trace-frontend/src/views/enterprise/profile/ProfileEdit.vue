@@ -13,8 +13,8 @@
           <el-col :span="12"><el-form-item label="企业性质"><el-input v-model="form.nature" placeholder="如：民营企业" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="所属行业"><el-input v-model="form.industry" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="主营类型"><el-input v-model="form.mainType" placeholder="如：农产品种植" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="联系人" prop="contact"><el-input v-model="form.contact" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="联系电话" prop="phone"><el-input v-model="form.phone" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="联系人"><el-input v-model="form.contact" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="联系电话"><el-input v-model="form.phone" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="邮箱"><el-input v-model="form.email" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="统一社会信用代码"><el-input v-model="form.creditCode" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="防伪码输入提示"><el-input v-model="form.antiFakeInputHint" placeholder="如：输入后四位防伪码（留空显示默认提示）" /></el-form-item></el-col>
@@ -29,9 +29,6 @@
         </el-row>
         <el-divider content-position="left">企业介绍与资质</el-divider>
         <el-form-item label="企业介绍"><el-input v-model="form.introduction" type="textarea" :rows="4" /></el-form-item>
-        <el-form-item label="荣誉资质">
-          <RichTextEditor v-model="form.honors" :upload-image="handleRichImageUpload" />
-        </el-form-item>
         <el-form-item label="资质证书">
           <RichTextEditor v-model="form.qualifications" :upload-image="handleRichImageUpload" />
         </el-form-item>
@@ -42,14 +39,14 @@
             :file-list="enterpriseImageFileList"
             list-type="picture-card"
             accept="image/*"
-            :limit="1"
-            :http-request="(opt: any) => handleImageUpload(opt, 'enterpriseImage', enterpriseImageFileList)"
-            :on-remove="() => handleImageRemove('enterpriseImage', enterpriseImageFileList)"
+            :limit="9"
+            :http-request="(opt: any) => handleImageUpload(opt, 'enterpriseImage', enterpriseImageFileList, true)"
+            :on-remove="(file: any, remaining: any) => handleImageRemove('enterpriseImage', enterpriseImageFileList, remaining)"
             :on-preview="(file: any) => previewImage(file.url)"
           >
             <el-icon :size="28" color="#8c939d"><Plus /></el-icon>
           </el-upload>
-          <div class="upload-tip">建议上传企业logo或形象展示图</div>
+          <div class="upload-tip">支持上传多张（最多9张，每次选择一张），溯源页按顺序展示</div>
         </el-form-item>
         <el-form-item label="营业执照">
           <el-upload
@@ -58,7 +55,7 @@
             accept="image/*"
             :limit="1"
             :http-request="(opt: any) => handleImageUpload(opt, 'licenseImage', licenseImageFileList)"
-            :on-remove="() => handleImageRemove('licenseImage', licenseImageFileList)"
+            :on-remove="(file: any, remaining: any) => handleImageRemove('licenseImage', licenseImageFileList, remaining)"
             :on-preview="(file: any) => previewImage(file.url)"
           >
             <el-icon :size="28" color="#8c939d"><Plus /></el-icon>
@@ -109,8 +106,6 @@ const form = reactive<any>({
 
 const rules = {
   name: [{ required: true, message: '请输入企业名称', trigger: 'blur' }],
-  contact: [{ required: true, message: '请输入联系人', trigger: 'blur' }],
-  phone: [{ required: true, message: '请输入联系电话', trigger: 'blur' }],
 }
 
 async function handleRichImageUpload(file: File): Promise<string> {
@@ -120,7 +115,7 @@ async function handleRichImageUpload(file: File): Promise<string> {
 
 function urlsToFileList(url: string) {
   if (!url) return []
-  return [{ name: 'file', url }]
+  return url.split(',').filter(Boolean).map((u, i) => ({ name: `image-${i + 1}`, url: u }))
 }
 
 onMounted(async () => {
@@ -138,12 +133,12 @@ onMounted(async () => {
   } finally { loading.value = false }
 })
 
-async function handleImageUpload(options: any, field: string, fileList: any) {
+async function handleImageUpload(options: any, field: string, fileList: any, multi = false) {
   try {
     const res = await uploadFile(options.file)
     const url = res.data?.url || res.data || ''
-    fileList.value = [{ name: options.file.name, url }]
-    form[field] = url
+    fileList.value = multi ? [...fileList.value, { name: options.file.name, url }] : [{ name: options.file.name, url }]
+    form[field] = fileList.value.map((f: any) => f.url).join(',')
     ElMessage.success('上传成功')
   } catch (e) {
     ElMessage.error('上传失败')
@@ -162,9 +157,9 @@ async function handleVideoUpload(options: any) {
   }
 }
 
-function handleImageRemove(field: string, fileList: any) {
-  fileList.value = []
-  form[field] = ''
+function handleImageRemove(field: string, fileList: any, remaining: any[] = []) {
+  fileList.value = remaining
+  form[field] = remaining.map((f: any) => f.url).join(',')
 }
 
 function previewImage(url: string) {

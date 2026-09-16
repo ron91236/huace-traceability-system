@@ -59,8 +59,8 @@
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="企业名称" prop="name"><el-input v-model="form.name" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="企业性质"><el-input v-model="form.nature" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="联系人" prop="contact"><el-input v-model="form.contact" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="联系电话" prop="phone"><el-input v-model="form.phone" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="联系人"><el-input v-model="form.contact" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="联系电话"><el-input v-model="form.phone" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="邮箱"><el-input v-model="form.email" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="所属行业"><el-input v-model="form.industry" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="登录账号" prop="loginAccount"><el-input v-model="form.loginAccount" /></el-form-item></el-col>
@@ -73,6 +73,11 @@
           <el-col :span="12"><el-form-item label="邮编"><el-input v-model="form.zipcode" /></el-form-item></el-col>
           <el-col :span="24"><el-form-item label="详细地址"><el-input v-model="form.address" /></el-form-item></el-col>
           <el-col :span="24"><el-form-item label="企业介绍"><el-input v-model="form.introduction" type="textarea" :rows="3" /></el-form-item></el-col>
+          <el-col :span="24">
+            <el-form-item label="荣誉证书">
+              <RichTextEditor v-model="form.honors" :upload-image="handleRichImageUpload" />
+            </el-form-item>
+          </el-col>
           <el-col :span="12"><el-form-item label="防伪码输入提示"><el-input v-model="form.antiFakeInputHint" placeholder="如：输入后四位防伪码（留空显示默认提示）" /></el-form-item></el-col>
           <el-col :span="24">
             <el-form-item label="溯源模板">
@@ -94,8 +99,8 @@
     <el-dialog v-model="masterDialogVisible" title="创建母账号" width="520px" :close-on-click-modal="false">
       <el-form ref="masterFormRef" :model="masterForm" :rules="masterRules" label-width="100px">
         <el-form-item label="企业名称" prop="name"><el-input v-model="masterForm.name" /></el-form-item>
-        <el-form-item label="联系人" prop="contact"><el-input v-model="masterForm.contact" /></el-form-item>
-        <el-form-item label="联系电话" prop="phone"><el-input v-model="masterForm.phone" /></el-form-item>
+        <el-form-item label="联系人"><el-input v-model="masterForm.contact" /></el-form-item>
+        <el-form-item label="联系电话"><el-input v-model="masterForm.phone" /></el-form-item>
         <el-form-item label="登录账号" prop="loginAccount"><el-input v-model="masterForm.loginAccount" /></el-form-item>
         <el-form-item label="登录密码" prop="loginPassword"><el-input v-model="masterForm.loginPassword" type="password" show-password /></el-form-item>
       </el-form>
@@ -115,8 +120,9 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
 import { getEnterprises, createEnterprise, updateEnterprise, deleteEnterprise, createMasterEnterprise } from '@/api/admin'
-import { getTraceTemplateOptions } from '@/api/common'
+import { getTraceTemplateOptions, uploadFile } from '@/api/common'
 import EnterpriseGroupDialog from './EnterpriseGroupDialog.vue'
+import RichTextEditor from '@/components/RichTextEditor.vue'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -138,6 +144,7 @@ const form = reactive<any>({
   name: '', nature: '', contact: '', phone: '', email: '', industry: '',
   loginAccount: '', loginPassword: '', creditCode: '', mainType: '',
   province: '', city: '', district: '', zipcode: '', address: '', introduction: '',
+  honors: '',
   assignedTemplateIds: '',
   assignedTemplateIdsList: [],
   antiFakeInputHint: '',
@@ -151,16 +158,12 @@ const masterForm = reactive<any>({
 
 const rules = {
   name: [{ required: true, message: '请输入企业名称', trigger: 'blur' }],
-  contact: [{ required: true, message: '请输入联系人', trigger: 'blur' }],
-  phone: [{ required: true, message: '请输入联系电话', trigger: 'blur' }],
   loginAccount: [{ required: true, message: '请输入登录账号', trigger: 'blur' }],
   loginPassword: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
 
 const masterRules = {
   name: [{ required: true, message: '请输入企业名称', trigger: 'blur' }],
-  contact: [{ required: true, message: '请输入联系人', trigger: 'blur' }],
-  phone: [{ required: true, message: '请输入联系电话', trigger: 'blur' }],
   loginAccount: [{ required: true, message: '请输入登录账号', trigger: 'blur' }],
   loginPassword: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
@@ -179,6 +182,11 @@ async function loadData() {
   } finally { loading.value = false }
 }
 
+async function handleRichImageUpload(file: File): Promise<string> {
+  const res = await uploadFile(file)
+  return res.data?.url || res.data || ''
+}
+
 function openForm(row?: any) {
   editId.value = row?.id || null
   Object.keys(form).forEach(k => {
@@ -190,6 +198,7 @@ function openForm(row?: any) {
       form[k] = row?.[k] || ''
     }
   })
+  if (form.honors && !form.honors.trim().startsWith('<')) form.honors = `<p>${form.honors}</p>`
   dialogVisible.value = true
 }
 

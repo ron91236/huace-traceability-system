@@ -8,6 +8,9 @@ import com.huace.trace.mapper.EnterpriseMapper;
 import com.huace.trace.mapper.TraceTemplateMapper;
 import com.huace.trace.mapper.LabelSpecMapper;
 import com.huace.trace.mapper.EnterpriseCertMapper;
+import com.huace.trace.mapper.CertProductMapper;
+import com.huace.trace.mapper.GoodsMapper;
+import com.huace.trace.mapper.ProductMapper;
 import com.huace.trace.security.UserPrincipal;
 import com.huace.trace.service.*;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -45,6 +48,9 @@ public class EnterpriseController {
     private final TraceTemplateMapper traceTemplateMapper;
     private final LabelSpecMapper labelSpecMapper;
     private final EnterpriseCertMapper enterpriseCertMapper;
+    private final CertProductMapper certProductMapper;
+    private final GoodsMapper goodsMapper;
+    private final ProductMapper productMapper;
     private final TracePageService tracePageService;
 
     /**
@@ -558,30 +564,57 @@ public class EnterpriseController {
         return Result.ok(null);
     }
 
-    // ==================== 企业可用标签规格（按证书类型过滤） ====================
+    // ==================== 企业可用标签规格（仅本企业账号设定的规格） ====================
     @GetMapping("/label-specs")
     public Result<List<LabelSpec>> getEnterpriseLabelSpecs(
             @AuthenticationPrincipal UserPrincipal principal) {
-        // Get the enterprise's cert type IDs from their certs
-        List<Long> certTypeIds = enterpriseCertMapper.selectList(
+        List<Long> specIds = enterpriseCertMapper.selectList(
                 new LambdaQueryWrapper<EnterpriseCert>()
                         .eq(EnterpriseCert::getEnterpriseId, principal.getUserId())
-                        .isNotNull(EnterpriseCert::getCertTypeId))
+                        .isNotNull(EnterpriseCert::getLabelSpecId))
                 .stream()
-                .map(EnterpriseCert::getCertTypeId)
-                .filter(id -> id != null)
+                .map(EnterpriseCert::getLabelSpecId)
                 .distinct()
                 .toList();
-
-        LambdaQueryWrapper<LabelSpec> qw = new LambdaQueryWrapper<LabelSpec>()
-                .eq(LabelSpec::getIsVoid, 0);
-
-        if (!certTypeIds.isEmpty()) {
-            // Show specs matching enterprise's cert types + universal specs (certTypeId=null)
-            qw.and(w -> w.in(LabelSpec::getCertTypeId, certTypeIds)
-                    .or().isNull(LabelSpec::getCertTypeId));
+        if (specIds.isEmpty()) {
+            return Result.ok(List.of());
         }
-        return Result.ok(labelSpecMapper.selectList(qw.orderByDesc(LabelSpec::getId)));
+        return Result.ok(labelSpecMapper.selectList(
+                new LambdaQueryWrapper<LabelSpec>()
+                        .eq(LabelSpec::getIsVoid, 0)
+                        .in(LabelSpec::getId, specIds)
+                        .orderByDesc(LabelSpec::getId)));
+    }
+
+    // ==================== 本企业产品（证书产品 ∪ 商品已用产品） ====================
+    @GetMapping("/products")
+    public Result<List<Product>> getEnterpriseProducts(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long enterpriseId = principal.getUserId();
+        List<Long> certIds = enterpriseCertMapper.selectList(
+                new LambdaQueryWrapper<EnterpriseCert>()
+                        .eq(EnterpriseCert::getEnterpriseId, enterpriseId))
+                .stream().map(EnterpriseCert::getId).toList();
+        java.util.Set<Long> productIds = new java.util.LinkedHashSet<>();
+        if (!certIds.isEmpty()) {
+            certProductMapper.selectList(
+                    new LambdaQueryWrapper<CertProduct>().in(CertProduct::getCertId, certIds))
+                    .forEach(cp -> {
+                        if (cp.getProductId() != null) productIds.add(cp.getProductId());
+                    });
+        }
+        goodsMapper.selectList(
+                new LambdaQueryWrapper<Goods>()
+                        .eq(Goods::getEnterpriseId, enterpriseId)
+                        .isNotNull(Goods::getProductId))
+                .forEach(g -> productIds.add(g.getProductId()));
+        if (productIds.isEmpty()) {
+            return Result.ok(List.of());
+        }
+        return Result.ok(productMapper.selectList(
+                new LambdaQueryWrapper<Product>()
+                        .in(Product::getId, productIds)
+                        .orderByDesc(Product::getId)));
     }
 
     // ==================== 企业分配的溯源模板 ====================

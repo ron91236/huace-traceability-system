@@ -50,13 +50,13 @@
       <div :key="currentPageIdx" class="trace-body" :class="'layout-' + currentLayout" :style="hasPageElements ? { display: 'flex', flexWrap: 'wrap', gap: '4px' } : {}">
         <!-- 新版：页面元素模式 -->
         <template v-if="hasPageElements">
-          <div v-for="el in currentPageElements" :key="el.id" class="page-element" :class="'el-type-' + el.type" :style="el.type === 'button' ? { flex: '0 0 ' + (el.style?.width || '100%'), boxSizing: 'border-box' } : { flex: '0 0 100%' }">
+          <div v-for="el in currentPageElements" :key="el.id" class="page-element" :class="'el-type-' + el.type" :style="{ flex: '0 0 ' + elementBasis(el), boxSizing: 'border-box' }">
             <!-- 文本 -->
             <div v-if="el.type === 'text'" class="el-text" :style="el.style || {}">{{ el.content }}</div>
             <!-- 富文本 -->
             <div v-else-if="el.type === 'rich-text'" class="el-rich-text" :style="el.style || {}" v-html="DOMPurify.sanitize(el.content || '')"></div>
             <!-- 图片 -->
-            <el-image v-else-if="el.type === 'image' && el.src" :src="el.src" fit="contain" :style="{ width: el.style?.width || '100%', height: el.style?.height || 'auto', borderRadius: (el.style?.borderRadius || 0) + 'px', margin: el.style?.margin || '' }" :preview-src-list="[el.src]" />
+            <el-image v-else-if="el.type === 'image' && el.src" lazy :src="el.src" fit="contain" :style="{ width: el.style?.width || '100%', height: el.style?.height || 'auto', borderRadius: (el.style?.borderRadius || 0) + 'px', margin: el.style?.margin || '' }" :preview-src-list="[el.src]" />
             <!-- 视频 -->
             <video v-else-if="el.type === 'video' && el.src" :src="el.src" :poster="el.poster" controls style="width:100%;border-radius:8px" />
             <!-- 分割线 -->
@@ -92,7 +92,7 @@
                     <div class="field-label">{{ field.label }}</div>
                     <!-- 图片自适应：容器高度随图片比例自动撑开，不裁剪不压缩 -->
                     <div v-if="getImageList(field.field).length > 0" class="field-image-list">
-                      <el-image v-for="(img, idx) in getImageList(field.field)" :key="idx" :src="img" fit="contain" class="field-image-item" :preview-src-list="getImageList(field.field)" :initial-index="idx" />
+                      <el-image v-for="(img, idx) in getImageList(field.field)" :key="idx" lazy :src="img" fit="contain" class="field-image-item" :preview-src-list="getImageList(field.field)" :initial-index="idx" />
                     </div>
                   </div>
                   <div v-else-if="field.type === 'video'" class="field-item field-item-block field-media">
@@ -126,7 +126,7 @@
             <div v-else-if="el.type === 'custom-field' && getCustomFieldValue(el.fieldKey)" class="field-item" style="background:var(--trace-section-bg);border-radius:8px;padding:12px;margin-bottom:8px">
               <span class="field-label">{{ el.label }}：</span>
               <template v-if="el.fieldType === 'image'">
-                <el-image :src="getCustomFieldValue(el.fieldKey)" fit="contain" style="width:100%;height:auto;max-width:100%;border-radius:8px" :preview-src-list="[getCustomFieldValue(el.fieldKey)]" />
+                <el-image lazy :src="getCustomFieldValue(el.fieldKey)" fit="contain" style="width:100%;height:auto;max-width:100%;border-radius:8px" :preview-src-list="[getCustomFieldValue(el.fieldKey)]" />
               </template>
               <template v-else>
                 <span class="field-value">{{ getCustomFieldValue(el.fieldKey) }}</span>
@@ -148,8 +148,8 @@
                   <p class="af-result-msg">{{ verifyResult.message }}</p>
                   <p v-if="verifyResult.enterpriseName" class="af-result-detail">生产企业：{{ verifyResult.enterpriseName }}</p>
                   <p v-if="verifyResult.productName" class="af-result-detail">产品名称：{{ verifyResult.productName }}</p>
-                  <p class="af-result-detail">查询次数：第 <strong>{{ verifyResult.scanCount || 1 }}</strong> 次</p>
-                  <p class="af-result-detail af-time">查询时间：{{ verifyResult.queryTime || '' }}</p>
+                  <p v-if="verifyResult.verified" class="af-result-detail">查询次数：第 <strong>{{ verifyResult.scanCount || 1 }}</strong> 次</p>
+                  <p v-if="verifyResult.verified" class="af-result-detail af-time">查询时间：{{ verifyResult.queryTime || '' }}</p>
                 </div>
               </div>
             </div>
@@ -185,7 +185,7 @@
             <div v-for="field in section.visibleFields" :key="field.field" class="field-item">
               <span class="field-label">{{ field.label }}：</span>
               <template v-if="field.type === 'image'">
-                <el-image :src="getFieldValue(field.field)" fit="contain" style="width:100%;height:auto;max-width:100%;border-radius:8px" :preview-src-list="[getFieldValue(field.field)]" />
+                <el-image lazy :src="getFieldValue(field.field)" fit="contain" style="width:100%;height:auto;max-width:100%;border-radius:8px" :preview-src-list="[getFieldValue(field.field)]" />
               </template>
               <template v-else-if="field.type === 'file'">
                 <el-link v-if="getFieldValue(field.field)" :href="getFieldValue(field.field)" target="_blank" type="primary">查看文件</el-link>
@@ -220,8 +220,8 @@
               <p class="af-result-msg">{{ verifyResult.message }}</p>
               <p v-if="verifyResult.enterpriseName" class="af-result-detail">生产企业：{{ verifyResult.enterpriseName }}</p>
               <p v-if="verifyResult.productName" class="af-result-detail">产品名称：{{ verifyResult.productName }}</p>
-              <p class="af-result-detail">查询次数：第 <strong>{{ verifyResult.scanCount || 1 }}</strong> 次</p>
-              <p class="af-result-detail af-time">查询时间：{{ verifyResult.queryTime || '' }}</p>
+              <p v-if="verifyResult.verified" class="af-result-detail">查询次数：第 <strong>{{ verifyResult.scanCount || 1 }}</strong> 次</p>
+              <p v-if="verifyResult.verified" class="af-result-detail af-time">查询时间：{{ verifyResult.queryTime || '' }}</p>
             </div>
           </div>
           <div v-else class="section-content" style="text-align:center;color:#999;font-size:13px;padding:8px 0">
@@ -236,7 +236,7 @@
             <div v-for="cf in customFields" :key="cf.fieldKey" class="field-item">
               <span class="field-label">{{ cf.fieldLabel || cf.fieldKey }}：</span>
               <template v-if="cf.fieldType === 'image'">
-                <el-image v-if="cf.fieldValue" :src="cf.fieldValue" fit="contain" style="width:100%;height:auto;max-width:100%;border-radius:8px" :preview-src-list="[cf.fieldValue]" />
+                <el-image v-if="cf.fieldValue" lazy :src="cf.fieldValue" fit="contain" style="width:100%;height:auto;max-width:100%;border-radius:8px" :preview-src-list="[cf.fieldValue]" />
               </template>
               <template v-else-if="cf.fieldType === 'file'">
                 <el-link v-if="cf.fieldValue" :href="cf.fieldValue" target="_blank" type="primary">查看文件</el-link>
@@ -818,6 +818,14 @@ function getFieldValue(path: string): any {
     if (val === undefined || val === null) return ''
   }
   return val
+}
+
+function elementBasis(el: any): string {
+  const w = el.style?.width
+  if (!w || w === '100%') return '100%'
+  if (w === '50%') return '49%'
+  if (w === '33%') return '32.5%'
+  return w
 }
 
 function getImageList(path: string): string[] {
