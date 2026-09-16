@@ -185,7 +185,7 @@
             <div v-for="field in section.visibleFields" :key="field.field" class="field-item">
               <span class="field-label">{{ field.label }}：</span>
               <template v-if="field.type === 'image'">
-                <el-image lazy :src="getFieldValue(field.field)" fit="contain" style="width:100%;height:auto;max-width:100%;border-radius:8px" :preview-src-list="[getFieldValue(field.field)]" />
+                <el-image v-for="(img, idx) in getImageList(field.field)" :key="idx" lazy :src="img" fit="contain" style="width:100%;height:auto;max-width:100%;border-radius:8px" :preview-src-list="getImageList(field.field)" :initial-index="idx" />
               </template>
               <template v-else-if="field.type === 'file'">
                 <el-link v-if="getFieldValue(field.field)" :href="getFieldValue(field.field)" target="_blank" type="primary">查看文件</el-link>

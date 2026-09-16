@@ -56,7 +56,7 @@
           </div>
         </div>
         <div v-if="showEnterprise && cert?.enterpriseName" class="a5-ent">
-          <img v-if="cert?.enterpriseImage" :src="cert.enterpriseImage" class="a5-ent-img" />
+          <img v-if="cert?.enterpriseImage" :src="cert.enterpriseImage.split(',')[0]" class="a5-ent-img" />
           <span class="a5-ent-name">{{ cert.enterpriseName }}</span>
         </div>
         <div class="a5-note">本合格证由生产经营者依据《中华人民共和国农产品质量安全法》《中华人民共和国食品安全法》及《农产品质量安全承诺达标合格证管理办法》自行开具，对其真实性负责。</div>

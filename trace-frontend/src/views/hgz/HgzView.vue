@@ -71,7 +71,7 @@
         </div>
 
         <div v-if="cert.isShowEnterprise === 1 && cert.enterpriseName" class="enterprise-strip">
-          <img v-if="cert.enterpriseImage" :src="cert.enterpriseImage" class="ent-img" alt="企业形象" />
+          <img v-if="cert.enterpriseImage" :src="cert.enterpriseImage.split(',')[0]" class="ent-img" alt="企业形象" />
           <div class="ent-info">
             <div class="ent-name">{{ cert.enterpriseName }}</div>
             <div v-if="cert.enterpriseIntroduction" class="ent-intro">{{ cert.enterpriseIntroduction }}</div>
