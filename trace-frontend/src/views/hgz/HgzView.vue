@@ -42,7 +42,7 @@
           <ul class="basis-list">
             <li v-for="(item, i) in basisDisplay" :key="i" class="basis-li" :class="{ 'is-unselected': !item.isSelect }">
               <span class="check-box">{{ item.isSelect ? '✓' : '' }}</span>{{ item.title }}
-              <el-link v-if="item.isSelect && item.image" type="primary" :href="item.image" target="_blank" class="basis-img-link">{{ isPdf(item.image) ? '查看检测报告(PDF)' : '查看检测报告' }}</el-link>
+              <el-link v-if="item.isSelect && item.image" type="primary" class="basis-img-link" @click="openReport(item)">{{ isPdf(item.image) ? '查看检测报告(PDF)' : '查看检测报告' }}</el-link>
             </li>
           </ul>
         </div>
@@ -81,11 +81,24 @@
         </div>
       </div>
     </template>
+
+    <!-- 检测报告原页查看：图片走内置滑动预览，PDF 走内嵌弹窗 -->
+    <el-image
+      ref="imgViewerRef"
+      :src="reportImages[viewerIndex] || ''"
+      :preview-src-list="reportImages"
+      :initial-index="viewerIndex"
+      preview-teleported
+      style="display: none"
+    />
+    <el-dialog v-model="pdfDialog" title="检测报告（PDF）" width="86%" top="4vh" destroy-on-close align-center :close-on-click-modal="false">
+      <iframe v-if="pdfUrl" :src="pdfUrl" class="pdf-frame" title="检测报告"></iframe>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { Loading, CircleClose, Printer, Search, WarningFilled } from '@element-plus/icons-vue'
 import QRCode from 'qrcode'
@@ -117,6 +130,25 @@ const basisDisplay = computed(() => {
 })
 function isPdf(url: string) {
   return /\.pdf(\?|#|$)/i.test(url || '')
+}
+
+// 检测报告原页查看：图片集合用于左右滑动预览，PDF 单独内嵌展示
+const reportImages = computed(() =>
+  basisDisplay.value.filter((r) => r.isSelect && r.image && !isPdf(r.image)).map((r) => r.image),
+)
+const imgViewerRef = ref<any>(null)
+const viewerIndex = ref(0)
+const pdfDialog = ref(false)
+const pdfUrl = ref('')
+
+function openReport(item: any) {
+  if (isPdf(item.image)) {
+    pdfUrl.value = item.image
+    pdfDialog.value = true
+    return
+  }
+  viewerIndex.value = Math.max(0, reportImages.value.indexOf(item.image))
+  nextTick(() => imgViewerRef.value?.showPreview())
 }
 
 async function load() {
@@ -421,6 +453,14 @@ onMounted(load)
     border-top: 1px dashed #e4e7ed;
     padding-top: 10px;
   }
+}
+
+.pdf-frame {
+  width: 100%;
+  height: 72vh;
+  border: none;
+  display: block;
+  background: #f0f2f5;
 }
 
 @media print {
