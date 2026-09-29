@@ -40,11 +40,11 @@
         </div>
 
         <div class="cert-section">
-          <div class="section-label">承诺依据</div>
+          <div class="section-label">承诺依据（任选 1-3 项）</div>
           <ul class="basis-list">
-            <li v-for="(item, i) in basisChecked" :key="i" class="basis-li">
-              <span class="check-box">✓</span>{{ item.title }}
-              <el-link v-if="item.image" type="primary" :href="item.image" target="_blank" class="basis-img-link">查看检测报告</el-link>
+            <li v-for="(item, i) in basisDisplay" :key="i" class="basis-li" :class="{ 'is-unselected': !item.isSelect }">
+              <span class="check-box">{{ item.isSelect ? '✓' : '' }}</span>{{ item.title }}
+              <el-link v-if="item.isSelect && item.image" type="primary" :href="item.image" target="_blank" class="basis-img-link">{{ isPdf(item.image) ? '查看检测报告(PDF)' : '查看检测报告' }}</el-link>
             </li>
           </ul>
         </div>
@@ -52,7 +52,7 @@
         <div class="cert-details">
           <div class="detail-row"><span class="d-label">产品名称</span><span class="d-value">{{ cert.productName }}</span></div>
           <div class="detail-row"><span class="d-label">重量或数量</span><span class="d-value">{{ cert.number || '-' }}</span></div>
-          <div class="detail-row"><span class="d-label">产地</span><span class="d-value">{{ cert.placeOfOrigin || '-' }}</span></div>
+          <div class="detail-row" v-if="cert.userType !== 2"><span class="d-label">产地</span><span class="d-value">{{ cert.placeOfOrigin || '-' }}</span></div>
           <div class="detail-row"><span class="d-label">承诺主体</span><span class="d-value">{{ cert.promiseUser }}</span></div>
           <div class="detail-row"><span class="d-label">联系方式</span><span class="d-value">{{ cert.contact || '-' }}</span></div>
           <div class="detail-row"><span class="d-label">开具日期</span><span class="d-value">{{ cert.useTime || '-' }}</span></div>
@@ -100,7 +100,17 @@ const cert = ref<any>(null)
 const qrDataUrl = ref('')
 
 const promiseChecked = computed(() => (cert.value?.promiseList || []).filter((x: any) => x.isSelect))
-const basisChecked = computed(() => (cert.value?.basisList || []).filter((x: any) => x.isSelect))
+const OFFICIAL_BASIS = ['质量安全控制符合要求', '自行检测合格', '委托检测合格']
+const basisDisplay = computed(() => {
+  const list = cert.value?.basisList || []
+  return OFFICIAL_BASIS.map((title) => {
+    const m = list.find((x: any) => x.title === title)
+    return { title, isSelect: !!(m && m.isSelect), image: m?.image || '' }
+  })
+})
+function isPdf(url: string) {
+  return /\.pdf(\?|#|$)/i.test(url || '')
+}
 
 async function load() {
   loading.value = true
@@ -246,6 +256,15 @@ onMounted(load)
 
         .basis-img-link {
           font-size: 12px;
+        }
+
+        &.is-unselected {
+          color: #b0b3b8;
+
+          .check-box {
+            border-color: #dcdfe6;
+            color: transparent;
+          }
         }
       }
 

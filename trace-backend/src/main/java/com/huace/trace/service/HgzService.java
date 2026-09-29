@@ -51,37 +51,38 @@ public class HgzService {
     private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final DateTimeFormatter CODE_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-    /** 默认承诺事项（法定要素，开证时企业需逐项确认） */
-    public static final List<String> DEFAULT_PROMISE_ITEMS = List.of(
-            "不使用禁用的农药兽药、停用兽药及非法添加物",
-            "遵守农药安全间隔期、兽药休药期规定",
-            "销售的食用农产品符合农药兽药残留食品安全国家标准");
-    /** 默认承诺依据选项 */
+    /** 样式一（生产者开具）法定承诺文案，见《农产品质量安全承诺达标合格证管理办法》附件样式 */
+    public static final String PROMISE_TEXT_PRODUCER =
+            "未使用禁用农药、兽药及其他化合物；使用的常规农药、兽药残留不超标。";
+    /** 样式二（收购单位/个人开具）法定承诺文案 */
+    public static final String PROMISE_TEXT_PURCHASER =
+            "已按规定收取并保存该批次农产品承诺达标合格证或者其他质量安全合格证明；未违规使用保鲜剂、防腐剂、添加剂等。";
+    /** 法定承诺依据选项，开证时任选 1-3 项 */
     public static final List<String> DEFAULT_BASIS_ITEMS = List.of(
-            "自我承诺",
-            "委托检测合格",
-            "自我检测合格",
-            "质量安全内部控制合格");
+            "质量安全控制符合要求", "自行检测合格", "委托检测合格");
+    /** 勾选后必须附检测报告的承诺依据 */
+    private static final Set<String> BASIS_REQUIRING_REPORT = Set.of("自行检测合格", "委托检测合格");
+
+    public static String promiseText(Integer userType) {
+        return Integer.valueOf(2).equals(userType) ? PROMISE_TEXT_PURCHASER : PROMISE_TEXT_PRODUCER;
+    }
 
     // ==================== 默认选项 ====================
 
-    public Map<String, Object> defaults() {
+    public Map<String, Object> defaults(Integer userType) {
         Map<String, Object> result = new HashMap<>();
-        List<Map<String, Object>> promiseItems = new ArrayList<>();
-        for (String title : DEFAULT_PROMISE_ITEMS) {
-            Map<String, Object> item = new HashMap<>();
-            item.put("title", title);
-            item.put("isSelect", true);
-            promiseItems.add(item);
-        }
+        result.put("userType", userType);
+        result.put("promiseIntro", Integer.valueOf(2).equals(userType)
+                ? "我承诺销售的食用农产品：" : "我承诺生产销售的食用农产品：");
+        result.put("promiseText", promiseText(userType));
         List<Map<String, Object>> basisItems = new ArrayList<>();
         for (String title : DEFAULT_BASIS_ITEMS) {
             Map<String, Object> item = new HashMap<>();
             item.put("title", title);
             item.put("isSelect", false);
+            item.put("requireReport", BASIS_REQUIRING_REPORT.contains(title));
             basisItems.add(item);
         }
-        result.put("promiseItems", promiseItems);
         result.put("basisItems", basisItems);
         return result;
     }
@@ -162,6 +163,8 @@ public class HgzService {
                 h.setPlaceOfOrigin(joinOrigin(enterprise));
             }
         }
+        applyOfficialPromise(h);
+        h.setBasisItems(normalizeBasis(req.getBasisList()));
         validate(h);
         h.setCode(generateCode());
         h.setStatus(1);
@@ -189,6 +192,8 @@ public class HgzService {
                 h.setQueryUrl(baseUrl + "/trace/batch/" + batch.getId());
             }
         }
+        applyOfficialPromise(h);
+        h.setBasisItems(normalizeBasis(req.getBasisList()));
         validate(h);
         serializeJson(h);
         hgzMapper.updateById(h);
@@ -326,23 +331,57 @@ public class HgzService {
         }
         if (h.getUseTime() == null) h.setUseTime(LocalDate.now());
         if (req.getSignature() != null) h.setSignature(req.getSignature());
-        if (req.getPromiseList() != null) h.setPromiseItems(new ArrayList<>(req.getPromiseList()));
-        if (req.getBasisList() != null) h.setBasisItems(new ArrayList<>(req.getBasisList()));
         if (req.getIsShowEnterprise() != null) h.setIsShowEnterprise(req.getIsShowEnterprise());
         if (h.getUserType() == null) h.setUserType(1);
         if (h.getIsShowEnterprise() == null) h.setIsShowEnterprise(1);
     }
 
+    /** 承诺事项为法定固定文案，服务端按主体类型（样式一/样式二）生成，不接受前端传值 */
+    private void applyOfficialPromise(Hgz h) {
+        Map<String, Object> item = new HashMap<>();
+        item.put("title", promiseText(h.getUserType()));
+        item.put("isSelect", true);
+        h.setPromiseItems(List.of(item));
+    }
+
+    /** 承诺依据归一化为法定3项，丢弃非法选项，未勾选项的报告一并清空 */
+    private List<Map<String, Object>> normalizeBasis(List<Map<String, Object>> reqBasis) {
+        Map<String, Map<String, Object>> byTitle = new HashMap<>();
+        if (reqBasis != null) {
+            for (Map<String, Object> m : reqBasis) {
+                if (m != null && m.get("title") != null) byTitle.put(String.valueOf(m.get("title")), m);
+            }
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (String title : DEFAULT_BASIS_ITEMS) {
+            Map<String, Object> src = byTitle.get(title);
+            boolean sel = src != null && Boolean.TRUE.equals(src.get("isSelect"));
+            Object img = src == null ? null : src.get("image");
+            Map<String, Object> item = new HashMap<>();
+            item.put("title", title);
+            item.put("isSelect", sel);
+            item.put("image", sel && img != null && StringUtils.hasText(String.valueOf(img)) ? String.valueOf(img) : null);
+            out.add(item);
+        }
+        return out;
+    }
+
     private void validate(Hgz h) {
         if (!StringUtils.hasText(h.getProductName())) throw new BusinessException("产品名称不能为空");
         if (!StringUtils.hasText(h.getPromiseUser())) throw new BusinessException("承诺主体不能为空");
-        if (h.getPromiseItems() == null || h.getPromiseItems().isEmpty()) throw new BusinessException("请至少勾选一项承诺事项");
-        boolean hasSelected = h.getPromiseItems().stream()
-                .anyMatch(m -> Boolean.TRUE.equals(m.get("isSelect")));
-        if (!hasSelected) throw new BusinessException("请至少勾选一项承诺事项");
-        boolean hasBasis = h.getBasisItems() != null && h.getBasisItems().stream()
-                .anyMatch(m -> Boolean.TRUE.equals(m.get("isSelect")));
-        if (!hasBasis) throw new BusinessException("请至少选择一项承诺依据");
+        List<Map<String, Object>> selected = h.getBasisItems() == null ? List.of()
+                : h.getBasisItems().stream().filter(m -> Boolean.TRUE.equals(m.get("isSelect"))).toList();
+        if (selected.isEmpty()) throw new BusinessException("承诺依据需任选1-3项，请至少选择一项");
+        if (selected.size() > 3) throw new BusinessException("承诺依据最多选择3项");
+        for (Map<String, Object> m : selected) {
+            String title = String.valueOf(m.get("title"));
+            if (BASIS_REQUIRING_REPORT.contains(title)) {
+                Object img = m.get("image");
+                if (img == null || !StringUtils.hasText(String.valueOf(img))) {
+                    throw new BusinessException("勾选\"" + title + "\"必须上传检测报告（PDF或图片）");
+                }
+            }
+        }
     }
 
     private String generateCode() {

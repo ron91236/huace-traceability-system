@@ -47,10 +47,10 @@ public class HgzController {
         return Result.ok(hgzService.list(scopeEnterpriseId(principal, enterpriseId), page, size, keyword));
     }
 
-    /** 默认承诺事项/依据选项（法定要素模板） */
+    /** 默认承诺事项/依据选项（法定要素模板，按样式一/二返回） */
     @GetMapping("/defaults")
-    public Result<Map<String, Object>> defaults() {
-        return Result.ok(hgzService.defaults());
+    public Result<Map<String, Object>> defaults(@RequestParam(defaultValue = "1") Integer userType) {
+        return Result.ok(hgzService.defaults(userType));
     }
 
     @PostMapping

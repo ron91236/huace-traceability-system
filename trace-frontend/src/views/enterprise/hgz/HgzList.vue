@@ -31,7 +31,9 @@
         <el-table-column prop="batchName" label="关联批次" min-width="120" show-overflow-tooltip>
           <template #default="{ row }">{{ row.batchName || '-' }}</template>
         </el-table-column>
-        <el-table-column prop="useTime" label="开具日期" width="105" />
+        <el-table-column label="开具日期" width="105">
+          <template #default="{ row }">{{ row.useTime ? row.useTime.replace('T',' ').substring(0,19) : '' }}</template>
+        </el-table-column>
         <el-table-column label="状态" width="80">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">{{ row.status === 1 ? '有效' : '已作废' }}</el-tag>
@@ -63,10 +65,10 @@
             <el-option v-for="b in batchOptions" :key="b.id" :label="b.name + (b.goodsName ? ' - ' + b.goodsName : '')" :value="b.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="主体类型">
+        <el-form-item label="开具样式">
           <el-radio-group v-model="form.userType">
-            <el-radio :value="1">生产者</el-radio>
-            <el-radio :value="2">收购者</el-radio>
+            <el-radio :value="1">样式一 · 生产者</el-radio>
+            <el-radio :value="2">样式二 · 收购单位(个人)</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-row :gutter="12">
@@ -82,7 +84,7 @@
           </el-col>
         </el-row>
         <el-row :gutter="12">
-          <el-col :span="12">
+          <el-col v-if="form.userType !== 2" :span="12">
             <el-form-item label="产地">
               <el-input v-model="form.placeOfOrigin" placeholder="产地（省/市/县，可到基地）" />
             </el-form-item>
@@ -105,20 +107,27 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="承诺事项" required>
-          <div class="check-list">
-            <el-checkbox v-for="(item, i) in form.promiseList" :key="'p' + i" v-model="item.isSelect">{{ item.title }}</el-checkbox>
+        <el-form-item label="承诺事项">
+          <div class="promise-text">
+            <div class="promise-intro">{{ promiseIntro }}</div>
+            <div class="promise-body">{{ promiseText }}</div>
+            <div class="promise-note">法定固定文案，随开具样式自动切换，不可编辑</div>
           </div>
         </el-form-item>
         <el-form-item label="承诺依据" required>
           <div class="check-list">
+            <div class="basis-tip">任选 1-3 项；勾选"自行检测合格""委托检测合格"须上传检测报告（PDF 或图片）</div>
             <div v-for="(item, i) in form.basisList" :key="'b' + i" class="basis-item">
               <el-checkbox v-model="item.isSelect">{{ item.title }}</el-checkbox>
-              <template v-if="item.isSelect">
-                <el-upload :show-file-list="false" accept="image/*" :http-request="(opt: any) => uploadBasisImage(opt, i)">
-                  <el-button size="small" :loading="item._uploading">{{ item.image ? '重新上传报告' : '上传检测报告图' }}</el-button>
+              <template v-if="item.isSelect && item.requireReport">
+                <el-upload :show-file-list="false" accept=".pdf,.jpg,.jpeg,.png" :http-request="(opt: any) => uploadBasisImage(opt, i)">
+                  <el-button size="small" :loading="item._uploading">{{ item.image ? '重新上传报告' : '上传检测报告' }}</el-button>
                 </el-upload>
-                <el-image v-if="item.image" :src="item.image" fit="cover" class="basis-img" :preview-src-list="[item.image]" />
+                <template v-if="item.image">
+                  <el-image v-if="!isPdf(item.image)" :src="item.image" fit="cover" class="basis-img" :preview-src-list="[item.image]" />
+                  <el-link v-else type="primary" :href="item.image" target="_blank" class="basis-pdf">查看 PDF 报告</el-link>
+                </template>
+                <span v-else class="basis-required">必传</span>
               </template>
             </div>
           </div>
@@ -222,9 +231,19 @@ const form = reactive<any>({
   useTime: '',
   signature: '',
   isShowEnterprise: 1,
-  promiseList: [] as any[],
   basisList: [] as any[],
 })
+
+// 法定承诺文案（样式一=生产者 / 样式二=收购单位(个人)），服务端同源，随开具样式切换
+const OFFICIAL_PROMISE: Record<number, { intro: string; text: string }> = {
+  1: { intro: '我承诺生产销售的食用农产品：', text: '未使用禁用农药、兽药及其他化合物；使用的常规农药、兽药残留不超标。' },
+  2: { intro: '我承诺销售的食用农产品：', text: '已按规定收取并保存该批次农产品承诺达标合格证或者其他质量安全合格证明；未违规使用保鲜剂、防腐剂、添加剂等。' },
+}
+const promiseIntro = computed(() => (OFFICIAL_PROMISE[form.userType] || OFFICIAL_PROMISE[1]).intro)
+const promiseText = computed(() => (OFFICIAL_PROMISE[form.userType] || OFFICIAL_PROMISE[1]).text)
+function isPdf(url: string) {
+  return /\.pdf(\?|#|$)/i.test(url || '')
+}
 
 const batchOptions = ref<any[]>([])
 const batchLoading = ref(false)
@@ -247,10 +266,11 @@ function onBatchChange(batchId: number | null) {
   if (b.baseName && !form.placeOfOrigin) form.placeOfOrigin = b.baseName
 }
 
-async function loadDefaults() {
-  const res = await getHgzDefaults()
-  form.promiseList = (res.data?.promiseItems || []).map((x: any) => ({ ...x }))
-  form.basisList = (res.data?.basisItems || []).map((x: any) => ({ ...x, image: '' }))
+async function loadDefaults(userType = 1) {
+  const res = await getHgzDefaults(userType)
+  form.basisList = (res.data?.basisItems || []).map((x: any) => ({
+    title: x.title, isSelect: false, image: '', requireReport: !!x.requireReport, _uploading: false,
+  }))
 }
 
 async function openCreate() {
@@ -258,11 +278,11 @@ async function openCreate() {
   Object.assign(form, {
     batchId: null, userType: 1, productName: '', number: '', placeOfOrigin: '',
     promiseUser: userStore.userInfo?.enterpriseName || '', contact: '',
-    useTime: todayStr(), signature: '', isShowEnterprise: 1, promiseList: [], basisList: [],
+    useTime: todayStr(), signature: '', isShowEnterprise: 1, basisList: [],
   })
   formLoading.value = true
   try {
-    await loadDefaults()
+    await loadDefaults(1)
     showFormDialog.value = true
   } finally {
     formLoading.value = false
@@ -274,14 +294,17 @@ async function openEdit(row: any) {
   formLoading.value = true
   showFormDialog.value = true
   try {
-    await loadDefaults()
-    const res = await getHgzDetail(row.id)
-    const d = res.data
+    const d = (await getHgzDetail(row.id)).data
+    await loadDefaults(d.userType || 1)
+    const saved = d.basisItems || []
+    form.basisList.forEach((item: any) => {
+      const s = saved.find((x: any) => x.title === item.title)
+      if (s) { item.isSelect = !!s.isSelect; item.image = s.image || '' }
+    })
     Object.assign(form, {
       batchId: d.batchId, userType: d.userType, productName: d.productName, number: d.number,
       placeOfOrigin: d.placeOfOrigin, promiseUser: d.promiseUser, contact: d.contact,
       useTime: d.useTime, signature: d.signature || '', isShowEnterprise: d.isShowEnterprise,
-      promiseList: d.promiseItems || [], basisList: (d.basisItems || []).map((x: any) => ({ ...x, image: x.image || '' })),
     })
   } finally {
     formLoading.value = false
@@ -310,8 +333,11 @@ async function uploadSignature(opt: any) {
 async function saveForm() {
   if (!form.productName?.trim()) return ElMessage.warning('请填写产品名称')
   if (!form.promiseUser?.trim()) return ElMessage.warning('请填写承诺主体')
-  if (!form.promiseList.some((x: any) => x.isSelect)) return ElMessage.warning('请至少勾选一项承诺事项')
-  if (!form.basisList.some((x: any) => x.isSelect)) return ElMessage.warning('请至少选择一项承诺依据')
+  const selected = form.basisList.filter((x: any) => x.isSelect)
+  if (selected.length === 0) return ElMessage.warning('承诺依据需任选 1-3 项')
+  if (selected.length > 3) return ElMessage.warning('承诺依据最多选择 3 项')
+  const missing = selected.find((x: any) => x.requireReport && !x.image)
+  if (missing) return ElMessage.warning(`勾选"${missing.title}"须上传检测报告（PDF 或图片）`)
   saving.value = true
   try {
     const payload = {
@@ -319,13 +345,12 @@ async function saveForm() {
       userType: form.userType,
       productName: form.productName,
       number: form.number,
-      placeOfOrigin: form.placeOfOrigin,
+      placeOfOrigin: form.userType === 2 ? null : (form.placeOfOrigin || null),
       promiseUser: form.promiseUser,
       contact: form.contact,
       useTime: form.useTime,
       signature: form.signature || null,
       isShowEnterprise: form.isShowEnterprise,
-      promiseList: form.promiseList.map(({ title, isSelect }: any) => ({ title, isSelect })),
       basisList: form.basisList.map(({ title, isSelect, image }: any) => ({ title, isSelect, image: image || null })),
     }
     if (editingId.value) {
@@ -414,6 +439,12 @@ onMounted(async () => {
   gap: 8px;
   width: 100%;
 
+  .basis-tip {
+    font-size: 12px;
+    color: #909399;
+    line-height: 1.5;
+  }
+
   .basis-item {
     display: flex;
     align-items: center;
@@ -425,6 +456,42 @@ onMounted(async () => {
       border-radius: 6px;
       border: 1px solid #e5e7eb;
     }
+
+    .basis-pdf {
+      font-size: 12px;
+    }
+
+    .basis-required {
+      font-size: 12px;
+      color: #f56c6c;
+    }
+  }
+}
+
+.promise-text {
+  width: 100%;
+  background: #f7faf7;
+  border: 1px solid #e3efe6;
+  border-radius: 6px;
+  padding: 10px 14px;
+
+  .promise-intro {
+    font-size: 13px;
+    color: #606266;
+  }
+
+  .promise-body {
+    font-size: 14px;
+    color: #1e7e3c;
+    font-weight: 600;
+    line-height: 1.7;
+    margin-top: 2px;
+  }
+
+  .promise-note {
+    font-size: 12px;
+    color: #b0b3b8;
+    margin-top: 4px;
   }
 }
 

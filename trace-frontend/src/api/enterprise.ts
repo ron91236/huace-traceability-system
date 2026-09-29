@@ -104,7 +104,7 @@ export const getEnterpriseProducts = () => request.get('/enterprise/products')
 
 // 承诺达标合格证
 export const getHgzList = (params: any) => request.get('/enterprise/hgz', { params })
-export const getHgzDefaults = () => request.get('/enterprise/hgz/defaults')
+export const getHgzDefaults = (userType: number = 1) => request.get('/enterprise/hgz/defaults', { params: { userType } })
 export const createHgz = (data: any) => request.post('/enterprise/hgz', data)
 export const getHgzDetail = (id: number) => request.get(`/enterprise/hgz/${id}`)
 export const updateHgz = (id: number, data: any) => request.put(`/enterprise/hgz/${id}`, data)

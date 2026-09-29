@@ -30,16 +30,16 @@
         <ul class="a5-promises">
           <li v-for="(item, i) in promiseChecked" :key="i"><span class="cb">✓</span>{{ item.title }}</li>
         </ul>
-        <div class="a5-basis" v-if="basisChecked.length">
-          <span class="a5-basis-label">承诺依据：</span>
-          <template v-for="(item, i) in basisChecked" :key="i">
-            <span class="cb">✓</span>{{ item.title }}<span v-if="i < basisChecked.length - 1">、</span>
-          </template>
+        <div class="a5-basis">
+          <span class="a5-basis-label">承诺依据（任选 1-3 项）：</span>
+          <span v-for="(item, i) in basisDisplay" :key="i" class="a5-basis-opt" :class="{ off: !item.isSelect }">
+            <span class="cb">{{ item.isSelect ? '✓' : '' }}</span>{{ item.title }}<a v-if="showBasisImages && item.isSelect && item.image" :href="item.image" class="a5-basis-link">{{ isPdf(item.image) ? '[PDF报告]' : '[查看报告]' }}</a><span v-if="i < basisDisplay.length - 1" class="a5-basis-sep">　</span>
+          </span>
         </div>
         <div class="a5-details">
           <div class="a5-row"><span>产品名称</span><b>{{ cert?.productName }}</b></div>
           <div class="a5-row"><span>重量或数量</span><b>{{ cert?.number || '-' }}</b></div>
-          <div class="a5-row"><span>产地</span><b>{{ cert?.placeOfOrigin || '-' }}</b></div>
+          <div class="a5-row" v-if="cert?.userType !== 2"><span>产地</span><b>{{ cert?.placeOfOrigin || '-' }}</b></div>
           <div class="a5-row"><span>承诺主体</span><b>{{ cert?.promiseUser }}</b></div>
           <div class="a5-row"><span>联系方式</span><b>{{ cert?.contact || '-' }}</b></div>
           <div class="a5-row"><span>开具日期</span><b>{{ cert?.useTime || '-' }}</b></div>
@@ -71,7 +71,7 @@
         <div class="tag-rows">
           <div class="tag-row"><span>产品名称</span><b>{{ cert?.productName }}</b></div>
           <div class="tag-row" v-if="preset !== '50x30'"><span>重量/数量</span><b>{{ cert?.number || '-' }}</b></div>
-          <div class="tag-row" v-if="preset !== '50x30'"><span>产地</span><b>{{ cert?.placeOfOrigin || '-' }}</b></div>
+          <div class="tag-row" v-if="preset !== '50x30' && cert?.userType !== 2"><span>产地</span><b>{{ cert?.placeOfOrigin || '-' }}</b></div>
           <div class="tag-row" v-if="preset !== '50x30'"><span>承诺主体</span><b>{{ cert?.promiseUser }}</b></div>
           <div class="tag-row" v-if="preset === '100x70'"><span>联系方式</span><b>{{ cert?.contact || '-' }}</b></div>
           <div class="tag-row"><span>开具日期</span><b>{{ cert?.useTime || '-' }}</b></div>
@@ -101,7 +101,17 @@ const showEnterprise = ref(true)
 const showBasisImages = ref(true)
 
 const promiseChecked = computed(() => (cert.value?.promiseItems || []).filter((x: any) => x.isSelect))
-const basisChecked = computed(() => (cert.value?.basisItems || []).filter((x: any) => x.isSelect))
+const OFFICIAL_BASIS = ['质量安全控制符合要求', '自行检测合格', '委托检测合格']
+const basisDisplay = computed(() => {
+  const list = cert.value?.basisItems || []
+  return OFFICIAL_BASIS.map((title) => {
+    const m = list.find((x: any) => x.title === title)
+    return { title, isSelect: !!(m && m.isSelect), image: m?.image || '' }
+  })
+})
+function isPdf(url: string) {
+  return /\.pdf(\?|#|$)/i.test(url || '')
+}
 
 const dynamicPrintCss = computed(() => {
   const sizeMap: Record<string, string> = {
@@ -237,6 +247,21 @@ onMounted(load)
     margin-bottom: 3mm;
 
     .a5-basis-label { font-weight: 600; }
+
+    .a5-basis-opt {
+      white-space: nowrap;
+
+      &.off { color: #b0b3b8; .cb { border-color: #dcdfe6; color: transparent; } }
+    }
+
+    .a5-basis-link {
+      margin-left: 1mm;
+      font-size: 10px;
+      color: #1e7e3c;
+      text-decoration: none;
+    }
+
+    .a5-basis-sep { color: transparent; }
   }
 
   .cb {
