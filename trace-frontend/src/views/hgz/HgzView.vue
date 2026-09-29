@@ -32,11 +32,9 @@
 
         <div class="cert-section">
           <div class="section-label">承诺事项</div>
-          <ul class="promise-list">
-            <li v-for="(item, i) in promiseChecked" :key="i">
-              <span class="check-box">✓</span>{{ item.title }}
-            </li>
-          </ul>
+          <div class="promise-lines">
+            <p v-for="(line, i) in promiseLines" :key="i" class="promise-line">{{ line }}</p>
+          </div>
         </div>
 
         <div class="cert-section">
@@ -99,7 +97,16 @@ const error = ref('')
 const cert = ref<any>(null)
 const qrDataUrl = ref('')
 
-const promiseChecked = computed(() => (cert.value?.promiseList || []).filter((x: any) => x.isSelect))
+// 承诺内容按官方合格证样式以"；"分句、逐行展示
+const promiseLines = computed(() => {
+  const items = (cert.value?.promiseList || []).filter((x: any) => x.isSelect)
+  const lines: string[] = []
+  for (const item of items) {
+    const parts = String(item.title || '').split('；').map((s: string) => s.trim()).filter(Boolean)
+    parts.forEach((p: string, i: number) => lines.push(i < parts.length - 1 ? p + '；' : p))
+  }
+  return lines
+})
 const OFFICIAL_BASIS = ['质量安全控制符合要求', '自行检测合格', '委托检测合格']
 const basisDisplay = computed(() => {
   const list = cert.value?.basisList || []
@@ -237,7 +244,16 @@ onMounted(load)
       margin-bottom: 6px;
     }
 
-    .promise-list, .basis-list {
+    .promise-lines {
+      .promise-line {
+        margin: 0;
+        font-size: 15px;
+        color: #303133;
+        line-height: 2;
+      }
+    }
+
+    .basis-list {
       list-style: none;
       margin: 0;
       padding: 0;

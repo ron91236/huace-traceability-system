@@ -27,9 +27,9 @@
           <div class="a5-code">证号：{{ cert?.code }}</div>
         </div>
         <div class="a5-speech">我承诺{{ cert?.userType === 2 ? '销售' : '生产销售' }}的食用农产品，符合以下承诺事项：</div>
-        <ul class="a5-promises">
-          <li v-for="(item, i) in promiseChecked" :key="i"><span class="cb">✓</span>{{ item.title }}</li>
-        </ul>
+        <div class="a5-promises">
+          <p v-for="(line, i) in promiseLines" :key="i">{{ line }}</p>
+        </div>
         <div class="a5-basis">
           <span class="a5-basis-label">承诺依据（任选 1-3 项）：</span>
           <span v-for="(item, i) in basisDisplay" :key="i" class="a5-basis-opt" :class="{ off: !item.isSelect }">
@@ -101,6 +101,15 @@ const showEnterprise = ref(true)
 const showBasisImages = ref(true)
 
 const promiseChecked = computed(() => (cert.value?.promiseItems || []).filter((x: any) => x.isSelect))
+// 承诺内容按官方合格证样式以"；"分句、逐行展示
+const promiseLines = computed(() => {
+  const lines: string[] = []
+  for (const item of promiseChecked.value) {
+    const parts = String(item.title || '').split('；').map((s: string) => s.trim()).filter(Boolean)
+    parts.forEach((p: string, i: number) => lines.push(i < parts.length - 1 ? p + '；' : p))
+  }
+  return lines
+})
 const OFFICIAL_BASIS = ['质量安全控制符合要求', '自行检测合格', '委托检测合格']
 const basisDisplay = computed(() => {
   const list = cert.value?.basisItems || []
@@ -226,14 +235,10 @@ onMounted(load)
   }
 
   .a5-promises {
-    list-style: none;
     margin: 0 0 3mm;
-    padding: 0;
 
-    li {
-      display: flex;
-      align-items: center;
-      gap: 2mm;
+    p {
+      margin: 0;
       font-size: 12px;
       line-height: 2;
       color: #303133;
