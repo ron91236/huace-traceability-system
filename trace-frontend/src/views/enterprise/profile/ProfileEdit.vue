@@ -41,8 +41,8 @@
             accept="image/*"
             multiple
             :limit="9"
-            :http-request="(opt: any) => handleImageUpload(opt, 'enterpriseImage', enterpriseImageFileList, true)"
-            :on-remove="(file: any, remaining: any) => handleImageRemove('enterpriseImage', enterpriseImageFileList, remaining)"
+            :http-request="uploadEnterpriseImage"
+            :on-remove="removeEnterpriseImage"
             :on-preview="(file: any) => previewImage(file.url)"
           >
             <el-icon :size="28" color="#8c939d"><Plus /></el-icon>
@@ -55,8 +55,8 @@
             list-type="picture-card"
             accept="image/*"
             :limit="1"
-            :http-request="(opt: any) => handleImageUpload(opt, 'licenseImage', licenseImageFileList)"
-            :on-remove="(file: any, remaining: any) => handleImageRemove('licenseImage', licenseImageFileList, remaining)"
+            :http-request="uploadLicenseImage"
+            :on-remove="removeLicenseImage"
             :on-preview="(file: any) => previewImage(file.url)"
           >
             <el-icon :size="28" color="#8c939d"><Plus /></el-icon>
@@ -67,8 +67,8 @@
             :file-list="promoVideoFileList"
             accept="video/*"
             :limit="1"
-            :http-request="(opt: any) => handleVideoUpload(opt)"
-            :on-remove="() => handleImageRemove('promoVideo', promoVideoFileList)"
+            :http-request="uploadPromoVideo"
+            :on-remove="removePromoVideo"
           >
             <el-button>上传视频</el-button>
             <template #tip><div class="upload-tip">支持 mp4 等常见视频格式</div></template>
@@ -134,19 +134,34 @@ onMounted(async () => {
   } finally { loading.value = false }
 })
 
-async function handleImageUpload(options: any, field: string, fileList: any, multi = false) {
-  try {
-    const res = await uploadFile(options.file)
-    const url = res.data?.url || res.data || ''
-    fileList.value = multi ? [...fileList.value, { name: options.file.name, url }] : [{ name: options.file.name, url }]
-    form[field] = fileList.value.map((f: any) => f.url).join(',')
-    ElMessage.success('上传成功')
-  } catch (e) {
-    ElMessage.error('上传失败')
+function makeUploader(field: string, listRef: any, multi = false) {
+  return async (options: any) => {
+    try {
+      const res = await uploadFile(options.file)
+      const url = res.data?.url || res.data || ''
+      listRef.value = multi ? [...listRef.value, { name: options.file.name, url }] : [{ name: options.file.name, url }]
+      form[field] = listRef.value.map((f: any) => f.url).join(',')
+      ElMessage.success('上传成功')
+    } catch (e) {
+      ElMessage.error('上传失败')
+    }
   }
 }
 
-async function handleVideoUpload(options: any) {
+function makeRemover(field: string, listRef: any) {
+  return (_file: any, remaining: any[] = []) => {
+    listRef.value = remaining
+    form[field] = remaining.map((f: any) => f.url).join(',')
+  }
+}
+
+const uploadEnterpriseImage = makeUploader('enterpriseImage', enterpriseImageFileList, true)
+const uploadLicenseImage = makeUploader('licenseImage', licenseImageFileList)
+const removeEnterpriseImage = makeRemover('enterpriseImage', enterpriseImageFileList)
+const removeLicenseImage = makeRemover('licenseImage', licenseImageFileList)
+const removePromoVideo = makeRemover('promoVideo', promoVideoFileList)
+
+async function uploadPromoVideo(options: any) {
   try {
     const res = await uploadFile(options.file)
     const url = res.data?.url || res.data || ''
@@ -156,11 +171,6 @@ async function handleVideoUpload(options: any) {
   } catch (e) {
     ElMessage.error('视频上传失败')
   }
-}
-
-function handleImageRemove(field: string, fileList: any, remaining: any[] = []) {
-  fileList.value = remaining
-  form[field] = remaining.map((f: any) => f.url).join(',')
 }
 
 function previewImage(url: string) {
