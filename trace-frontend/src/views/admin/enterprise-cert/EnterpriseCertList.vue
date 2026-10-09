@@ -15,8 +15,8 @@
       </template>
       <el-table :data="list" v-loading="loading" stripe>
         <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="certTypeName" label="证书类型" width="120">
-          <template #default="{ row }"><el-tag size="small">{{ row.certTypeName || '-' }}</el-tag></template>
+        <el-table-column prop="certTypeName" label="证书类型" min-width="150">
+          <template #default="{ row }"><el-tag size="small" class="cert-type-tag">{{ row.certTypeName || '-' }}</el-tag></template>
         </el-table-column>
         <el-table-column prop="certName" label="证书名称" min-width="140" />
         <el-table-column prop="certNo" label="证书编号" width="140">
@@ -375,6 +375,20 @@ async function handleRemoveCertProduct(id: number) {
 .date-range {
   font-size: 12px;
   color: #6b7280;
+}
+
+/* 证书类型名称较长，允许标签换行以完整展示 */
+.cert-type-tag {
+  white-space: normal;
+  height: auto;
+  line-height: 1.5;
+  padding-top: 2px;
+  padding-bottom: 2px;
+
+  :deep(.el-tag__content) {
+    white-space: normal;
+    word-break: break-all;
+  }
 }
 
 .pdf-priority-hint {
