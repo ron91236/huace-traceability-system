@@ -577,23 +577,12 @@ public class EnterpriseController {
                 .distinct()
                 .toList();
 
-        LambdaQueryWrapper<LabelSpec> qw = new LambdaQueryWrapper<LabelSpec>()
-                .eq(LabelSpec::getIsVoid, 0);
-        if (!specIds.isEmpty()) {
-            qw.in(LabelSpec::getId, specIds);
-        } else {
-            // 历史认证记录未设定规格，退回按证书类型匹配，否则订单明细无规格可选
-            List<Long> certTypeIds = certs.stream()
-                    .map(EnterpriseCert::getCertTypeId)
-                    .filter(java.util.Objects::nonNull)
-                    .distinct()
-                    .toList();
-            if (certTypeIds.isEmpty()) {
-                return Result.ok(List.of());
-            }
-            qw.and(w -> w.in(LabelSpec::getCertTypeId, certTypeIds)
-                    .or().isNull(LabelSpec::getCertTypeId));
+        if (specIds.isEmpty()) {
+            return Result.ok(List.of());
         }
+        LambdaQueryWrapper<LabelSpec> qw = new LambdaQueryWrapper<LabelSpec>()
+                .eq(LabelSpec::getIsVoid, 0)
+                .in(LabelSpec::getId, specIds);
         return Result.ok(labelSpecMapper.selectList(qw.orderByDesc(LabelSpec::getId)));
     }
 

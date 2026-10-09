@@ -1,6 +1,7 @@
 package com.huace.trace.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.huace.trace.common.BusinessException;
 import com.huace.trace.common.PageResult;
@@ -26,6 +27,10 @@ public class OrderCodeService {
     private final OrderMapper orderMapper;
     private final LabelSpecMapper labelSpecMapper;
     private final BatchMapper batchMapper;
+    private final CodePackageItemMapper codePackageItemMapper;
+    private final TraceTemplateMapper traceTemplateMapper;
+    private final MongoCodeItemService mongoCodeItemService;
+    private final TracePageService tracePageService;
 
     public PageResult<OrderCode> list(int page, int size, Long orderId, Long enterpriseId) {
         LambdaQueryWrapper<OrderCode> w = new LambdaQueryWrapper<>();
@@ -66,6 +71,15 @@ public class OrderCodeService {
                 Batch b = batchMap.get(oc.getBatchId());
                 if (b != null) oc.setBatchName(b.getName());
             });
+            java.util.Set<String> templateKeys = records.stream().map(OrderCode::getTraceTemplate)
+                    .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+            if (!templateKeys.isEmpty()) {
+                Map<String, String> templateNameMap = traceTemplateMapper.selectList(
+                                new LambdaQueryWrapper<TraceTemplate>().in(TraceTemplate::getTemplateKey, templateKeys))
+                        .stream().collect(java.util.stream.Collectors.toMap(
+                                TraceTemplate::getTemplateKey, TraceTemplate::getTemplateName, (a, b) -> a));
+                records.forEach(oc -> oc.setTemplateName(templateNameMap.get(oc.getTraceTemplate())));
+            }
         }
         return new PageResult<>(r.getRecords(), r.getTotal());
     }
@@ -79,6 +93,15 @@ public class OrderCodeService {
         }
         orderCode.setId(id);
         orderCodeMapper.updateById(orderCode);
+        String newTemplate = orderCode.getTraceTemplate();
+        if (newTemplate != null && !newTemplate.equals(existing.getTraceTemplate())) {
+            // 扫码页读取的是码明细上的模板快照，需同步 MySQL 与 MongoDB 两处并失效溯源缓存
+            codePackageItemMapper.update(null, new LambdaUpdateWrapper<CodePackageItem>()
+                    .eq(CodePackageItem::getOrderCodeId, id)
+                    .set(CodePackageItem::getTraceTemplate, newTemplate));
+            mongoCodeItemService.updateTraceTemplateByOrderCodeId(id, newTemplate);
+            tracePageService.evictAllCache();
+        }
     }
 
     public void delete(Long id, Long enterpriseId) {

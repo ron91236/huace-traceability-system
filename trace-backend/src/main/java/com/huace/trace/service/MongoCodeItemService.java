@@ -127,6 +127,20 @@ public class MongoCodeItemService {
     }
 
     /**
+     * 改模板：同步更新指定订单码段已绑定明细的 traceTemplate 快照
+     */
+    public void updateTraceTemplateByOrderCodeId(Long orderCodeId, String traceTemplate) {
+        if (!isMongoAvailable()) return;
+        try {
+            Query query = new Query(Criteria.where("orderCodeId").is(orderCodeId));
+            Update update = new Update().set("traceTemplate", traceTemplate);
+            mongoTemplate.updateMulti(query, update, CodePackageItemMongo.class);
+        } catch (DataAccessException e) {
+            log.warn("MongoDB 更新 traceTemplate 失败，orderCodeId={}: {}", orderCodeId, e.getMessage());
+        }
+    }
+
+    /**
      * 更新 MongoDB 中指定流水号的扫码次数
      */
     public void updateScanCount(String serialNo, Integer scanCount) {

@@ -39,6 +39,7 @@
             :file-list="enterpriseImageFileList"
             list-type="picture-card"
             accept="image/*"
+            multiple
             :limit="9"
             :http-request="(opt: any) => handleImageUpload(opt, 'enterpriseImage', enterpriseImageFileList, true)"
             :on-remove="(file: any, remaining: any) => handleImageRemove('enterpriseImage', enterpriseImageFileList, remaining)"
@@ -46,7 +47,7 @@
           >
             <el-icon :size="28" color="#8c939d"><Plus /></el-icon>
           </el-upload>
-          <div class="upload-tip">支持上传多张（最多9张，每次选择一张），溯源页按顺序展示</div>
+          <div class="upload-tip">支持上传多张（最多9张，可一次多选），溯源页按顺序展示</div>
         </el-form-item>
         <el-form-item label="营业执照">
           <el-upload

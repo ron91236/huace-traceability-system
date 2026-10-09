@@ -42,6 +42,7 @@
         :show-file-list="false"
         :http-request="insertImage"
         accept="image/*"
+        multiple
         style="display: inline-block"
       >
         <el-button size="small" type="primary" plain>插入图片</el-button>

@@ -60,6 +60,7 @@
                 list-type="picture-card"
                 :http-request="handleImageUpload"
                 accept="image/*"
+                multiple
                 :limit="10"
                 :on-remove="handleImageRemove"
                 :on-preview="handleImagePreview"

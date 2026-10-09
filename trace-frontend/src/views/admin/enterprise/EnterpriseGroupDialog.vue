@@ -62,8 +62,6 @@ const addForm = reactive({
 
 const addRules = {
   name: [{ required: true, message: '请输入企业名称', trigger: 'blur' }],
-  contact: [{ required: true, message: '请输入联系人', trigger: 'blur' }],
-  phone: [{ required: true, message: '请输入联系电话', trigger: 'blur' }],
   loginAccount: [{ required: true, message: '请输入登录账号', trigger: 'blur' }],
   loginPassword: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }

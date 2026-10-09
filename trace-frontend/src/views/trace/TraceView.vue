@@ -1761,4 +1761,10 @@ onMounted(async () => {
   height: 44px !important;
   top: max(40px, env(safe-area-inset-top, 0px) + 16px) !important;
 }
+
+/* 放大查看初始自适应：超大原图先约束在视口内，放大后仍可拖拽平移 */
+.el-image-viewer__canvas img {
+  max-width: 100vw;
+  max-height: 100vh;
+}
 </style>

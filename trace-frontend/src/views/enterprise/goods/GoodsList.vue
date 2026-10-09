@@ -91,6 +91,7 @@
             :file-list="sampleFileList"
             list-type="picture-card"
             accept="image/*"
+            multiple
             :http-request="(opt: any) => handleMultiImageUpload(opt, 'sampleImage', 'sampleFileList')"
             :on-remove="(file: any) => handleImageRemove(file, 'sampleImage', 'sampleFileList')"
             :on-preview="(file: any) => handlePreview(file.url)"
@@ -103,6 +104,7 @@
             :file-list="promoFileList"
             list-type="picture-card"
             accept="image/*"
+            multiple
             :http-request="(opt: any) => handleMultiImageUpload(opt, 'promoImage', 'promoFileList')"
             :on-remove="(file: any) => handleImageRemove(file, 'promoImage', 'promoFileList')"
             :on-preview="(file: any) => handlePreview(file.url)"

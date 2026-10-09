@@ -107,6 +107,7 @@
           <el-select v-model="itemForm.labelSpecId" filterable placeholder="请选择标签规格" style="width:100%" @change="onLabelSpecChange">
             <el-option v-for="ls in labelSpecs" :key="ls.id" :label="ls.specName" :value="ls.id" />
           </el-select>
+          <div v-if="!labelSpecs.length" style="font-size:12px;color:#909399;margin-top:4px">本企业尚未设定标签规格，请联系管理员在企业认证中设定</div>
         </el-form-item>
 
         <!-- 标签规格详情（只读，自动带出） -->
