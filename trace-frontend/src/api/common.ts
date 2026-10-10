@@ -1,8 +1,8 @@
 import request from './request'
 
-// 上传前压缩图片（最长边≤2000px、质量0.85），降低扫码页/报告页大图加载耗时
+// 上传前压缩图片（宽度≤1080px、优先 webp），降低扫码页/海报页大图加载耗时
 async function compressImage(file: File): Promise<File> {
-  if (!file.type.startsWith('image/') || file.type === 'image/gif' || file.size <= 300 * 1024) return file
+  if (!file.type.startsWith('image/') || file.type === 'image/gif' || file.size <= 200 * 1024) return file
   const objectUrl = URL.createObjectURL(file)
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -11,9 +11,10 @@ async function compressImage(file: File): Promise<File> {
       el.onerror = () => reject(new Error('image decode failed'))
       el.src = objectUrl
     })
-    const maxSide = 2000
-    if (Math.max(img.width, img.height) <= maxSide) return file
-    const scale = maxSide / Math.max(img.width, img.height)
+    // 手机端按整宽展示、纵向滚动，故约束宽度而非最长边（长图海报需保留高度）
+    const maxWidth = 1080
+    const scale = Math.min(1, maxWidth / img.width)
+    if (scale === 1 && file.size <= 300 * 1024) return file
     const width = Math.round(img.width * scale)
     const height = Math.round(img.height * scale)
     const canvas = document.createElement('canvas')
@@ -21,12 +22,32 @@ async function compressImage(file: File): Promise<File> {
     canvas.height = height
     const ctx = canvas.getContext('2d')
     if (!ctx) return file
-    ctx.fillStyle = '#fff'
-    ctx.fillRect(0, 0, width, height)
+    const isPng = file.type === 'image/png'
+    if (!isPng) {
+      ctx.fillStyle = '#fff'
+      ctx.fillRect(0, 0, width, height)
+    }
     ctx.drawImage(img, 0, 0, width, height)
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85))
-    if (!blob || blob.size >= file.size) return file
-    return new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })
+    const webp = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', 0.8))
+    if (webp && webp.type === 'image/webp' && webp.size < file.size) {
+      return new File([webp], file.name.replace(/\.\w+$/, '.webp'), { type: 'image/webp' })
+    }
+    let jpegSource: HTMLCanvasElement = canvas
+    if (isPng) {
+      jpegSource = document.createElement('canvas')
+      jpegSource.width = width
+      jpegSource.height = height
+      const jctx = jpegSource.getContext('2d')
+      if (!jctx) return file
+      jctx.fillStyle = '#fff'
+      jctx.fillRect(0, 0, width, height)
+      jctx.drawImage(canvas, 0, 0)
+    }
+    const jpeg = await new Promise<Blob | null>((resolve) => jpegSource.toBlob(resolve, 'image/jpeg', 0.82))
+    if (jpeg && jpeg.size < file.size) {
+      return new File([jpeg], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })
+    }
+    return file
   } catch {
     return file
   } finally {
