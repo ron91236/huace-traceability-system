@@ -51,6 +51,19 @@ public class SecurityConfig {
                 // 其他需要认证
                 .anyRequest().authenticated()
             )
+            .exceptionHandling(ex -> ex
+                // 未登录/登录过期必须返回401，前端据此跳登录页；默认403会让过期会话停留在业务页报错
+                .authenticationEntryPoint((req, res, e) -> {
+                    res.setStatus(401);
+                    res.setContentType("application/json;charset=UTF-8");
+                    res.getWriter().write("{\"code\":401,\"msg\":\"未登录或登录已过期\",\"data\":null}");
+                })
+                .accessDeniedHandler((req, res, e) -> {
+                    res.setStatus(403);
+                    res.setContentType("application/json;charset=UTF-8");
+                    res.getWriter().write("{\"code\":403,\"msg\":\"无权限访问该功能\",\"data\":null}");
+                })
+            )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
