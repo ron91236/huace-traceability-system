@@ -95,12 +95,12 @@ public class MongoCodeItemService {
     public void deleteByPackageId(Long packageId) {
         if (!isMongoAvailable()) return;
         try {
-            List<CodePackageItemMongo> list = mongoRepository.findByPackageId(packageId);
-            if (!list.isEmpty()) {
-                mongoRepository.deleteAll(list);
-            }
+            // 服务端直接 remove，避免把整包明细加载进 JVM 堆再逐条删
+            mongoTemplate.remove(
+                    new Query(Criteria.where("packageId").is(packageId)),
+                    CodePackageItemMongo.class);
         } catch (DataAccessException e) {
-            log.error("MongoDB 删除 packageId={} 失败: {}", packageId, e.getMessage());
+            log.warn("MongoDB 按包删除失败, packageId={}: {}", packageId, e.getMessage());
         }
     }
 

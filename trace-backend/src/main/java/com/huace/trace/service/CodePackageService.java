@@ -209,8 +209,10 @@ public class CodePackageService {
             String statusLabel = "PARTIAL".equals(cp.getStatus()) ? "部分绑定" : "已绑定";
             throw new BusinessException("只能删除未绑定状态的码包，当前状态：" + statusLabel);
         }
-        codePackageItemMapper.delete(
-                new LambdaQueryWrapper<CodePackageItem>().eq(CodePackageItem::getPackageId, id));
+        // 分批删除码明细：单条 DELETE 百万行会形成长事务、撑爆 undo log 并阻塞列表查询
+        while (codePackageItemMapper.deleteBatchByPackageId(id, 50000) > 0) {
+            // loop until exhausted
+        }
         mongoCodeItemService.deleteByPackageId(id);
         codePackageMapper.deleteById(id);
     }

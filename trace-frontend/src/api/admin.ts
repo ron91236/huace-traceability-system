@@ -118,7 +118,9 @@ export const importCodePackage = (file: File) => {
   return request.post('/admin/code-packages/import', formData)
 }
 export const getCodePackageDetail = (id: number) => request.get(`/admin/code-packages/${id}`)
-export const deleteCodePackage = (id: number) => request.delete(`/admin/code-packages/${id}`)
+// 删除大码包需分批清理百万级明细，放宽超时避免前端误报
+export const deleteCodePackage = (id: number) =>
+  request.delete(`/admin/code-packages/${id}`, { timeout: 600000 })
 export const dispatchCodePackage = (id: number, data?: { reason?: string }) =>
   request.post(`/admin/code-packages/${id}/dispatch`, data)
 export const undispatchCodePackage = (id: number, data: { reason: string }) =>
