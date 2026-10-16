@@ -36,6 +36,9 @@ public class CodePackageService {
     private final MongoCodeItemService mongoCodeItemService;
     private final CodePackageAuditLogMapper auditLogMapper;
     private final LabelInventoryService labelInventoryService;
+    private final OrderCodeMapper orderCodeMapper;
+    private final VoidedCodeRangeMapper voidedCodeRangeMapper;
+    private final LabelInventoryLogMapper labelInventoryLogMapper;
 
     @Cacheable(value = "adminList", key = "'cp:list:' + #page + ':' + #size + ':' + (#keyword == null ? '' : #keyword)")
     public PageResult<CodePackage> list(int page, int size, String keyword) {
@@ -214,6 +217,13 @@ public class CodePackageService {
             // loop until exhausted
         }
         mongoCodeItemService.deleteByPackageId(id);
+        // 级联清理派生数据：码包消失后这些记录会成为孤儿，在发放管理/作废码段/溯源码库存页显示为脏数据
+        orderCodeMapper.delete(new LambdaQueryWrapper<OrderCode>()
+                .eq(OrderCode::getCodePackageId, id));
+        voidedCodeRangeMapper.delete(new LambdaQueryWrapper<VoidedCodeRange>()
+                .eq(VoidedCodeRange::getCodePackageId, id));
+        labelInventoryLogMapper.delete(new LambdaQueryWrapper<LabelInventoryLog>()
+                .eq(LabelInventoryLog::getCodePackageId, id));
         codePackageMapper.deleteById(id);
     }
 
