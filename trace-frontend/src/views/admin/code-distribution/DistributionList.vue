@@ -73,7 +73,7 @@
             <el-button size="small" type="primary" link @click="toggleDetail(row)">
               <el-icon style="margin-right:2px"><ArrowRight v-if="!row._showDetail" /><ArrowDown v-else /></el-icon>{{ row._showDetail ? '收起' : '详情' }}
             </el-button>
-            <el-button v-if="row.orderId" size="small" type="success" link @click="$router.push(`/admin/orders/${row.orderId}`)">分配条码</el-button>
+            <el-button v-if="row.orderId" size="small" type="success" link @click="router.push(`/admin/order/${row.orderId}`)">分配条码</el-button>
           </template>
         </el-table-column>
       </el-table>
