@@ -269,6 +269,8 @@ public class EnterpriseController {
     public Result<Map<String, Object>> getOrderDetail(@PathVariable Long id,
                                                        @AuthenticationPrincipal UserPrincipal principal) {
         Order order = orderService.getById(id, principal.getUserId());
+        // 越权与不存在都返回 null（getById 已按 enterpriseId 过滤），不判空会让 Map.of 抛 NPE
+        if (order == null) throw new BusinessException("订单不存在或已删除");
         List<OrderCode> orderCodes = orderService.getOrderCodes(id);
         List<OrderItem> orderItems = orderService.getOrderItems(id);
         return Result.ok(Map.of("order", order, "orderCodes", orderCodes, "orderItems", orderItems));
