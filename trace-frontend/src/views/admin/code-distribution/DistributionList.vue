@@ -68,11 +68,12 @@
         <el-table-column prop="createdAt" label="绑定时间" width="170">
           <template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T',' ').substring(0,19) : '-' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button size="small" type="primary" link @click="toggleDetail(row)">
               <el-icon style="margin-right:2px"><ArrowRight v-if="!row._showDetail" /><ArrowDown v-else /></el-icon>{{ row._showDetail ? '收起' : '详情' }}
             </el-button>
+            <el-button v-if="row.serialStart" size="small" type="warning" link @click="previewCode(row)">预览码</el-button>
             <el-button v-if="row.orderId" size="small" type="success" link @click="router.push(`/admin/order/${row.orderId}`)">分配条码</el-button>
           </template>
         </el-table-column>
@@ -127,6 +128,10 @@ const tableRef = ref()
 
 function toggleDetail(row: any) {
   tableRef.value?.toggleRowExpansion(row)
+}
+
+function previewCode(row: any) {
+  window.open(`/trace/${row.serialStart}`, '_blank')
 }
 
 function resetSearch() {
