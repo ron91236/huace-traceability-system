@@ -45,4 +45,5 @@ public class Enterprise extends BaseEntity {
     private String promoVideo;
     private String assignedTemplateIds;
     private String antiFakeInputHint;
+    private Integer batchSwitchEnabled;
 }

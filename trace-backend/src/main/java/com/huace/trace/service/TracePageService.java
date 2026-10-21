@@ -59,10 +59,11 @@ public class TracePageService {
 
     /**
      * C端溯源查询 - 通过流水号查询完整溯源信息
-     * batchId 非空时切换到同企业同商品的指定批次（检测报告、生产日期、基地、合格证随之变化），
+     * batchId 非空且企业已开通批次切换定制时，切换到同企业同商品的指定批次
+     * （检测报告、生产日期、基地、合格证随之变化）；未开通的企业忽略 batchId，始终展示码绑定的批次。
      * 缓存 key 含 batchId，不同批次的展示结果互不污染。
      */
-    @Cacheable(value = "tracePage", key = "'serial:' + #serialNo + ':b' + (#batchId == null ? 0 : #batchId) + ':v4'")
+    @Cacheable(value = "tracePage", key = "'serial:' + #serialNo + ':b' + (#batchId == null ? 0 : #batchId) + ':v5'")
     public Map<String, Object> queryBySerialNo(String serialNo, Long batchId, HttpServletRequest request) {
         // 1. 优先从 MongoDB 查询码包明细（亿级数据外部存储）
         CodePackageItem item = mongoCodeItemService.findBoundBySerialNo(serialNo)
@@ -116,26 +117,24 @@ public class TracePageService {
         result.put("_certId", item.getCertId());
 
         // 2. 查询企业信息
-        if (item.getEnterpriseId() != null) {
-            Enterprise enterprise = enterpriseMapper.selectById(item.getEnterpriseId());
-            if (enterprise != null) {
-                Map<String, Object> enterpriseInfo = new HashMap<>();
-                enterpriseInfo.put("name", enterprise.getName());
-                enterpriseInfo.put("introduction", enterprise.getIntroduction());
-                enterpriseInfo.put("addressFull", buildFullAddress(enterprise));
-                enterpriseInfo.put("contact", enterprise.getContact());
-                enterpriseInfo.put("phone", enterprise.getPhone());
-                enterpriseInfo.put("creditCode", enterprise.getCreditCode());
-                enterpriseInfo.put("licenseImage", enterprise.getLicenseImage());
-                enterpriseInfo.put("enterpriseImage", enterprise.getEnterpriseImage());
-                enterpriseInfo.put("honors", enterprise.getHonors());
-                enterpriseInfo.put("qualifications", enterprise.getQualifications());
-                enterpriseInfo.put("mainType", enterprise.getMainType());
-                enterpriseInfo.put("promoVideo", enterprise.getPromoVideo());
-                enterpriseInfo.put("standardSystem", enterprise.getStandardSystem());
-                enterpriseInfo.put("antiFakeInputHint", enterprise.getAntiFakeInputHint());
-                result.put("enterprise", enterpriseInfo);
-            }
+        Enterprise enterprise = item.getEnterpriseId() == null ? null : enterpriseMapper.selectById(item.getEnterpriseId());
+        if (enterprise != null) {
+            Map<String, Object> enterpriseInfo = new HashMap<>();
+            enterpriseInfo.put("name", enterprise.getName());
+            enterpriseInfo.put("introduction", enterprise.getIntroduction());
+            enterpriseInfo.put("addressFull", buildFullAddress(enterprise));
+            enterpriseInfo.put("contact", enterprise.getContact());
+            enterpriseInfo.put("phone", enterprise.getPhone());
+            enterpriseInfo.put("creditCode", enterprise.getCreditCode());
+            enterpriseInfo.put("licenseImage", enterprise.getLicenseImage());
+            enterpriseInfo.put("enterpriseImage", enterprise.getEnterpriseImage());
+            enterpriseInfo.put("honors", enterprise.getHonors());
+            enterpriseInfo.put("qualifications", enterprise.getQualifications());
+            enterpriseInfo.put("mainType", enterprise.getMainType());
+            enterpriseInfo.put("promoVideo", enterprise.getPromoVideo());
+            enterpriseInfo.put("standardSystem", enterprise.getStandardSystem());
+            enterpriseInfo.put("antiFakeInputHint", enterprise.getAntiFakeInputHint());
+            result.put("enterprise", enterpriseInfo);
         }
 
         // 3. 查询商品信息
@@ -174,13 +173,16 @@ public class TracePageService {
             }
         }
 
-        // 5. 批次信息（batchId 非空时切换到同企业同商品的其他批次）
-        Long targetBatchId = batchId != null ? batchId : item.getBatchId();
-        Batch batch = targetBatchId == null ? null : batchMapper.selectById(targetBatchId);
-        // 码绑定的默认批次始终可展示，仅切换目标需校验归属
-        if (batchId != null && !batchId.equals(item.getBatchId()) && !isBatchOfGoods(batch, item)) {
-            throw new BusinessException("所选批次不属于该产品，请重新选择");
+        // 5. 批次信息（已开通批次切换定制的企业可切换到同企业同商品的其他批次）
+        Batch batch = item.getBatchId() == null ? null : batchMapper.selectById(item.getBatchId());
+        if (batchId != null && !batchId.equals(item.getBatchId()) && isBatchSwitchEnabled(enterprise)) {
+            Batch chosen = batchMapper.selectById(batchId);
+            if (!isBatchOfGoods(chosen, item)) {
+                throw new BusinessException("所选批次不属于该产品，请重新选择");
+            }
+            batch = chosen;
         }
+        Long targetBatchId = batch == null ? item.getBatchId() : batch.getId();
         result.put("_batchId", targetBatchId);
         if (batch != null) {
             applyBatchBlock(result, batch, "testReportInfo");
@@ -370,6 +372,7 @@ public class TracePageService {
 
     /**
      * C端批次切换列表 - 该溯源码可展示的同企业同商品批次，按生产日期倒序（无生产日期排最后）
+     * 未开通批次切换定制的企业返回空列表，前端因此不渲染切换器。
      */
     public List<Map<String, Object>> listBatchesBySerialNo(String serialNo) {
         CodePackageItem item = mongoCodeItemService.findBoundBySerialNo(serialNo)
@@ -379,6 +382,10 @@ public class TracePageService {
                                 .eq(CodePackageItem::getSerialNo, serialNo)
                                 .eq(CodePackageItem::getBindStatus, "BOUND")));
         if (item == null || item.getGoodsId() == null || item.getEnterpriseId() == null) {
+            return List.of();
+        }
+        Enterprise enterprise = enterpriseMapper.selectById(item.getEnterpriseId());
+        if (!isBatchSwitchEnabled(enterprise)) {
             return List.of();
         }
         List<Batch> batches = batchMapper.selectList(new LambdaQueryWrapper<Batch>()
@@ -398,6 +405,11 @@ public class TracePageService {
             list.add(m);
         }
         return list;
+    }
+
+    /** 批次切换属于企业个性化定制能力，需管理端为企业开通 */
+    private boolean isBatchSwitchEnabled(Enterprise enterprise) {
+        return enterprise != null && Integer.valueOf(1).equals(enterprise.getBatchSwitchEnabled());
     }
 
     /** 校验切换目标批次确实属于该码绑定的企业与商品 */

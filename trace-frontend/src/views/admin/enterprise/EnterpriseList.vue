@@ -79,6 +79,14 @@
             </el-form-item>
           </el-col>
           <el-col :span="12"><el-form-item label="防伪码输入提示"><el-input v-model="form.antiFakeInputHint" placeholder="如：输入后四位防伪码（留空显示默认提示）" /></el-form-item></el-col>
+          <el-col :span="12">
+            <el-form-item label="溯源批次切换">
+              <div>
+                <el-switch v-model="form.batchSwitchEnabled" :active-value="1" :inactive-value="0" />
+                <div style="font-size:12px;color:#909399">个性化定制：开启后消费者扫码可切换查看同商品其他批次的检测报告与生产日期</div>
+              </div>
+            </el-form-item>
+          </el-col>
           <el-col :span="24">
             <el-form-item label="溯源模板">
               <el-select v-model="form.assignedTemplateIdsList" multiple placeholder="请选择分配的溯源模板" style="width:100%" filterable>
@@ -148,6 +156,7 @@ const form = reactive<any>({
   assignedTemplateIds: '',
   assignedTemplateIdsList: [],
   antiFakeInputHint: '',
+  batchSwitchEnabled: 0,
 })
 
 const traceTemplates = ref<any[]>([])
@@ -194,6 +203,8 @@ function openForm(row?: any) {
       form[k] = row?.assignedTemplateIds ? row.assignedTemplateIds.split(',').map(Number) : []
     } else if (k === 'assignedTemplateIds') {
       form[k] = row?.assignedTemplateIds || ''
+    } else if (k === 'batchSwitchEnabled') {
+      form[k] = row?.batchSwitchEnabled ? 1 : 0
     } else {
       form[k] = row?.[k] || ''
     }

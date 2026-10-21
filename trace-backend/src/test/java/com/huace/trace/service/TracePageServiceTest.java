@@ -28,11 +28,12 @@ import static org.mockito.Mockito.*;
  * 3. 错误防伪码不递增扫码次数
  * 4. 空输入
  * 5. 流水号不存在
- * 以及溯源页批次切换规则：
+ * 以及溯源页批次切换规则（该功能按企业开通，属个性化定制）：
  * 6. 默认展示码绑定的批次
- * 7. 切换到同企业同商品的其他批次后，批次块与合格证随之变化
+ * 7. 已开通的企业切换到同企业同商品的其他批次后，批次块与合格证随之变化
  * 8. 其他商品/企业的批次被拒绝
- * 9. 未绑定或未回填生产日期时的批次列表行为
+ * 9. 未开通的企业忽略 batchId，批次列表返回空
+ * 10. 未绑定或未回填生产日期时的批次列表行为
  */
 @ExtendWith(MockitoExtension.class)
 class TracePageServiceTest {
@@ -58,13 +59,17 @@ class TracePageServiceTest {
     @InjectMocks
     private TracePageService service;
 
+    /** 默认未开通批次切换定制的企业，用例按需 setBatchSwitchEnabled(1) */
+    private Enterprise enterprise;
+
     @BeforeEach
     void setUp() {
         lenient().when(mongoCodeItemService.findBySerialNo(anyString())).thenReturn(Optional.empty());
-        Enterprise ent = new Enterprise();
-        ent.setId(1L);
-        ent.setName("河南福鹿家鲜啤酒业有限公司");
-        lenient().when(enterpriseMapper.selectById(1L)).thenReturn(ent);
+        enterprise = new Enterprise();
+        enterprise.setId(1L);
+        enterprise.setName("河南福鹿家鲜啤酒业有限公司");
+        enterprise.setBatchSwitchEnabled(0);
+        lenient().when(enterpriseMapper.selectById(1L)).thenReturn(enterprise);
         Goods goods = new Goods();
         goods.setId(2L);
         goods.setName("德式小麦");
@@ -212,8 +217,11 @@ class TracePageServiceTest {
     @SuppressWarnings("unchecked")
     @Test
     void 切换批次后报告与合格证按所选批次返回() {
+        enterprise.setBatchSwitchEnabled(1);
         when(codePackageItemMapper.selectOne(any(LambdaQueryWrapper.class)))
                 .thenReturn(itemBoundToBatch(100L));
+        when(batchMapper.selectById(100L))
+                .thenReturn(buildBatch(100L, "2026春批次", LocalDate.of(2026, 3, 1), 2L, 1L));
         when(batchMapper.selectById(200L))
                 .thenReturn(buildBatch(200L, "2026秋批次", LocalDate.of(2026, 9, 1), 2L, 1L));
         when(testReportService.buildReportListForBatch(200L, null))
@@ -226,7 +234,6 @@ class TracePageServiceTest {
         assertEquals("2026-09-01", batch.get("productionDate"));
         assertEquals(1, result.get("testReportCount"));
         assertEquals(200L, result.get("_batchId"));
-        verify(batchMapper, never()).selectById(100L);
         verify(hgzService).findLatestForTrace(1L, 200L, 2L);
         // 切换批次属于同一次查看，不重复写扫码记录
         verify(scanRecordMapper, never()).insert(any(ScanRecord.class));
@@ -234,6 +241,7 @@ class TracePageServiceTest {
 
     @Test
     void 切换到其他商品的批次被拒绝() {
+        enterprise.setBatchSwitchEnabled(1);
         when(codePackageItemMapper.selectOne(any(LambdaQueryWrapper.class)))
                 .thenReturn(itemBoundToBatch(100L));
         when(batchMapper.selectById(300L))
@@ -245,8 +253,35 @@ class TracePageServiceTest {
         assertTrue(e.getMessage().contains("不属于该产品"));
     }
 
+    @SuppressWarnings("unchecked")
+    @Test
+    void 未开通批次切换定制的企业忽略batchId() {
+        when(codePackageItemMapper.selectOne(any(LambdaQueryWrapper.class)))
+                .thenReturn(itemBoundToBatch(100L));
+        when(batchMapper.selectById(100L))
+                .thenReturn(buildBatch(100L, "2026春批次", LocalDate.of(2026, 3, 1), 2L, 1L));
+
+        Map<String, Object> result = service.queryBySerialNo("00000626", 200L, null);
+
+        Map<String, Object> batch = (Map<String, Object>) result.get("batch");
+        assertEquals("2026春批次", batch.get("name"));
+        assertEquals(100L, result.get("_batchId"));
+        verify(batchMapper, never()).selectById(200L);
+        verify(hgzService).findLatestForTrace(1L, 100L, 2L);
+    }
+
+    @Test
+    void 未开通批次切换定制时批次列表为空() {
+        when(codePackageItemMapper.selectOne(any(LambdaQueryWrapper.class)))
+                .thenReturn(itemBoundToBatch(100L));
+
+        assertTrue(service.listBatchesBySerialNo("00000626").isEmpty());
+        verify(batchMapper, never()).selectList(any(LambdaQueryWrapper.class));
+    }
+
     @Test
     void 批次列表返回同商品批次并标记当前批次() {
+        enterprise.setBatchSwitchEnabled(1);
         when(codePackageItemMapper.selectOne(any(LambdaQueryWrapper.class)))
                 .thenReturn(itemBoundToBatch(100L));
         // 排序由 SQL 完成（production_date DESC, id DESC），此处只校验映射
