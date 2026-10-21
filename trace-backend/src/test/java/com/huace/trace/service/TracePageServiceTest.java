@@ -244,6 +244,8 @@ class TracePageServiceTest {
         enterprise.setBatchSwitchEnabled(1);
         when(codePackageItemMapper.selectOne(any(LambdaQueryWrapper.class)))
                 .thenReturn(itemBoundToBatch(100L));
+        when(batchMapper.selectById(100L))
+                .thenReturn(buildBatch(100L, "2026春批次", LocalDate.of(2026, 3, 1), 2L, 1L));
         when(batchMapper.selectById(300L))
                 .thenReturn(buildBatch(300L, "其他产品批次", null, 9L, 1L));
 
