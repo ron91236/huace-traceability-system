@@ -21,6 +21,7 @@ import org.apache.poi.ss.util.CellRangeAddress;
 import java.net.URLEncoder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -860,6 +861,7 @@ public class AdminController {
     }
 
     @PostMapping("/orders/{id}/codes")
+    @Transactional
     public Result<Void> bindOrderCode(@PathVariable Long id, @RequestBody OrderCode orderCode) {
         orderCode.setOrderId(id);
         if (orderCode.getWasteCount() == null) orderCode.setWasteCount(0);
@@ -877,6 +879,8 @@ public class AdminController {
             // 校验码段位数
             if (orderCode.getCodePackageId() != null) {
                 CodePackage pkg = codePackageMapper.selectById(orderCode.getCodePackageId());
+                // 下发锁定校验必须先于 order_code 落库，否则失败请求会残留无对应码明细的孤儿码段
+                codePackageService.assertNotDispatched(pkg);
                 if (pkg != null && pkg.getSerialDigits() != null && pkg.getSerialDigits() > 0) {
                     int expected = pkg.getSerialDigits();
                     if (orderCode.getSerialStart().length() != expected) {
@@ -910,8 +914,6 @@ public class AdminController {
 
         // 更新码包明细为已绑定状态
         if (start > 0 && end > 0 && orderCode.getCodePackageId() != null) {
-            CodePackage cp = codePackageMapper.selectById(orderCode.getCodePackageId());
-            codePackageService.assertNotDispatched(cp);
             Order order = orderMapper.selectById(id);
             Long enterpriseId = order != null ? order.getEnterpriseId() : null;
             Long certId = order != null ? order.getCertId() : null;
