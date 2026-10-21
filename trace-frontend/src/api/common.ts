@@ -68,7 +68,9 @@ export const getCertTypeOptions = () => request.get('/common/cert-types')
 export const getTraceTemplateOptions = (enterpriseId?: number) => request.get('/common/trace-templates', { params: { enterpriseId } })
 
 // 溯源查询（公开）
-export const getTraceInfo = (serialNo: string) => request.get(`/trace/${serialNo}`)
+export const getTraceInfo = (serialNo: string, batchId?: number | null) =>
+  request.get(`/trace/${serialNo}`, batchId ? { params: { batchId } } : undefined)
+export const getTraceBatches = (serialNo: string) => request.get(`/trace/${serialNo}/batches`)
 export const getBatchTraceInfo = (batchId: number) => request.get(`/trace/batch/${batchId}`)
 export const getTraceTemplate = (templateKey: string) => request.get(`/trace/template/${templateKey}`)
 export const verifyAntiFake = (data: { serialNo: string; antiFakeCode: string }) => request.post('/trace/verify', data)

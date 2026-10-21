@@ -22,8 +22,23 @@
         </div>
         <div class="truth-meta">
           <span v-if="traceData?.scanCount != null" class="truth-item">已查验 <strong>{{ traceData.scanCount }}</strong> 次</span>
-          <span v-if="traceData?.production?.productionTime" class="truth-item">生产时间：{{ traceData.production.productionTime }}</span>
+          <span v-if="traceData?.batch?.productionDate || traceData?.production?.productionTime" class="truth-item">生产日期：{{ traceData.batch?.productionDate || traceData.production?.productionTime }}</span>
           <span v-if="testReports[0]?.testResult" class="truth-item">检测结果：<strong>{{ testReports[0].testResult }}</strong></span>
+        </div>
+      </div>
+
+      <!-- 批次选择：同商品存在多个批次时，扫码后可切换查看对应批次的检测报告与生产日期 -->
+      <div v-if="showBatchPicker" class="batch-picker">
+        <div class="batch-picker-title">
+          <el-icon :size="16"><Files /></el-icon>
+          <span>选择批次</span>
+        </div>
+        <div class="batch-picker-list">
+          <button v-for="b in batches" :key="b.id" type="button"
+            :class="['batch-chip', { active: b.id === activeBatchId }]" @click="switchBatch(b.id)">
+            <span class="batch-chip-name">{{ b.name }}</span>
+            <span class="batch-chip-date">{{ b.productionDate || '生产日期待补' }}</span>
+          </button>
         </div>
       </div>
 
@@ -354,7 +369,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { getTraceInfo, getBatchTraceInfo, getTraceTemplate, verifyAntiFake, directVerify, getTraceVideos, getTraceIotLatest, getTraceTemperature, getTraceGpsTrack, getBatchVideos, getBatchIotLatest, convertPdfToImages } from '@/api/common'
+import { getTraceInfo, getTraceBatches, getBatchTraceInfo, getTraceTemplate, verifyAntiFake, directVerify, getTraceVideos, getTraceIotLatest, getTraceTemperature, getTraceGpsTrack, getBatchVideos, getBatchIotLatest, convertPdfToImages } from '@/api/common'
 import LiveVideoElement from '@/components/trace/LiveVideoElement.vue'
 import IotSensorElement from '@/components/trace/IotSensorElement.vue'
 import IotChartElement from '@/components/trace/IotChartElement.vue'
@@ -392,6 +407,37 @@ const qrCodeDataUrl = ref('')
 const isBatchMode = computed(() => route.name === 'BatchTrace')
 const serialNo = computed(() => route.params.serialNo as string)
 const batchId = computed(() => Number(route.params.batchId))
+
+// 批次切换：扫码默认看码绑定的批次，同商品还有其他批次时可切换查看对应报告与生产日期
+const batches = ref<any[]>([])
+const chosenBatchId = ref<number | null>(null)
+const activeBatchId = computed(() => chosenBatchId.value ?? traceData.value?._batchId ?? null)
+const showBatchPicker = computed(() => !isBatchMode.value && batches.value.length > 1)
+
+async function loadBatches() {
+  if (isBatchMode.value) return
+  try {
+    const res = await getTraceBatches(serialNo.value)
+    batches.value = res.data || []
+  } catch (e) {
+    batches.value = []
+  }
+}
+
+async function switchBatch(id: number) {
+  if (id === activeBatchId.value) return
+  loading.value = true
+  try {
+    const res = await getTraceInfo(serialNo.value, id)
+    traceData.value = res.data
+    chosenBatchId.value = id
+  } catch (e) {
+    // 切换失败保持当前批次展示，避免把可看的页面变成报错页
+    chosenBatchId.value = null
+  } finally {
+    loading.value = false
+  }
+}
 
 const SECTION_ICONS: Record<string, string> = {
   'enterprise-info': 'OfficeBuilding',
@@ -451,6 +497,7 @@ const defaultSections = [
   { key: 'batch', title: '检测信息', icon: 'Tickets', fields: [
     { field: 'batch.testResult', label: '检测结果', type: 'badge' },
     { field: 'batch.name', label: '批次名称' },
+    { field: 'batch.productionDate', label: '生产日期' },
     { field: 'batch.testOrg', label: '检测机构' },
     { field: 'batch.testTime', label: '检测时间' },
     { field: 'batch.testCode', label: '检测编号' },
@@ -863,7 +910,8 @@ async function loadTrace() {
         templateConfig.value = tplRes.data
           } catch (e) { templateConfig.value = null; console.warn('模板加载失败') }
     }
-    // 加载视频/IoT扩展数据（并行，不阻塞主查询）
+    // 加载可切换批次与视频/IoT扩展数据（并行，不阻塞主查询）
+    loadBatches()
     loadExtendedData()
   } catch (e: any) {
     error.value = e.message || '未找到溯源信息，请确认流水号是否正确'
@@ -923,6 +971,38 @@ onMounted(async () => {
     margin-top: 6px; font-size: 13px; opacity: 0.95;
   }
   .truth-item strong { font-weight: 700; }
+}
+
+// 批次选择器
+.batch-picker {
+  padding: 12px 16px;
+  background: var(--trace-section-bg, #fff);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+
+  .batch-picker-title {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: #666; margin-bottom: 8px;
+  }
+  .batch-picker-list {
+    display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .batch-chip {
+    flex: 0 0 auto; display: flex; flex-direction: column; gap: 2px;
+    padding: 8px 12px; border-radius: 8px; cursor: pointer;
+    border: 1px solid #e5e7eb; background: #fff; text-align: left;
+    font: inherit; line-height: 1.3;
+    .batch-chip-name {
+      max-width: 40vw; font-size: 13px; color: #333;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .batch-chip-date { font-size: 12px; color: #999; white-space: nowrap; }
+    &.active {
+      border-color: #10b981; background: rgba(16, 185, 129, 0.08);
+      .batch-chip-name { color: #059669; font-weight: 600; }
+      .batch-chip-date { color: #059669; }
+    }
+  }
 }
 
 // 扫码即防伪卡片

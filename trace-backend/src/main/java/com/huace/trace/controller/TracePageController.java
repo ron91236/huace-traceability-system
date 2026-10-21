@@ -48,11 +48,21 @@ public class TracePageController {
     }
 
     /**
-     * C端溯源查询 - 通过流水号查询溯源信息
+     * C端溯源查询 - 通过流水号查询溯源信息，batchId 用于切换查看同商品的其他批次
      */
     @GetMapping("/api/trace/{serialNo}")
-    public Result<Map<String, Object>> queryTrace(@PathVariable String serialNo, HttpServletRequest request) {
-        return Result.ok(tracePageService.queryBySerialNo(serialNo, request));
+    public Result<Map<String, Object>> queryTrace(@PathVariable String serialNo,
+                                                   @RequestParam(required = false) Long batchId,
+                                                   HttpServletRequest request) {
+        return Result.ok(tracePageService.queryBySerialNo(serialNo, batchId, request));
+    }
+
+    /**
+     * C端批次切换列表 - 该溯源码可展示的同商品批次（按生产日期倒序）
+     */
+    @GetMapping("/api/trace/{serialNo}/batches")
+    public Result<List<Map<String, Object>>> listTraceBatches(@PathVariable String serialNo) {
+        return Result.ok(tracePageService.listBatchesBySerialNo(serialNo));
     }
 
     /**

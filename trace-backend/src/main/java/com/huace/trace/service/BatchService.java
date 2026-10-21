@@ -159,6 +159,7 @@ public class BatchService {
         nb.setTestReport(existing.getTestReport());
         nb.setTestOrg(existing.getTestOrg());
         nb.setTestTime(existing.getTestTime());
+        nb.setProductionDate(existing.getProductionDate());
         nb.setTestMethod(existing.getTestMethod());
         nb.setTestBasis(existing.getTestBasis());
         nb.setTestType(existing.getTestType());

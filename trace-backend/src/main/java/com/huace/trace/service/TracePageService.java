@@ -51,14 +51,19 @@ public class TracePageService {
     }
 
     /**
-     * C端溯源查询 - 通过流水号查询完整溯源信息
+     * C端溯源查询 - 码绑定的默认批次（视频/IoT 等扩展接口使用）
      */
     public Map<String, Object> queryBySerialNo(String serialNo) {
-        return queryBySerialNo(serialNo, null);
+        return queryBySerialNo(serialNo, null, null);
     }
 
-    @Cacheable(value = "tracePage", key = "'serial:' + #serialNo + ':v3'")
-    public Map<String, Object> queryBySerialNo(String serialNo, HttpServletRequest request) {
+    /**
+     * C端溯源查询 - 通过流水号查询完整溯源信息
+     * batchId 非空时切换到同企业同商品的指定批次（检测报告、生产日期、基地、合格证随之变化），
+     * 缓存 key 含 batchId，不同批次的展示结果互不污染。
+     */
+    @Cacheable(value = "tracePage", key = "'serial:' + #serialNo + ':b' + (#batchId == null ? 0 : #batchId) + ':v4'")
+    public Map<String, Object> queryBySerialNo(String serialNo, Long batchId, HttpServletRequest request) {
         // 1. 优先从 MongoDB 查询码包明细（亿级数据外部存储）
         CodePackageItem item = mongoCodeItemService.findBoundBySerialNo(serialNo)
                 .map(this::toCodePackageItem)
@@ -80,23 +85,25 @@ public class TracePageService {
             throw new BusinessException("未找到该流水号的溯源信息，流水号：" + serialNo);
         }
 
-        // 写入扫码记录(非阻塞)
-        try {
-            ScanRecord record = new ScanRecord();
-            record.setSerialNo(serialNo);
-            record.setEnterpriseId(item.getEnterpriseId());
-            if (request != null) {
-                String ip = getClientIp(request);
-                record.setIp(ip);
-                record.setUserAgent(request.getHeader("User-Agent"));
-                String[] region = ipRegionService.resolve(ip);
-                if (region != null) {
-                    record.setProvince(region[0]);
-                    record.setCity(region[1]);
+        // 写入扫码记录(非阻塞)；切换批次属于同一次查看，不重复计数
+        if (batchId == null) {
+            try {
+                ScanRecord record = new ScanRecord();
+                record.setSerialNo(serialNo);
+                record.setEnterpriseId(item.getEnterpriseId());
+                if (request != null) {
+                    String ip = getClientIp(request);
+                    record.setIp(ip);
+                    record.setUserAgent(request.getHeader("User-Agent"));
+                    String[] region = ipRegionService.resolve(ip);
+                    if (region != null) {
+                        record.setProvince(region[0]);
+                        record.setCity(region[1]);
+                    }
                 }
-            }
-            scanRecordMapper.insert(record);
-        } catch (Exception ignored) {}
+                scanRecordMapper.insert(record);
+            } catch (Exception ignored) {}
+        }
 
         Map<String, Object> result = new HashMap<>();
         result.put("serialNo", item.getSerialNo());
@@ -105,7 +112,6 @@ public class TracePageService {
         result.put("scanCount", item.getScanCount() != null ? item.getScanCount() : 0);
         // 关联ID（供C端扩展接口使用）
         result.put("_enterpriseId", item.getEnterpriseId());
-        result.put("_batchId", item.getBatchId());
         result.put("_goodsId", item.getGoodsId());
         result.put("_certId", item.getCertId());
 
@@ -168,55 +174,20 @@ public class TracePageService {
             }
         }
 
-        // 5. 查询批次信息
-        if (item.getBatchId() != null) {
-            Batch batch = batchMapper.selectById(item.getBatchId());
-            if (batch != null) {
-                Map<String, Object> batchInfo = new HashMap<>();
-                batchInfo.put("name", batch.getName());
-                batchInfo.put("goodsSpec", batch.getGoodsSpec());
-                batchInfo.put("testCode", batch.getTestCode());
-                batchInfo.put("testReport", batch.getTestReport());
-                batchInfo.put("testOrg", batch.getTestOrg());
-                batchInfo.put("testTime", batch.getTestTime());
-                batchInfo.put("testMethod", batch.getTestMethod());
-                batchInfo.put("testBasis", batch.getTestBasis());
-                batchInfo.put("testType", batch.getTestType());
-                batchInfo.put("testResult", batch.getTestResult());
-                result.put("batch", batchInfo);
-
-                // 5.1 查询检测报告（多报告）
-                List<Map<String, Object>> testReports = testReportService.buildReportListForBatch(batch.getId(), batch.getTestReportId());
-                result.put("testReports", testReports);
-                result.put("testReportCount", testReports.size());
-                // 兼容旧前端：保留单报告字段（不覆盖 batch.testReport 字符串）
-                if (!testReports.isEmpty()) {
-                    result.put("testReportInfo", testReports.get(0));
-                }
-
-                // 6. 查询基地信息（从批次关联）
-                if (batch.getBaseId() != null) {
-                    EnterpriseBase base = baseMapper.selectById(batch.getBaseId());
-                    if (base != null) {
-                        Map<String, Object> baseInfo = new HashMap<>();
-                        baseInfo.put("name", base.getName());
-                        baseInfo.put("code", base.getCode());
-                        baseInfo.put("areaDisplay", base.getArea() + " " + base.getUnit());
-                        baseInfo.put("manager", base.getManager());
-                        baseInfo.put("phone", base.getPhone());
-                        baseInfo.put("planImage", base.getPlanImage());
-                        baseInfo.put("realImage", base.getRealImage());
-                        baseInfo.put("certification", base.getCertification());
-                        baseInfo.put("envReport", base.getEnvReport());
-                        baseInfo.put("testItems", base.getTestItems());
-                        result.put("base", baseInfo);
-                    }
-                }
-            }
+        // 5. 批次信息（batchId 非空时切换到同企业同商品的其他批次）
+        Long targetBatchId = batchId != null ? batchId : item.getBatchId();
+        Batch batch = targetBatchId == null ? null : batchMapper.selectById(targetBatchId);
+        // 码绑定的默认批次始终可展示，仅切换目标需校验归属
+        if (batchId != null && !batchId.equals(item.getBatchId()) && !isBatchOfGoods(batch, item)) {
+            throw new BusinessException("所选批次不属于该产品，请重新选择");
+        }
+        result.put("_batchId", targetBatchId);
+        if (batch != null) {
+            applyBatchBlock(result, batch, "testReportInfo");
         }
 
         // 5.5 承诺达标合格证（按批次→商品→企业反查最新有效证，无证不注入）
-        Map<String, Object> hgzInfo = buildHgzBlock(item.getEnterpriseId(), item.getBatchId(), item.getGoodsId());
+        Map<String, Object> hgzInfo = buildHgzBlock(item.getEnterpriseId(), targetBatchId, item.getGoodsId());
         if (hgzInfo != null) result.put("hgz", hgzInfo);
 
         // 6.5 生产信息（从订单绑定关系获取）
@@ -341,10 +312,26 @@ public class TracePageService {
             }
         }
 
-        // 3. 查询批次信息
+        // 3. 批次信息 + 检测报告 + 基地
+        applyBatchBlock(result, batch, "testReport");
+
+        // 5. 承诺达标合格证（批次模式：按批次→商品→企业反查）
+        Map<String, Object> hgzInfo = buildHgzBlock(batch.getEnterpriseId(), batchId, batch.getGoodsId());
+        if (hgzInfo != null) result.put("hgz", hgzInfo);
+
+        return result;
+    }
+
+    /**
+     * 批次维度展示块：批次字段、检测报告列表、所属基地。
+     * 流水号模式（含批次切换）与批次模式共用，legacyReportKey 兼容两种旧前端字段名。
+     */
+    private void applyBatchBlock(Map<String, Object> result, Batch batch, String legacyReportKey) {
         Map<String, Object> batchInfo = new HashMap<>();
+        batchInfo.put("id", batch.getId());
         batchInfo.put("name", batch.getName());
         batchInfo.put("goodsSpec", batch.getGoodsSpec());
+        batchInfo.put("productionDate", batch.getProductionDate() != null ? batch.getProductionDate().toString() : null);
         batchInfo.put("testCode", batch.getTestCode());
         batchInfo.put("testReport", batch.getTestReport());
         batchInfo.put("testOrg", batch.getTestOrg());
@@ -355,16 +342,13 @@ public class TracePageService {
         batchInfo.put("testResult", batch.getTestResult());
         result.put("batch", batchInfo);
 
-        // 3.1 检测报告（多报告）
         List<Map<String, Object>> testReports = testReportService.buildReportListForBatch(batch.getId(), batch.getTestReportId());
         result.put("testReports", testReports);
         result.put("testReportCount", testReports.size());
-        // 兼容旧前端：保留单报告字段
         if (!testReports.isEmpty()) {
-            result.put("testReport", testReports.get(0));
+            result.put(legacyReportKey, testReports.get(0));
         }
 
-        // 4. 查询基地信息
         if (batch.getBaseId() != null) {
             EnterpriseBase base = baseMapper.selectById(batch.getBaseId());
             if (base != null) {
@@ -382,12 +366,45 @@ public class TracePageService {
                 result.put("base", baseInfo);
             }
         }
+    }
 
-        // 5. 承诺达标合格证（批次模式：按批次→商品→企业反查）
-        Map<String, Object> hgzInfo = buildHgzBlock(batch.getEnterpriseId(), batchId, batch.getGoodsId());
-        if (hgzInfo != null) result.put("hgz", hgzInfo);
+    /**
+     * C端批次切换列表 - 该溯源码可展示的同企业同商品批次，按生产日期倒序（无生产日期排最后）
+     */
+    public List<Map<String, Object>> listBatchesBySerialNo(String serialNo) {
+        CodePackageItem item = mongoCodeItemService.findBoundBySerialNo(serialNo)
+                .map(this::toCodePackageItem)
+                .orElseGet(() -> codePackageItemMapper.selectOne(
+                        new LambdaQueryWrapper<CodePackageItem>()
+                                .eq(CodePackageItem::getSerialNo, serialNo)
+                                .eq(CodePackageItem::getBindStatus, "BOUND")));
+        if (item == null || item.getGoodsId() == null || item.getEnterpriseId() == null) {
+            return List.of();
+        }
+        List<Batch> batches = batchMapper.selectList(new LambdaQueryWrapper<Batch>()
+                .eq(Batch::getEnterpriseId, item.getEnterpriseId())
+                .eq(Batch::getGoodsId, item.getGoodsId())
+                .orderByDesc(Batch::getProductionDate)
+                .orderByDesc(Batch::getId));
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (Batch b : batches) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", b.getId());
+            m.put("name", b.getName());
+            m.put("goodsSpec", b.getGoodsSpec());
+            m.put("productionDate", b.getProductionDate() != null ? b.getProductionDate().toString() : null);
+            m.put("testResult", b.getTestResult());
+            m.put("current", b.getId().equals(item.getBatchId()));
+            list.add(m);
+        }
+        return list;
+    }
 
-        return result;
+    /** 校验切换目标批次确实属于该码绑定的企业与商品 */
+    private boolean isBatchOfGoods(Batch batch, CodePackageItem item) {
+        if (batch == null || item.getGoodsId() == null || item.getEnterpriseId() == null) return false;
+        return item.getGoodsId().equals(batch.getGoodsId())
+                && item.getEnterpriseId().equals(batch.getEnterpriseId());
     }
 
     /** 反查最新有效合格证，构造溯源页展示块；无证返回 null */

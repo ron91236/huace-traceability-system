@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.huace.trace.common.BaseEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -23,6 +24,8 @@ public class Batch extends BaseEntity {
     private String testOrg;
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime testTime;
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate productionDate;
     private String testMethod;
     private String testBasis;
     private String testType;

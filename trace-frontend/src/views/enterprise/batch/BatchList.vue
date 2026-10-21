@@ -12,10 +12,13 @@
         <el-table-column prop="goodsName" label="商品名称" width="120" />
         <el-table-column prop="goodsSpec" label="规格" width="80" />
         <el-table-column prop="baseName" label="所属基地" width="120" />
+        <el-table-column label="生产日期" width="110">
+          <template #default="{ row }">{{ row.productionDate || '-' }}</template>
+        </el-table-column>
         <el-table-column prop="testReportName" label="检测报告" width="140">
           <template #default="{ row }">{{ row.testReportName || '-' }}</template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="170" />
+        <el-table-column label="创建时间" width="170"><template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T', ' ').substring(0,19) : '' }}</template></el-table-column>
         <el-table-column label="操作" width="240">
           <template #default="{ row }">
             <el-button size="small" @click="openForm(row)">编辑</el-button>
@@ -35,6 +38,11 @@
           <el-col :span="12"><el-form-item label="商品"><el-select v-model="form.goodsId" filterable style="width:100%" @change="handleGoodsChange"><el-option v-for="g in goodsList" :key="g.id" :label="g.name" :value="g.id" /></el-select></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="商品规格"><el-input v-model="form.goodsSpec" placeholder="如 500g/袋" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="所属基地"><el-select v-model="form.baseId" filterable style="width:100%"><el-option v-for="b in bases" :key="b.id" :label="b.name" :value="b.id" /></el-select></el-form-item></el-col>
+          <el-col :span="12">
+            <el-form-item label="生产日期">
+              <el-date-picker v-model="form.productionDate" type="date" value-format="YYYY-MM-DD" placeholder="选择生产日期" style="width:100%" />
+            </el-form-item>
+          </el-col>
           <el-col :span="24">
             <el-form-item label="检测报告">
               <el-select v-model="form.testReportIds" multiple filterable clearable placeholder="可多选检测报告" style="width:100%">
@@ -76,7 +84,7 @@ const goodsList = ref<any[]>([])
 const bases = ref<any[]>([])
 const testReports = ref<any[]>([])
 
-const form = reactive<any>({ name: '', goodsId: null, goodsSpec: '', baseId: null, testReportIds: [] })
+const form = reactive<any>({ name: '', goodsId: null, goodsSpec: '', baseId: null, productionDate: null, testReportIds: [] })
 
 onMounted(async () => {
   const [gRes, bRes, rRes] = await Promise.all([getGoods({ page: 1, size: 200 }), getBases({ page: 1, size: 200 }), getAllTestReports()])
@@ -91,6 +99,7 @@ function openForm(row?: any) {
   form.goodsId = row?.goodsId || null
   form.goodsSpec = row?.goodsSpec || ''
   form.baseId = row?.baseId || null
+  form.productionDate = row?.productionDate || null
   form.testReportIds = row?.testReportIds || (row?.testReportId ? [row.testReportId] : [])
   dialogVisible.value = true
 }

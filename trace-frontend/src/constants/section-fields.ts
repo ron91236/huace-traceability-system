@@ -50,6 +50,7 @@ export const SECTION_FIELDS: Record<string, SectionDefinition> = {
   ]},
   'test-info': { title: '检测信息', fields: [
     { field: 'batch.name', label: '批次名称' }, { field: 'batch.goodsSpec', label: '商品规格' },
+    { field: 'batch.productionDate', label: '生产日期' },
     { field: 'batch.testCode', label: '检测编号' }, { field: 'batch.testReport', label: '检测报告', type: 'file' },
     { field: 'batch.testOrg', label: '检测机构' }, { field: 'batch.testTime', label: '检测时间' },
     { field: 'batch.testMethod', label: '检测方法' }, { field: 'batch.testBasis', label: '检测依据' },
