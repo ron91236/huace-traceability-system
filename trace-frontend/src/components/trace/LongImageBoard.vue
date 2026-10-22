@@ -9,6 +9,7 @@
           </div>
           <div class="lb-card-body">
             <div v-if="r.testTime" class="lb-field">检测时间：{{ r.testTime }}</div>
+            <div v-if="r.testMethod" class="lb-field">检测方式：{{ r.testMethod }}</div>
             <div v-if="r.testOrg" class="lb-field">检测机构：{{ r.testOrg }}</div>
           </div>
           <div class="lb-card-link">查看报告 ›</div>
@@ -58,8 +59,12 @@ const props = defineProps<{
 
 defineEmits<{ (e: 'open-report', report: any): void }>()
 
+// spec §7 要求消费端二次过滤：后端已经滤过一遍，但脏数据或旧缓存里仍可能躺着 pages 为空的
+// 模块，直接进导航就是一个点进去什么都没有的空胶囊。导航与内容区共用这一个列表，避免两边口径不一致
+const visibleModules = computed(() => (props.modules || []).filter(m => m.pages?.length))
+
 const navItems = computed(() => {
-  const items = (props.modules || []).map(m => ({ key: m.key, name: m.name }))
+  const items = visibleModules.value.map(m => ({ key: m.key, name: m.name }))
   items.push({ key: REPORT_KEY, name: '检测报告' })
   if (props.hgz) items.push({ key: HGZ_KEY, name: '合格证' })
   return items
@@ -71,7 +76,7 @@ watch(navItems, (items) => {
 }, { immediate: true })
 
 const activePages = computed(() =>
-  props.modules?.find(m => m.key === activeKey.value)?.pages || [])
+  visibleModules.value.find(m => m.key === activeKey.value)?.pages || [])
 
 const bodyRef = ref<HTMLElement>()
 function select(key: string) {
