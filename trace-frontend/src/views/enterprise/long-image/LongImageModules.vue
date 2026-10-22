@@ -162,6 +162,10 @@ function handleRevert() { select(modules.value.find(m => m.id === activeId.value
 
 async function handleSave() {
   if (!active.value) return
+  // 文案与后端 LongModuleService.validate 一致：本地先拦是为了不必为一个必然失败的请求
+  // 走一趟网络，两处说法不同才会让用户怀疑自己
+  if (!String(active.value.name || '').trim()) return ElMessage.warning('模块名称不能为空')
+  if (!pageList.value.length) return ElMessage.warning('模块至少一张长图')
   saving.value = true
   try {
     const payload = { ...active.value, pages: JSON.stringify(pageList.value) }
@@ -197,7 +201,13 @@ function initSortable() {
           if (evt.oldIndex === undefined || evt.newIndex === undefined) return
           const moved = modules.value.splice(evt.oldIndex, 1)[0]
           modules.value.splice(evt.newIndex, 0, moved)
-          await sortLongModules(modules.value.map(m => m.id))
+          try {
+            await sortLongModules(modules.value.map(m => m.id))
+          } catch (e) {
+            // 排序没落库就得把本地顺序拉回服务端真值，否则用户眼前这个顺序刷新后会跳回去，
+            // 而拦截器只弹一句错误文案，看不出"界面在骗你"
+            await loadData()
+          }
         },
       })
     }
@@ -211,6 +221,11 @@ function initSortable() {
           pageList.value.splice(evt.newIndex, 0, moved)
         },
       })
+    } else {
+      // 详情区被 v-if 摘掉（删掉最后一个模块、还原未保存的新模块）时 pagesRef 为 null，
+      // 不主动销毁就会留一个挂在已脱离文档的节点上的实例，直到下次选中才回收
+      pagesSortable?.destroy()
+      pagesSortable = null
     }
   })
 }
