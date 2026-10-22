@@ -62,7 +62,12 @@
 
       <!-- 动态渲染溯源信息模块 -->
       <Transition :name="pageTransition || 'none'" mode="out-in">
-      <div :key="currentPageIdx" class="trace-body" :class="'layout-' + currentLayout" :style="hasPageElements ? { display: 'flex', flexWrap: 'wrap', gap: '4px' } : {}">
+      <LongImageBoard v-if="isLongImageMode" key="long-image"
+        :modules="longModules"
+        :reports="testReports"
+        :hgz="traceData?.hgz || null"
+        @open-report="openReportDetail" />
+      <div v-else :key="currentPageIdx" class="trace-body" :class="'layout-' + currentLayout" :style="hasPageElements ? { display: 'flex', flexWrap: 'wrap', gap: '4px' } : {}">
         <!-- 新版：页面元素模式 -->
         <template v-if="hasPageElements">
           <div v-for="el in currentPageElements" :key="el.id" class="page-element" :class="'el-type-' + el.type" :style="{ flex: '0 0 ' + elementBasis(el), boxSizing: 'border-box' }">
@@ -287,8 +292,8 @@
       </div>
       </Transition>
 
-      <!-- 检测报告（两种模式均显示） -->
-      <div v-if="testReports.length > 0" class="trace-section test-report-section">
+      <!-- 检测报告（长图模式下由底部导航的同名胶囊承载，此处不重复渲染） -->
+      <div v-if="!isLongImageMode && testReports.length > 0" class="trace-section test-report-section">
         <div class="section-title">
           <span class="test-report-icon">🧪</span>
           <span>检测报告</span>
@@ -317,7 +322,7 @@
       </div>
 
       <!-- 承诺达标合格证（有证才展示） -->
-      <div v-if="traceData?.hgz" class="trace-section hgz-section">
+      <div v-if="!isLongImageMode && traceData?.hgz" class="trace-section hgz-section">
         <div class="section-title">
           <span class="hgz-section-icon">📜</span>
           <span>承诺达标合格证</span>
@@ -356,7 +361,9 @@
     </div>
     <div v-else-if="currentReportImages.length > 0" class="image-gallery-wrap">
       <div v-for="(img, idx) in currentReportImages" :key="idx" class="gallery-item">
-        <el-image :src="img" fit="contain" style="width:100%;border-radius:8px;" :preview-src-list="currentReportImages" :initial-index="idx" />
+        <el-image :src="img" fit="contain" style="width:100%;border-radius:8px;"
+          :preview-src-list="flatReportImages"
+          :initial-index="(flatReportStart[currentReport?.id] || 0) + idx" />
       </div>
     </div>
     <div v-else-if="currentReport?.reportPdf" class="pdf-viewer-wrap">
@@ -375,6 +382,7 @@ import IotSensorElement from '@/components/trace/IotSensorElement.vue'
 import IotChartElement from '@/components/trace/IotChartElement.vue'
 import VehicleTrackElement from '@/components/trace/VehicleTrackElement.vue'
 import VrPanoramaElement from '@/components/trace/VrPanoramaElement.vue'
+import LongImageBoard from '@/components/trace/LongImageBoard.vue'
 import QRCode from 'qrcode'
 import DOMPurify from 'dompurify'
 import { SECTION_FIELDS, isInfoSection, getSectionAllFields } from '@/constants/section-fields'
@@ -590,34 +598,57 @@ const reportDetailVisible = ref(false)
 const currentReport = ref<any>(null)
 const currentReportImages = ref<string[]>([])
 const reportImagesLoading = ref(false)
+const reportPageCache = ref<Record<number, string[]>>({})
+const flatReportImages = ref<string[]>([])
+const flatReportStart = ref<Record<number, number>>({})
 
-const existingReportImages = computed(() => {
-  if (!currentReport.value?.reportImages) return []
-  if (Array.isArray(currentReport.value.reportImages)) return currentReport.value.reportImages
-  return String(currentReport.value.reportImages).split(',').filter(Boolean)
-})
+function reportPagesOf(report: any): string[] {
+  if (report.reportImages) {
+    return Array.isArray(report.reportImages)
+      ? report.reportImages
+      : String(report.reportImages).split(',').filter(Boolean)
+  }
+  return []
+}
+
+async function loadReportPages(report: any): Promise<string[]> {
+  const cached = reportPageCache.value[report.id]
+  if (cached) return cached
+  let pages = reportPagesOf(report)
+  if (!pages.length && report.reportPdf) {
+    try {
+      const res = await convertPdfToImages(report.reportPdf)
+      pages = res.data || []
+    } catch (e) {
+      console.warn('PDF转图片失败，回退iframe模式')
+      pages = []
+    }
+  }
+  reportPageCache.value = { ...reportPageCache.value, [report.id]: pages }
+  return pages
+}
 
 async function openReportDetail(report: any) {
   currentReport.value = report
   reportDetailVisible.value = true
-  // 如果已有图片直接使用
-  if (existingReportImages.value.length > 0) {
-    currentReportImages.value = existingReportImages.value
-    return
-  }
-  // 如果有PDF，转换为图片
-  if (report.reportPdf) {
-    reportImagesLoading.value = true
-    currentReportImages.value = []
-    try {
-      const res = await convertPdfToImages(report.reportPdf)
-      currentReportImages.value = res.data || []
-    } catch (e) {
-      console.warn('PDF转图片失败，回退iframe模式')
-      currentReportImages.value = []
-    } finally {
-      reportImagesLoading.value = false
-    }
+  reportImagesLoading.value = true
+  try {
+    // 只有长图模式需要跨报告连续翻页；老模板保持"只加载当前这一份"的原行为。
+    // 不gate的话，任一企业打开任一报告都会把该批次全部报告的 PDF 并行转一遍——
+    // 生产机 1.8G 内存、单个 PDF 上限 20MB/100 页，这是给没选这个模板的企业凭空加负载
+    const list = isLongImageMode.value ? testReports.value : [report]
+    const groups = await Promise.all(list.map(loadReportPages))
+    const flat: string[] = []
+    const start: Record<number, number> = {}
+    list.forEach((r: any, i: number) => {
+      start[r.id] = flat.length
+      flat.push(...groups[i])
+    })
+    flatReportImages.value = flat
+    flatReportStart.value = start
+    currentReportImages.value = reportPageCache.value[report.id] || []
+  } finally {
+    reportImagesLoading.value = false
   }
 }
 
@@ -637,6 +668,9 @@ const customFields = computed(() => {
 
 // 新版页面元素支持
 const currentPageIdx = ref(0)
+
+const isLongImageMode = computed(() => templateConfig.value?.renderMode === 'long-image')
+const longModules = computed<any[]>(() => traceData.value?.longModules || [])
 
 const hasPageElements = computed(() => {
   const pages = templateConfig.value?.pages
@@ -1842,9 +1876,16 @@ onMounted(async () => {
   top: max(40px, env(safe-area-inset-top, 0px) + 16px) !important;
 }
 
-/* 放大查看初始自适应：超大原图先约束在视口内，放大后仍可拖拽平移 */
+/* 整页报告多为竖版长图：顶部对齐 + 允许纵向滚动，左右键仍可跨报告翻页 */
+.el-image-viewer__canvas {
+  align-items: flex-start !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
 .el-image-viewer__canvas img {
   max-width: 100vw;
-  max-height: 100vh;
+  width: 100%;
+  height: auto !important;
+  max-height: none !important;
 }
 </style>
