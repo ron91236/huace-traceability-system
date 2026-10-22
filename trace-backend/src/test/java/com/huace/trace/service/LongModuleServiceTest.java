@@ -39,7 +39,7 @@ import static org.mockito.Mockito.*;
  * 4. pages 为空的模块不进导航
  * 5. 名称/图片/数量非法被拒
  * 6. 跨企业改别人的模块被拒
- * 7. PDF 转换前置校验（仅本系统上传目录内的普通文件、体积上限、转不出页要报错）
+ * 7. PDF 转换前置校验（仅本系统上传目录内的普通文件、体积上限、非法路径不给 500、转不出页要报错）
  * 8. 清空适用商品时 NULL 要真正写回库，且排序不能顺带清掉它
  * 9. 适用商品必须属于本企业；更新不带 status 时保留原有启停状态
  */
@@ -359,7 +359,8 @@ class LongModuleServiceTest {
         service.setUploadDir(tmp.toString());
         BusinessException e = assertThrows(BusinessException.class,
                 () -> service.convertPdf("/uploads/2026/no-such.pdf"));
-        assertTrue(e.getMessage().contains("不存在"), e.getMessage());
+        assertEquals("文件不存在或不合法，请重新上传", e.getMessage());
+        verifyNoInteractions(pdfConvertService);
     }
 
     @Test
@@ -367,7 +368,7 @@ class LongModuleServiceTest {
         service.setUploadDir(tmp.toString());
         BusinessException e = assertThrows(BusinessException.class,
                 () -> service.convertPdf("/uploads/../../etc/passwd"));
-        assertTrue(e.getMessage().contains("不合法"), e.getMessage());
+        assertEquals("文件不存在或不合法，请重新上传", e.getMessage());
         verifyNoInteractions(pdfConvertService);
     }
 
@@ -380,7 +381,20 @@ class LongModuleServiceTest {
 
         BusinessException e = assertThrows(BusinessException.class,
                 () -> service.convertPdf("/uploads/2026"));
-        assertTrue(e.getMessage().contains("不合法"), e.getMessage());
+        assertEquals("文件不存在或不合法，请重新上传", e.getMessage());
+        verifyNoInteractions(pdfConvertService);
+    }
+
+    @Test
+    void 非法字符路径按不存在拒绝而不是500() {
+        // 路径里的 NUL 让 Path.resolve 抛 InvalidPathException（它是 IllegalArgumentException，
+        // 不是 IOException），漏接就会被全局兜底换成"系统内部错误: <用户输入>"回显给对方，
+        // 而免登录的那扇门对同样的输入返回空 —— 两扇门必须一个说法。
+        service.setUploadDir(tmp.toString());
+
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service.convertPdf("/uploads/a\0b.pdf"));
+        assertEquals("文件不存在或不合法，请重新上传", e.getMessage());
         verifyNoInteractions(pdfConvertService);
     }
 

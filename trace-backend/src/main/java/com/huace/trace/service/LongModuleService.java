@@ -9,6 +9,7 @@ import com.huace.trace.entity.Goods;
 import com.huace.trace.entity.TraceLongModule;
 import com.huace.trace.mapper.GoodsMapper;
 import com.huace.trace.mapper.TraceLongModuleMapper;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -46,11 +47,9 @@ public class LongModuleService {
     private final GoodsMapper goodsMapper;
 
     /** 上传目录，用于把 /uploads/ 相对路径还原成磁盘路径做体积校验 */
-    @Setter
+    @Setter(AccessLevel.PACKAGE)
     @Value("${file.upload-dir}")
     private String uploadDir;
-
-    private static final long MAX_PDF_BYTES = 20L * 1024 * 1024;
 
     /**
      * 消费端取数：该商品有任一启用的商品级模块就只用商品级，
@@ -191,7 +190,7 @@ public class LongModuleService {
         } catch (IOException e) {
             throw new BusinessException("文件读取失败，请重新上传");
         }
-        if (size > MAX_PDF_BYTES) throw new BusinessException("PDF 超过 20MB，请压缩后重新上传");
+        if (size > PdfConvertService.MAX_PDF_BYTES) throw new BusinessException("PDF 超过 20MB，请压缩后重新上传");
         List<String> pages = pdfConvertService.convertPdfToImages(url, MAX_PAGES);
         // 加密/损坏的 PDF 到这里是空结果，直接回 200 前端既没东西可展示也没东西可报错
         if (pages.isEmpty()) throw new BusinessException("PDF 无法解析，请确认文件未加密且格式正确");
@@ -210,7 +209,12 @@ public class LongModuleService {
             if (!lexical.startsWith(root)) return null;
             Path real = lexical.toRealPath();
             return real.startsWith(root) && Files.isRegularFile(real, LinkOption.NOFOLLOW_LINKS) ? real : null;
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
+            // IllegalArgumentException 收的是 InvalidPathException（路径里有 NUL 之类非法字符）：
+            // 它不是 IOException，漏接就一路冒到全局兜底，把"系统内部错误: <用户输入>"回显给用户，
+            // 而免登录那扇门对同样的输入只返回空 —— 两扇门必须一个说法。
+            // file.upload-dir 配错也是从这里现形的，不写日志用户只会看到一句"请重新上传"。
+            log.warn("上传目录内路径无法解析: {} ({})", url, e.getMessage());
             return null;
         }
     }

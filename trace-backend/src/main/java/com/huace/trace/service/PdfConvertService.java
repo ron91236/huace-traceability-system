@@ -1,6 +1,7 @@
 package com.huace.trace.service;
 
 import com.huace.trace.common.BusinessException;
+import lombok.AccessLevel;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
@@ -43,29 +44,45 @@ public class PdfConvertService {
     /** 上传目录内的相对 URL 前缀，也是唯一允许读取的入口 */
     private static final String UPLOAD_PREFIX = "/uploads/";
 
-    @Setter
+    /** 免登录路径的兜底页数上限：更长的报告交给前端 iframe 直接展示 PDF，不做转换 */
+    private static final int HARD_PAGE_LIMIT = 100;
+
+    /** 单个 PDF 的读取上限，两个入口共用；超过则不读进内存 */
+    public static final long MAX_PDF_BYTES = 20L * 1024 * 1024;
+
+    @Setter(AccessLevel.PACKAGE)
     @Value("${file.upload-dir}")
     private String uploadDir;
 
-    @Setter
+    @Setter(AccessLevel.PACKAGE)
     @Value("${file.url-prefix}")
     private String urlPrefix;
 
     /**
-     * 将上传目录内的 PDF 转换为图片URL列表
-     * @param pdfUrl PDF 文件的 /uploads/ 相对访问URL
-     * @return 图片URL列表（每页一张图）；读不到或解析不了时为空，由调用方决定如何兜底
+     * 免登录的扫码入口：按兜底上限限量，超限不抛异常而是返回空，
+     * 让 检测报告 前端回落到 &lt;iframe&gt; 直接展示 PDF
      */
     public List<String> convertPdfToImages(String pdfUrl) {
-        return convertPdfToImages(pdfUrl, 0);
+        return convert(pdfUrl, HARD_PAGE_LIMIT, false);
     }
 
     /**
      * 将上传目录内的 PDF 转换为图片URL列表
      * @param pdfUrl PDF 文件的 /uploads/ 相对访问URL
-     * @param maxPages 页数上限，0 表示不限制；超限抛业务异常而不是静默返回空
+     * @param maxPages 页数上限；传正数的调用方（企业端有人在等提示）超限抛业务异常，
+     *                 0 按兜底上限处理且只返回空结果
      */
     public List<String> convertPdfToImages(String pdfUrl, int maxPages) {
+        int limit = maxPages > 0 ? maxPages : HARD_PAGE_LIMIT;
+        return convert(pdfUrl, limit, maxPages > 0);
+    }
+
+    /**
+     * @param limit 页数上限，缓存分支与解析分支都按它判定
+     * @param throwOnOverLimit 超限的失败契约按门区分：正数上限来自企业端要弹提示，必须抛；
+     *                         免登录的门返回空给前端兜底，两扇门对同一份 PDF 的说法本来就不同
+     */
+    private List<String> convert(String pdfUrl, int limit, boolean throwOnOverLimit) {
         List<String> imageUrls = new ArrayList<>();
         if (pdfUrl == null || pdfUrl.isEmpty()) return imageUrls;
 
@@ -75,16 +92,22 @@ public class PdfConvertService {
                 log.warn("PDF文件为空或无法读取: {}", pdfUrl);
                 return imageUrls;
             }
+            if (!isPdfHeader(pdfBytes)) {
+                log.warn("不是 PDF 文件，跳过转换: {}", pdfUrl);
+                return imageUrls;
+            }
             String key = sha256Hex(pdfBytes).substring(0, 16);
             Path cacheDir = Path.of(uploadDir, "pdf-images", key);
 
-            // 缓存里的 jpg 清单就是页数：readCachedPages 只在 done 标记存在时才返回，结果不会残缺。
+            // 缓存里的 jpg 清单就是页数：readCachedPages 核对过清单与 done 记录才返回，结果不会残缺。
             // 页数判定因此可以放在 loadPDF 之前——免登录的扫码路径重复访问同一份报告时，
             // 不该为了"有几页"把整个文档再解析一遍。
             List<String> cached = readCachedPages(cacheDir, key);
             if (!cached.isEmpty()) {
-                if (maxPages > 0 && cached.size() > maxPages) {
-                    throw new BusinessException("PDF 共 " + cached.size() + " 页，超过 " + maxPages + " 页上限，请拆分后上传");
+                if (cached.size() > limit) {
+                    if (throwOnOverLimit) throw overLimit(cached.size(), limit);
+                    log.warn("PDF 共 {} 页，超过 {} 页上限，跳过转换: {}", cached.size(), limit, pdfUrl);
+                    return imageUrls;
                 }
                 log.info("PDF转图片命中缓存: {} 页, 源: {}", cached.size(), pdfUrl);
                 return cached;
@@ -92,8 +115,10 @@ public class PdfConvertService {
 
             try (PDDocument document = Loader.loadPDF(pdfBytes)) {
                 int totalPages = document.getNumberOfPages();
-                if (maxPages > 0 && totalPages > maxPages) {
-                    throw new BusinessException("PDF 共 " + totalPages + " 页，超过 " + maxPages + " 页上限，请拆分后上传");
+                if (totalPages > limit) {
+                    if (throwOnOverLimit) throw overLimit(totalPages, limit);
+                    log.warn("PDF 共 {} 页，超过 {} 页上限，跳过转换: {}", totalPages, limit, pdfUrl);
+                    return imageUrls;
                 }
                 // 目录留到页数放行之后再建，被拒绝的 PDF 不该在缓存目录里留下空壳
                 Files.createDirectories(cacheDir);
@@ -116,20 +141,33 @@ public class PdfConvertService {
         return imageUrls;
     }
 
+    private static BusinessException overLimit(int pages, int limit) {
+        return new BusinessException("PDF 共 " + pages + " 页，超过 " + limit + " 页上限，请拆分后上传");
+    }
+
+    /** PDFBox 解析前先认魔数：mp4 之类的文件不该被读进缓存目录 */
+    private static boolean isPdfHeader(byte[] bytes) {
+        return bytes.length > 4 && bytes[0] == '%' && bytes[1] == 'P' && bytes[2] == 'D' && bytes[3] == 'F';
+    }
+
     /** 缓存目录中已存在完整转换结果时，按页序返回URL */
     private List<String> readCachedPages(Path cacheDir, String key) {
         Path done = cacheDir.resolve("done");
         if (!Files.exists(done)) return List.of();
         try (Stream<Path> stream = Files.list(cacheDir)) {
-            return stream.map(p -> p.getFileName().toString())
+            List<String> names = stream.map(p -> p.getFileName().toString())
                     .filter(name -> name.startsWith(key + "_p") && name.endsWith(".jpg"))
                     .sorted(Comparator.comparingInt(name -> {
                         Matcher m = PAGE_FILE.matcher(name);
                         return m.matches() ? Integer.parseInt(m.group(2)) : Integer.MAX_VALUE;
                     }))
-                    .map(name -> urlPrefix + "/pdf-images/" + key + "/" + name)
                     .toList();
-        } catch (IOException e) {
+            // 多出来的 jpg 会伪造出一个不存在的页数、把合法 PDF 拒掉，还发出指向不存在文件的 URL；
+            // 被删掉的 jpg 则虚报页数、绕过上限后让前端 404。清单和 done 记录对不上就整份作废，
+            // 交给调用方重新解析——页数判定只有在这个前提下才敢放在 loadPDF 之前。
+            if (names.size() != Integer.parseInt(Files.readString(done).trim())) return List.of();
+            return names.stream().map(name -> urlPrefix + "/pdf-images/" + key + "/" + name).toList();
+        } catch (IOException | NumberFormatException e) {
             return List.of();
         }
     }
@@ -168,17 +206,23 @@ public class PdfConvertService {
         return Files.readAllBytes(path);
     }
 
-    /** /uploads/ 相对 URL 还原成真实磁盘路径，越出上传目录、不存在或不是普通文件时返回 null */
+    /** /uploads/ 相对 URL 还原成真实磁盘路径，越出上传目录、不存在、不是普通文件或超过读取上限时返回 null */
     private Path confineToUploads(String url) throws IOException {
         if (url == null || !url.startsWith(UPLOAD_PREFIX)) return null;
         Path root = Path.of(uploadDir).toAbsolutePath().normalize().toRealPath();
-        Path lexical = root.resolve(url.substring(UPLOAD_PREFIX.length())).normalize();
-        if (!lexical.startsWith(root)) return null;
         try {
+            Path lexical = root.resolve(url.substring(UPLOAD_PREFIX.length())).normalize();
+            if (!lexical.startsWith(root)) return null;
             Path real = lexical.toRealPath();
-            return real.startsWith(root) && Files.isRegularFile(real, LinkOption.NOFOLLOW_LINKS) ? real : null;
-        } catch (IOException e) {
-            // 文件不存在是常态（报告被删），按既有的"空结果"契约处理，不抛给调用方
+            if (!real.startsWith(root) || !Files.isRegularFile(real, LinkOption.NOFOLLOW_LINKS)) return null;
+            // 体积上限放在读取之前：免登录的门不该把 50MB 的 multipart 上限整个读进堆里再算哈希
+            if (Files.size(real) > MAX_PDF_BYTES) return null;
+            return real;
+        } catch (IOException | IllegalArgumentException e) {
+            // 文件不存在是常态（报告被删），按既有的"空结果"契约处理，不抛给调用方，
+            // 由 convert 统一记一条带 url 的 warn；
+            // IllegalArgumentException 收的是 InvalidPathException（路径里有 NUL 之类非法字符），
+            // 它不是 IOException，漏接就会被兜底 catch 换成一条错误日志加一份无用的堆栈
             return null;
         }
     }
