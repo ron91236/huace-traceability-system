@@ -209,8 +209,10 @@ function initSortable() {
   })
 }
 
-// 详情区受 v-if="active" 控制，首次挂载时不存在，须在每次选中变化后重建拖拽
-watch(activeId, () => initSortable())
+// 详情区受 v-if="active" 控制，首次挂载时不存在，须在每次编辑对象切换后重建拖拽。
+// 监听 active 而非 activeId：新增未保存模块时 activeId 一直是 null，监听它不会触发，
+// 结果是企业建第一个模块时长图无法拖动排序。
+watch(active, () => initSortable())
 
 onUnmounted(() => { listSortable?.destroy(); pagesSortable?.destroy() })
 </script>
