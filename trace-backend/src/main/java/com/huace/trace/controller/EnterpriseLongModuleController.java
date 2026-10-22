@@ -55,8 +55,7 @@ public class EnterpriseLongModuleController {
 
     /** 上传后的 PDF 转整页图，返回页图 URL 数组供前端预览确认后再保存 */
     @PostMapping("/convert")
-    public Result<List<String>> convert(@RequestBody Map<String, String> body,
-                                       @AuthenticationPrincipal UserPrincipal principal) {
+    public Result<List<String>> convert(@RequestBody Map<String, String> body) {
         return Result.ok(longModuleService.convertPdf(body.get("url")));
     }
 }
