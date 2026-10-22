@@ -55,7 +55,7 @@ public class LongModuleService {
         }
         List<Map<String, Object>> result = new ArrayList<>();
         for (TraceLongModule m : modules) {
-            List<String> pages = parsePages(m.getPages());
+            List<String> pages = parsePages(m.getId(), m.getPages());
             if (pages.isEmpty()) continue;
             Map<String, Object> item = new HashMap<>();
             item.put("key", String.valueOf(m.getId()));
@@ -74,13 +74,14 @@ public class LongModuleService {
                 .orderByAsc(TraceLongModule::getId));
     }
 
-    private List<String> parsePages(String json) {
+    /** 解析 pages：坏数据按无内容跳过，日志带模块 id 才能定位是哪行数据坏了 */
+    private List<String> parsePages(Long moduleId, String json) {
         if (json == null || json.isBlank()) return List.of();
         try {
             List<String> pages = objectMapper.readValue(json, new TypeReference<List<String>>() {});
             return pages.stream().filter(p -> p != null && !p.isBlank()).toList();
         } catch (Exception e) {
-            log.warn("长图模块 pages 解析失败: {}", json, e);
+            log.warn("长图模块 id={} 的 pages 解析失败: {}", moduleId, json, e);
             return List.of();
         }
     }

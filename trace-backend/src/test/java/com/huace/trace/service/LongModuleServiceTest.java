@@ -1,11 +1,17 @@
 package com.huace.trace.service;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huace.trace.entity.TraceLongModule;
 import com.huace.trace.mapper.TraceLongModuleMapper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cache.CacheManager;
@@ -21,7 +27,8 @@ import static org.mockito.Mockito.*;
  * 长图模块取数与写入规则回归测试：
  * 1. 商品级模块存在时只用商品级，不与企业默认混排
  * 2. 无商品级时回落企业默认
- * 3. 商品级全部停用同样回落企业默认
+ * 3. 回落的两条查询：商品级查询先跑且 goods_id 绑值，企业默认查询用 goods_id IS NULL，
+ *    两条都限定本企业、都过滤启用、都按 sort_order 升序
  * 4. pages 为空的模块不进导航
  * 5. 名称/图片/数量非法被拒
  * 6. 跨企业改别人的模块被拒
@@ -36,6 +43,15 @@ class LongModuleServiceTest {
     @Mock private CacheManager cacheManager;
 
     private LongModuleService service;
+
+    /**
+     * LambdaQueryWrapper 渲染 SQL 片段时要查实体的列缓存，而缓存只在 MyBatis 启动扫描实体时装好；
+     * 这里是纯 Mockito 环境，不装就抛 "can not find lambda cache for this entity"。
+     */
+    @BeforeAll
+    static void initLongModuleTableInfo() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TraceLongModule.class);
+    }
 
     @BeforeEach
     void setUp() {
@@ -85,14 +101,46 @@ class LongModuleServiceTest {
     }
 
     @Test
-    void 商品级全部停用时回落企业默认() {
+    void 商品级查询先跑且回落查询按goodsId空值过滤() {
+        // "商品级全部停用"和"无商品级"的返回值完全一样，只看返回值测不出任何东西；
+        // status 过滤和 goods_id 判空都写在 wrapper 里，必须把两条查询生成的 SQL 都抓出来断言。
         when(moduleMapper.selectList(any()))
                 .thenReturn(List.of())
                 .thenReturn(List.of(aModule(9L, null, "产品信息", "[\"/uploads/p1.png\"]", 0, 1)));
 
         List<Map<String, Object>> result = service.resolveForTrace(23L, 5L);
-
         assertEquals("9", result.get(0).get("key"));
+
+        ArgumentCaptor<LambdaQueryWrapper<TraceLongModule>> captor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        // 捕获顺序就是调用顺序：第 0 条必须是商品级查询，第 1 条才是企业默认回落
+        verify(moduleMapper, times(2)).selectList(captor.capture());
+        LambdaQueryWrapper<TraceLongModule> goodsQuery = captor.getAllValues().get(0);
+        LambdaQueryWrapper<TraceLongModule> defaultQuery = captor.getAllValues().get(1);
+        // 先渲染 SQL：#{...} 对应的值是 getSqlSegment() 过程中才登记进 paramNameValuePairs 的
+        String goodsSql = goodsQuery.getSqlSegment();
+        String defaultSql = defaultQuery.getSqlSegment();
+
+        // MP 3.5.6 实测渲染为
+        // "(enterprise_id = #{ew.paramNameValuePairs.MPGENVAL1} AND goods_id = #{...MPGENVAL2}
+        //   AND status = #{...MPGENVAL3}) ORDER BY sort_order ASC"
+        // 空格数量与 MPGENVAL 序号是实现细节，抹平空白后只锚定列名、谓词形状和绑定值。
+        assertScopedEnabledAndOrdered(goodsSql);
+        assertScopedEnabledAndOrdered(defaultSql);
+        // 商品级查询：goods_id 与绑定值比较
+        assertTrue(flat(goodsSql).contains("goods_id="), goodsSql);
+        assertFalse(flat(goodsSql).contains("goods_idISNULL"), goodsSql);
+        // 企业默认查询：goods_id IS NULL，不能写成 eq(getGoodsId, null)
+        assertTrue(flat(defaultSql).contains("goods_idISNULL"), defaultSql);
+        assertFalse(flat(defaultSql).contains("goods_id="), defaultSql);
+
+        Map<String, Object> goodsParams = goodsQuery.getParamNameValuePairs();
+        Map<String, Object> defaultParams = defaultQuery.getParamNameValuePairs();
+        assertTrue(goodsParams.containsValue(5L), "商品级查询应把 goodsId 绑成参数: " + goodsParams);
+        assertTrue(goodsParams.containsValue(1), "商品级查询应只取启用模块: " + goodsParams);
+        // 回落查询既不绑定具体商品，也不把 null 当参数绑上去（那正是 eq(getGoodsId, null) 的写法）
+        assertFalse(defaultParams.containsValue(5L), "企业默认查询不该绑定具体商品: " + defaultParams);
+        assertFalse(defaultParams.containsValue(null), "企业默认查询不该绑定 null: " + defaultParams);
+        assertTrue(defaultParams.containsValue(1), "企业默认查询应只取启用模块: " + defaultParams);
     }
 
     @Test
@@ -105,5 +153,18 @@ class LongModuleServiceTest {
 
         assertEquals(1, result.size());
         assertEquals("有内容", result.get(0).get("name"));
+    }
+
+    /** 两条查询都必须限定本企业、只取启用模块、按 sort_order 升序 */
+    private static void assertScopedEnabledAndOrdered(String sql) {
+        String flat = flat(sql);
+        assertTrue(flat.contains("enterprise_id="), sql);
+        assertTrue(flat.contains("status="), sql);
+        assertTrue(flat.contains("ORDERBYsort_orderASC"), sql);
+    }
+
+    /** 抹平空白，避免断言绑死 MyBatis-Plus 渲染出的空格格式 */
+    private static String flat(String sql) {
+        return sql.replaceAll("\\s+", "");
     }
 }
