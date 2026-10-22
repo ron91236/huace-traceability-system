@@ -6,7 +6,9 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huace.trace.common.BusinessException;
+import com.huace.trace.entity.Goods;
 import com.huace.trace.entity.TraceLongModule;
+import com.huace.trace.mapper.GoodsMapper;
 import com.huace.trace.mapper.TraceLongModuleMapper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
@@ -37,6 +39,7 @@ import static org.mockito.Mockito.*;
  * 6. 跨企业改别人的模块被拒
  * 7. PDF 转换前置校验（仅本系统文件、体积上限）
  * 8. 清空适用商品时 NULL 要真正写回库，且排序不能顺带清掉它
+ * 9. 适用商品必须属于本企业；更新不带 status 时保留原有启停状态
  */
 @ExtendWith(MockitoExtension.class)
 class LongModuleServiceTest {
@@ -44,6 +47,7 @@ class LongModuleServiceTest {
     @Mock private TraceLongModuleMapper moduleMapper;
     @Mock private PdfConvertService pdfConvertService;
     @Mock private CacheManager cacheManager;
+    @Mock private GoodsMapper goodsMapper;
 
     private LongModuleService service;
 
@@ -61,7 +65,7 @@ class LongModuleServiceTest {
         // 必须手工构造并传真实 ObjectMapper：@InjectMocks 会把 objectMapper 注入成 mock，
         // mock 的 readValue 返回 null 会让 parsePages 永远返回空列表，测试假绿。
         // 参数顺序与 @RequiredArgsConstructor 字段声明顺序一致。
-        service = new LongModuleService(moduleMapper, new ObjectMapper(), pdfConvertService, cacheManager);
+        service = new LongModuleService(moduleMapper, new ObjectMapper(), pdfConvertService, cacheManager, goodsMapper);
     }
 
     private TraceLongModule aModule(long id, Long goodsId, String name, String pages, int sort, int status) {
@@ -220,6 +224,27 @@ class LongModuleServiceTest {
     }
 
     @Test
+    void 绑定别企业商品被拒绝() {
+        // goods_id 不校验归属，租户就能把模块挂到别企业（或不存在）的商品下：
+        // 模块对谁都不可见，配置漂移也无从追查。与 HgzService 校验批次同款的两步判断。
+        Goods foreign = new Goods();
+        foreign.setEnterpriseId(99L);
+        when(goodsMapper.selectById(77L)).thenReturn(foreign);
+        when(moduleMapper.selectById(11L)).thenReturn(aModule(11L, null, "A", "[\"/uploads/a.png\"]", 0, 1));
+        TraceLongModule form = new TraceLongModule();
+        form.setName("有机养土");
+        form.setPages("[\"/uploads/a.png\"]");
+        form.setGoodsId(77L);
+
+        BusinessException create = assertThrows(BusinessException.class, () -> service.create(form, 23L));
+        assertEquals("无权使用该商品", create.getMessage());
+        BusinessException update = assertThrows(BusinessException.class, () -> service.update(11L, form, 23L));
+        assertEquals("无权使用该商品", update.getMessage());
+        verify(moduleMapper, never()).insert(any());
+        verify(moduleMapper, never()).update(any(), any());
+    }
+
+    @Test
     void 排序只作用于本企业模块() {
         when(moduleMapper.selectById(11L)).thenReturn(aModule(11L, null, "A", "[\"/uploads/a.png\"]", 0, 1));
         when(moduleMapper.selectById(12L)).thenReturn(aModule(12L, 5L, "B", "[\"/uploads/b.png\"]", 1, 1));
@@ -255,6 +280,35 @@ class LongModuleServiceTest {
         // updateById 的 NOT_NULL 策略会跳过 null 字段，改名成功但归属清不掉、接口照样回 200
         String sqlSet = captor.getValue().getSqlSet();
         assertTrue(sqlSet.contains("goods_id="), sqlSet);
+    }
+
+    @Test
+    void 更新不带status时保留原有启停状态() {
+        // 只改名称不动状态：form.getStatus() 为 null，直接绑进 SET 就是把这一行停用，
+        // 而且 update 接口照样回 200 —— 三元判断被删掉时这条用例必须红。
+        when(moduleMapper.selectById(11L)).thenReturn(aModule(11L, null, "A", "[\"/uploads/a.png\"]", 0, 1));
+        Goods owned = new Goods();
+        owned.setId(5L);
+        owned.setEnterpriseId(23L);
+        when(goodsMapper.selectById(5L)).thenReturn(owned);
+        TraceLongModule form = new TraceLongModule();
+        form.setName("改名");
+        form.setPages("[\"/uploads/b.png\"]");
+        form.setGoodsId(5L);
+        form.setStatus(null);
+
+        ArgumentCaptor<LambdaUpdateWrapper<TraceLongModule>> captor =
+                ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        service.update(11L, form, 23L);
+
+        verify(moduleMapper).update(isNull(), captor.capture());
+        LambdaUpdateWrapper<TraceLongModule> wrapper = captor.getValue();
+        // 先渲染 SET 再看绑定值
+        String sqlSet = wrapper.getSqlSet();
+        assertTrue(flat(sqlSet).contains("status="), sqlSet);
+        Map<String, Object> params = wrapper.getParamNameValuePairs();
+        assertTrue(params.containsValue(1), "SET 里 status 应绑定原有值 1，实际绑定: " + params);
+        assertFalse(params.containsValue(null), "SET 里不该有 null 绑定，那会把模块直接停用: " + params);
     }
 
     @Test
