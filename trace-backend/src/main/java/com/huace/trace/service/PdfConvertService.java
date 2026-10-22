@@ -1,5 +1,6 @@
 package com.huace.trace.service;
 
+import com.huace.trace.common.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -50,6 +51,15 @@ public class PdfConvertService {
      * @return 图片URL列表（每页一张图）
      */
     public List<String> convertPdfToImages(String pdfUrl) {
+        return convertPdfToImages(pdfUrl, 0);
+    }
+
+    /**
+     * 将PDF文件转换为图片URL列表
+     * @param pdfUrl PDF文件的访问URL（可以是http URL或本地文件路径）
+     * @param maxPages 页数上限，0 表示不限制；超限抛业务异常而不是静默返回空
+     */
+    public List<String> convertPdfToImages(String pdfUrl, int maxPages) {
         List<String> imageUrls = new ArrayList<>();
         if (pdfUrl == null || pdfUrl.isEmpty()) return imageUrls;
 
@@ -59,20 +69,22 @@ public class PdfConvertService {
                 log.warn("PDF文件为空或无法读取: {}", pdfUrl);
                 return imageUrls;
             }
-
-            String key = sha256Hex(pdfBytes).substring(0, 16);
-            Path cacheDir = Path.of(uploadDir, "pdf-images", key);
-            Files.createDirectories(cacheDir);
-
-            List<String> cached = readCachedPages(cacheDir, key);
-            if (!cached.isEmpty()) {
-                log.info("PDF转图片命中缓存: {} 页, 源: {}", cached.size(), pdfUrl);
-                return cached;
-            }
-
             try (PDDocument document = Loader.loadPDF(pdfBytes)) {
-                PDFRenderer renderer = new PDFRenderer(document);
                 int totalPages = document.getNumberOfPages();
+                if (maxPages > 0 && totalPages > maxPages) {
+                    throw new BusinessException("PDF 共 " + totalPages + " 页，超过 " + maxPages + " 页上限，请拆分后上传");
+                }
+                String key = sha256Hex(pdfBytes).substring(0, 16);
+                Path cacheDir = Path.of(uploadDir, "pdf-images", key);
+                Files.createDirectories(cacheDir);
+
+                List<String> cached = readCachedPages(cacheDir, key);
+                if (!cached.isEmpty()) {
+                    log.info("PDF转图片命中缓存: {} 页, 源: {}", cached.size(), pdfUrl);
+                    return cached;
+                }
+
+                PDFRenderer renderer = new PDFRenderer(document);
                 for (int i = 0; i < totalPages; i++) {
                     BufferedImage image = renderer.renderImageWithDPI(i, RENDER_DPI, ImageType.RGB);
                     String fileName = key + "_p" + (i + 1) + ".jpg";
@@ -82,6 +94,8 @@ public class PdfConvertService {
                 Files.writeString(cacheDir.resolve("done"), String.valueOf(totalPages));
                 log.info("PDF转图片完成: {} 页, 源: {}", totalPages, pdfUrl);
             }
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("PDF转图片失败: {}", pdfUrl, e);
         }

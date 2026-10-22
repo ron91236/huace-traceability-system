@@ -10,12 +10,17 @@ import com.huace.trace.entity.TraceLongModule;
 import com.huace.trace.mapper.GoodsMapper;
 import com.huace.trace.mapper.TraceLongModuleMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -38,6 +43,13 @@ public class LongModuleService {
     private final CacheManager cacheManager;
     /** 放在最后：@RequiredArgsConstructor 的字段顺序就是构造参数顺序，测试手工构造时追加即可 */
     private final GoodsMapper goodsMapper;
+
+    /** 上传目录，用于把 /uploads/ 相对路径还原成磁盘路径做体积校验 */
+    @Setter
+    @Value("${file.upload-dir}")
+    private String uploadDir;
+
+    private static final long MAX_PDF_BYTES = 20L * 1024 * 1024;
 
     /**
      * 消费端取数：该商品有任一启用的商品级模块就只用商品级，
@@ -159,6 +171,29 @@ public class LongModuleService {
         Goods goods = goodsMapper.selectById(goodsId);
         if (goods == null) throw new BusinessException("商品不存在");
         if (!enterpriseId.equals(goods.getEnterpriseId())) throw new BusinessException("无权使用该商品");
+    }
+
+    /**
+     * 上传后的 PDF 转整页图。只接受本系统 /uploads/ 下的文件，
+     * 避免把该接口变成任意 URL 的抓取入口；还原成磁盘路径后再 normalize，
+     * 挡掉 /uploads/../../ 这类穿越（企业账号登录态不代表可信路径）。
+     */
+    public List<String> convertPdf(String url) {
+        if (url == null || !url.startsWith("/uploads/")) {
+            throw new BusinessException("只能转换本系统上传的文件，请重新上传");
+        }
+        Path root = Path.of(uploadDir).toAbsolutePath().normalize();
+        Path path = root.resolve(url.substring("/uploads/".length())).normalize();
+        if (!path.startsWith(root)) throw new BusinessException("文件路径不合法，请重新上传");
+        if (!Files.exists(path)) throw new BusinessException("文件不存在，请重新上传");
+        long size;
+        try {
+            size = Files.size(path);
+        } catch (IOException e) {
+            throw new BusinessException("文件读取失败，请重新上传");
+        }
+        if (size > MAX_PDF_BYTES) throw new BusinessException("PDF 超过 20MB，请压缩后重新上传");
+        return pdfConvertService.convertPdfToImages(url, MAX_PAGES);
     }
 
     private void validate(TraceLongModule form, Long moduleId) {

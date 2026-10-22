@@ -15,12 +15,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
@@ -48,6 +50,8 @@ class LongModuleServiceTest {
     @Mock private PdfConvertService pdfConvertService;
     @Mock private CacheManager cacheManager;
     @Mock private GoodsMapper goodsMapper;
+
+    @TempDir Path tmp;
 
     private LongModuleService service;
 
@@ -340,6 +344,56 @@ class LongModuleServiceTest {
         service.delete(11L, 23L);
 
         verify(cache).clear();
+    }
+
+    @Test
+    void 拒绝转换非本系统文件() {
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service.convertPdf("https://evil.example.com/x.pdf"));
+        assertTrue(e.getMessage().contains("本系统"), e.getMessage());
+        verifyNoInteractions(pdfConvertService);
+    }
+
+    @Test
+    void 拒绝转换不存在的文件() {
+        service.setUploadDir(tmp.toString());
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service.convertPdf("/uploads/2026/no-such.pdf"));
+        assertTrue(e.getMessage().contains("重新上传"), e.getMessage());
+    }
+
+    @Test
+    void 拒绝路径穿越() {
+        service.setUploadDir(tmp.toString());
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service.convertPdf("/uploads/../../etc/passwd"));
+        assertTrue(e.getMessage().contains("不合法"), e.getMessage());
+        verifyNoInteractions(pdfConvertService);
+    }
+
+    @Test
+    void 拒绝超过20MB的PDF() throws Exception {
+        service.setUploadDir(tmp.toString());
+        java.nio.file.Files.createDirectories(tmp.resolve("2026"));
+        java.nio.file.Files.write(tmp.resolve("2026/big.pdf"), new byte[21 * 1024 * 1024]);
+
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service.convertPdf("/uploads/2026/big.pdf"));
+        assertTrue(e.getMessage().contains("20MB"), e.getMessage());
+        verifyNoInteractions(pdfConvertService);
+    }
+
+    @Test
+    void 合规PDF按上限转换() throws Exception {
+        service.setUploadDir(tmp.toString());
+        java.nio.file.Files.createDirectories(tmp.resolve("2026"));
+        java.nio.file.Files.write(tmp.resolve("2026/ok.pdf"), new byte[]{1, 2, 3});
+        when(pdfConvertService.convertPdfToImages("/uploads/2026/ok.pdf", 30))
+                .thenReturn(List.of("/uploads/pdf-images/k/k_p1.jpg"));
+
+        List<String> pages = service.convertPdf("/uploads/2026/ok.pdf");
+
+        assertEquals(List.of("/uploads/pdf-images/k/k_p1.jpg"), pages);
     }
 
     /** 两条查询都必须限定本企业、只取启用模块、按 sort_order 升序 */
