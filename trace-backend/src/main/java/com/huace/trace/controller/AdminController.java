@@ -879,8 +879,6 @@ public class AdminController {
             // 校验码段位数
             if (orderCode.getCodePackageId() != null) {
                 CodePackage pkg = codePackageMapper.selectById(orderCode.getCodePackageId());
-                // 下发锁定校验必须先于 order_code 落库，否则失败请求会残留无对应码明细的孤儿码段
-                codePackageService.assertNotDispatched(pkg);
                 if (pkg != null && pkg.getSerialDigits() != null && pkg.getSerialDigits() > 0) {
                     int expected = pkg.getSerialDigits();
                     if (orderCode.getSerialStart().length() != expected) {
@@ -1000,8 +998,6 @@ public class AdminController {
         OrderCode oc = orderCodeMapper.selectById(id);
         if (oc != null) {
             if (oc.getCodePackageId() != null) {
-                CodePackage cp = codePackageMapper.selectById(oc.getCodePackageId());
-                codePackageService.assertNotDispatched(cp);
                 // MySQL 码包明细恢复为未绑定状态
                 codePackageItemMapper.update(null, new LambdaUpdateWrapper<CodePackageItem>()
                         .eq(CodePackageItem::getPackageId, oc.getCodePackageId())

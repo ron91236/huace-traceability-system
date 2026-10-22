@@ -158,7 +158,6 @@ public class CodePackageService {
     public void bind(Long packageId, Map<String, Object> bindData) {
         CodePackage cp = codePackageMapper.selectById(packageId);
         if (cp == null) throw new BusinessException("码包不存在");
-        assertNotDispatched(cp);
 
         Long enterpriseId = toLong(bindData.get("enterpriseId"));
         Long goodsId = toLong(bindData.get("goodsId"));
@@ -288,9 +287,10 @@ public class CodePackageService {
         return Long.parseLong(obj.toString());
     }
 
-    public void assertNotDispatched(CodePackage cp) {
+    /** 下发锁定只禁止删除码包；绑定/解绑属于正常业务流转，不受下发状态限制 */
+    private void assertNotDispatched(CodePackage cp) {
         if (Boolean.TRUE.equals(cp.getDispatched())) {
-            throw new BusinessException("码包已下发印刷厂，禁止修改。如需修改请先解除下发状态。");
+            throw new BusinessException("码包已下发印刷厂，禁止删除。如需删除请先解除下发状态。");
         }
     }
 }
