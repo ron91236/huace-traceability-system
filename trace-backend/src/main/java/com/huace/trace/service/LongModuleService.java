@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -175,17 +176,15 @@ public class LongModuleService {
 
     /**
      * 上传后的 PDF 转整页图。只接受本系统 /uploads/ 下的文件，
-     * 避免把该接口变成任意 URL 的抓取入口；还原成磁盘路径后再 normalize，
-     * 挡掉 /uploads/../../ 这类穿越（企业账号登录态不代表可信路径）。
+     * 避免把该接口变成任意 URL 的抓取入口；还原成磁盘路径后要求它是上传目录内的普通文件，
+     * 挡掉 /uploads/../../ 这类穿越和目录（企业账号登录态不代表可信路径）。
      */
     public List<String> convertPdf(String url) {
         if (url == null || !url.startsWith("/uploads/")) {
             throw new BusinessException("只能转换本系统上传的文件，请重新上传");
         }
-        Path root = Path.of(uploadDir).toAbsolutePath().normalize();
-        Path path = root.resolve(url.substring("/uploads/".length())).normalize();
-        if (!path.startsWith(root)) throw new BusinessException("文件路径不合法，请重新上传");
-        if (!Files.exists(path)) throw new BusinessException("文件不存在，请重新上传");
+        Path path = resolveUploadFile(url);
+        if (path == null) throw new BusinessException("文件不存在或不合法，请重新上传");
         long size;
         try {
             size = Files.size(path);
@@ -193,7 +192,27 @@ public class LongModuleService {
             throw new BusinessException("文件读取失败，请重新上传");
         }
         if (size > MAX_PDF_BYTES) throw new BusinessException("PDF 超过 20MB，请压缩后重新上传");
-        return pdfConvertService.convertPdfToImages(url, MAX_PAGES);
+        List<String> pages = pdfConvertService.convertPdfToImages(url, MAX_PAGES);
+        // 加密/损坏的 PDF 到这里是空结果，直接回 200 前端既没东西可展示也没东西可报错
+        if (pages.isEmpty()) throw new BusinessException("PDF 无法解析，请确认文件未加密且格式正确");
+        return pages;
+    }
+
+    /**
+     * 与 PdfConvertService#loadPdfBytes 的目录收口是同一段逻辑的两次落地：
+     * 两道门各自校验自己的输入，保证方不同（这里是有登录态的企业端，那里是免登录的公开接口），
+     * 所以改动必须同步。
+     */
+    private Path resolveUploadFile(String url) {
+        try {
+            Path root = Path.of(uploadDir).toAbsolutePath().normalize().toRealPath();
+            Path lexical = root.resolve(url.substring("/uploads/".length())).normalize();
+            if (!lexical.startsWith(root)) return null;
+            Path real = lexical.toRealPath();
+            return real.startsWith(root) && Files.isRegularFile(real, LinkOption.NOFOLLOW_LINKS) ? real : null;
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     private void validate(TraceLongModule form, Long moduleId) {

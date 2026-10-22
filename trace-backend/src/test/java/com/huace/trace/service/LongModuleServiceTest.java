@@ -39,7 +39,7 @@ import static org.mockito.Mockito.*;
  * 4. pages 为空的模块不进导航
  * 5. 名称/图片/数量非法被拒
  * 6. 跨企业改别人的模块被拒
- * 7. PDF 转换前置校验（仅本系统文件、体积上限）
+ * 7. PDF 转换前置校验（仅本系统上传目录内的普通文件、体积上限、转不出页要报错）
  * 8. 清空适用商品时 NULL 要真正写回库，且排序不能顺带清掉它
  * 9. 适用商品必须属于本企业；更新不带 status 时保留原有启停状态
  */
@@ -359,7 +359,7 @@ class LongModuleServiceTest {
         service.setUploadDir(tmp.toString());
         BusinessException e = assertThrows(BusinessException.class,
                 () -> service.convertPdf("/uploads/2026/no-such.pdf"));
-        assertTrue(e.getMessage().contains("重新上传"), e.getMessage());
+        assertTrue(e.getMessage().contains("不存在"), e.getMessage());
     }
 
     @Test
@@ -369,6 +369,33 @@ class LongModuleServiceTest {
                 () -> service.convertPdf("/uploads/../../etc/passwd"));
         assertTrue(e.getMessage().contains("不合法"), e.getMessage());
         verifyNoInteractions(pdfConvertService);
+    }
+
+    @Test
+    void 目录不能被转换() throws Exception {
+        // Files.exists 对目录同样为真，而 Files.size(目录) 是个小数字，
+        // 于是上传目录里的子目录能一路通过前置校验混到转换环节，最后换成 HTTP 200 + 空数组。
+        service.setUploadDir(tmp.toString());
+        java.nio.file.Files.createDirectories(tmp.resolve("2026"));
+
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service.convertPdf("/uploads/2026"));
+        assertTrue(e.getMessage().contains("不合法"), e.getMessage());
+        verifyNoInteractions(pdfConvertService);
+    }
+
+    @Test
+    void 无法解析的PDF要报错() throws Exception {
+        // 加密/损坏 PDF 或改名为 .pdf 的图片都会走到空结果，
+        // 静默返回 200 + 空数组的话前端既没东西可显示也没东西可报。
+        service.setUploadDir(tmp.toString());
+        java.nio.file.Files.createDirectories(tmp.resolve("2026"));
+        java.nio.file.Files.write(tmp.resolve("2026/broken.pdf"), new byte[]{1, 2, 3});
+        when(pdfConvertService.convertPdfToImages(anyString(), eq(30))).thenReturn(List.of());
+
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service.convertPdf("/uploads/2026/broken.pdf"));
+        assertTrue(e.getMessage().contains("无法解析"), e.getMessage());
     }
 
     @Test
