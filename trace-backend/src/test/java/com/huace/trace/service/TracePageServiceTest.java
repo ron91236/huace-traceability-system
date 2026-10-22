@@ -334,13 +334,16 @@ class TracePageServiceTest {
         // objectMapper 是 @Mock，不 stub 则 readValue 返回 null → templateConfig 缺失 → 分支不进
         when(objectMapper.readValue(anyString(), any(TypeReference.class)))
                 .thenReturn(new HashMap<>(Map.of("renderMode", "long-image")));
-        when(longModuleService.resolveForTrace(1L, 2L)).thenReturn(List.of(
-                Map.of("key", "11", "name", "有机养土", "pages", List.of("/uploads/a.png"))));
+        List<Map<String, Object>> modules = List.of(
+                Map.of("key", "11", "name", "有机养土", "pages", List.of("/uploads/a.png")));
+        when(longModuleService.resolveForTrace(1L, 2L)).thenReturn(modules);
 
         Map<String, Object> result = service.queryBySerialNo("00000626", null, null);
 
         assertEquals("long-image", result.get("templateKey"));
-        assertNotNull(result.get("longModules"));
+        // 断相等而不是断非空：要证明下发的确实是 resolveForTrace 的返回，
+        // 存一个空列表也"非空"的写法会照样通过，前端拿到的却是空白长图
+        assertEquals(modules, result.get("longModules"));
         verify(longModuleService).resolveForTrace(1L, 2L);
     }
 

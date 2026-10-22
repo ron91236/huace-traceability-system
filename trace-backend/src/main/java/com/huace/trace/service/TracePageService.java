@@ -261,6 +261,9 @@ public class TracePageService {
                         }
                     }
                 } catch (Exception e) {
+                    // 这个 catch 把 templateConfig、longModules、customFields 一起吞掉：页面照常 200，
+                    // 长图企业却静默回落成默认版式，降级结果还会被缓存 5 分钟。不留日志等于线上查不到。
+                    log.warn("模板配置处理失败, templateKey={}", template.getTemplateKey(), e);
                     result.put("configJson", template.getConfigJson());
                 }
             }
