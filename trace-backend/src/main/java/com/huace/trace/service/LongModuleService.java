@@ -1,6 +1,7 @@
 package com.huace.trace.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huace.trace.common.BusinessException;
@@ -72,6 +73,83 @@ public class LongModuleService {
                 .eq(TraceLongModule::getEnterpriseId, enterpriseId)
                 .orderByAsc(TraceLongModule::getSortOrder)
                 .orderByAsc(TraceLongModule::getId));
+    }
+
+    /** 新建模块：企业归属与排序由服务端决定，前端不传 */
+    @Transactional
+    public void create(TraceLongModule form, Long enterpriseId) {
+        validate(form);
+        Long count = moduleMapper.selectCount(new LambdaQueryWrapper<TraceLongModule>()
+                .eq(TraceLongModule::getEnterpriseId, enterpriseId));
+        form.setId(null);
+        form.setEnterpriseId(enterpriseId);
+        form.setSortOrder(count == null ? 0 : count.intValue());
+        if (form.getStatus() == null) form.setStatus(1);
+        moduleMapper.insert(form);
+        evictTracePage();
+    }
+
+    /** 更新模块：名称、图片、商品归属、启停；不允许改归属企业 */
+    @Transactional
+    public void update(Long id, TraceLongModule form, Long enterpriseId) {
+        TraceLongModule existing = ownedModule(id, enterpriseId);
+        validate(form);
+        // 用 wrapper 显式列 SET：updateById 的 NOT_NULL 策略会跳过 null，
+        // 清空适用商品（回落企业默认）就写不进去，接口却照样回 200。
+        moduleMapper.update(null, new LambdaUpdateWrapper<TraceLongModule>()
+                .eq(TraceLongModule::getId, existing.getId())
+                .set(TraceLongModule::getName, form.getName().trim())
+                .set(TraceLongModule::getPages, form.getPages())
+                .set(TraceLongModule::getGoodsId, form.getGoodsId())
+                .set(TraceLongModule::getStatus, form.getStatus() == null ? existing.getStatus() : form.getStatus()));
+        evictTracePage();
+    }
+
+    /** 删除模块：只删记录，转图结果按内容哈希共享，不删图片文件 */
+    @Transactional
+    public void delete(Long id, Long enterpriseId) {
+        ownedModule(id, enterpriseId);
+        moduleMapper.deleteById(id);
+        evictTracePage();
+    }
+
+    /** 拖拽排序：传入完整 id 顺序，任一不属于本企业则整体拒绝 */
+    @Transactional
+    public void sort(List<Long> ids, Long enterpriseId) {
+        if (ids == null || ids.isEmpty()) return;
+        List<TraceLongModule> owned = new ArrayList<>();
+        for (Long id : ids) {
+            owned.add(ownedModule(id, enterpriseId));
+        }
+        for (int i = 0; i < owned.size(); i++) {
+            TraceLongModule patch = new TraceLongModule();
+            patch.setId(owned.get(i).getId());
+            patch.setSortOrder(i);
+            // 只带 sortOrder：goods_id 不在 SET 子句里，商品级模块不会被拖拽排序降级
+            moduleMapper.updateById(patch);
+        }
+        evictTracePage();
+    }
+
+    private TraceLongModule ownedModule(Long id, Long enterpriseId) {
+        TraceLongModule existing = moduleMapper.selectById(id);
+        if (existing == null) throw new BusinessException("模块不存在");
+        if (!existing.getEnterpriseId().equals(enterpriseId)) throw new BusinessException("无权限操作");
+        return existing;
+    }
+
+    private void validate(TraceLongModule form) {
+        if (form.getName() == null || form.getName().trim().isEmpty()) {
+            throw new BusinessException("模块名称不能为空");
+        }
+        if (form.getName().trim().length() > NAME_MAX) {
+            throw new BusinessException("模块名称不能超过 " + NAME_MAX + " 字");
+        }
+        // parsePages 的签名带模块 id：坏数据的日志要能定位到行；新建路径上 form.getId() 为 null 是可接受的
+        List<String> pages = parsePages(form.getId(), form.getPages());
+        if (pages.isEmpty()) throw new BusinessException("模块至少一张长图");
+        if (pages.size() > MAX_PAGES) throw new BusinessException("单个模块最多拼接 " + MAX_PAGES + " 页");
+        form.setName(form.getName().trim());
     }
 
     /** 解析 pages：坏数据按无内容跳过，日志带模块 id 才能定位是哪行数据坏了 */

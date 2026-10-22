@@ -2,8 +2,10 @@ package com.huace.trace.service;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.huace.trace.common.BusinessException;
 import com.huace.trace.entity.TraceLongModule;
 import com.huace.trace.mapper.TraceLongModuleMapper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 
 import java.util.List;
@@ -153,6 +156,128 @@ class LongModuleServiceTest {
 
         assertEquals(1, result.size());
         assertEquals("有内容", result.get(0).get("name"));
+    }
+
+    @Test
+    void 新建模块落库前补齐归属与排序() {
+        TraceLongModule form = new TraceLongModule();
+        form.setName("有机养土");
+        form.setPages("[\"/uploads/a.png\"]");
+        when(moduleMapper.selectCount(any())).thenReturn(3L);
+
+        service.create(form, 23L);
+
+        assertEquals(23L, form.getEnterpriseId());
+        assertEquals(3, form.getSortOrder());
+        assertEquals(1, form.getStatus());
+        verify(moduleMapper).insert(form);
+    }
+
+    @Test
+    void 空模块被拒绝() {
+        TraceLongModule form = new TraceLongModule();
+        form.setName("空壳");
+        form.setPages("[]");
+
+        BusinessException e = assertThrows(BusinessException.class, () -> service.create(form, 23L));
+        assertTrue(e.getMessage().contains("至少一张"), e.getMessage());
+        verify(moduleMapper, never()).insert(any());
+    }
+
+    @Test
+    void 名称为空被拒绝() {
+        TraceLongModule form = new TraceLongModule();
+        form.setName("  ");
+        form.setPages("[\"/uploads/a.png\"]");
+
+        BusinessException e = assertThrows(BusinessException.class, () -> service.create(form, 23L));
+        assertTrue(e.getMessage().contains("名称"), e.getMessage());
+    }
+
+    @Test
+    void 超过30页被拒绝() {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < 31; i++) sb.append(i == 0 ? "\"/uploads/p.png\"" : ",\"/uploads/p.png\"");
+        sb.append("]");
+        TraceLongModule form = new TraceLongModule();
+        form.setName("超长");
+        form.setPages(sb.toString());
+
+        BusinessException e = assertThrows(BusinessException.class, () -> service.create(form, 23L));
+        assertTrue(e.getMessage().contains("30"), e.getMessage());
+    }
+
+    @Test
+    void 跨企业修改被拒绝() {
+        when(moduleMapper.selectById(11L)).thenReturn(aModule(11L, null, "别人的", "[\"/uploads/a.png\"]", 0, 1));
+        TraceLongModule form = new TraceLongModule();
+        form.setName("改名");
+        form.setPages("[\"/uploads/b.png\"]");
+
+        BusinessException e = assertThrows(BusinessException.class, () -> service.update(11L, form, 99L));
+        assertEquals("无权限操作", e.getMessage());
+        verify(moduleMapper, never()).update(any(), any());
+    }
+
+    @Test
+    void 排序只作用于本企业模块() {
+        when(moduleMapper.selectById(11L)).thenReturn(aModule(11L, null, "A", "[\"/uploads/a.png\"]", 0, 1));
+        when(moduleMapper.selectById(12L)).thenReturn(aModule(12L, 5L, "B", "[\"/uploads/b.png\"]", 1, 1));
+
+        service.sort(List.of(12L, 11L), 23L);
+
+        ArgumentCaptor<TraceLongModule> captor = ArgumentCaptor.forClass(TraceLongModule.class);
+        verify(moduleMapper, times(2)).updateById(captor.capture());
+        List<TraceLongModule> saved = captor.getAllValues();
+        assertEquals(12L, saved.get(0).getId());
+        assertEquals(0, saved.get(0).getSortOrder());
+        assertEquals(11L, saved.get(1).getId());
+        assertEquals(1, saved.get(1).getSortOrder());
+        // 排序补丁只带 sortOrder：goods_id 不在 SET 子句里，商品级模块不会因为拖拽排序被降级
+        assertNull(saved.get(0).getGoodsId());
+        assertNull(saved.get(1).getGoodsId());
+    }
+
+    @Test
+    void 更新时清空适用商品要把NULL写回库() {
+        when(moduleMapper.selectById(11L)).thenReturn(aModule(11L, 5L, "B", "[\"/uploads/b.png\"]", 0, 1));
+        TraceLongModule form = new TraceLongModule();
+        form.setName("改名");
+        form.setPages("[\"/uploads/b.png\"]");
+        form.setGoodsId(null);
+
+        ArgumentCaptor<LambdaUpdateWrapper<TraceLongModule>> captor =
+                ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        service.update(11L, form, 23L);
+
+        verify(moduleMapper).update(isNull(), captor.capture());
+        verify(moduleMapper, never()).updateById(any());
+        // updateById 的 NOT_NULL 策略会跳过 null 字段，改名成功但归属清不掉、接口照样回 200
+        String sqlSet = captor.getValue().getSqlSet();
+        assertTrue(sqlSet.contains("goods_id="), sqlSet);
+    }
+
+    @Test
+    void 排序遇到别企业模块整体拒绝() {
+        when(moduleMapper.selectById(11L)).thenReturn(aModule(11L, null, "A", "[\"/uploads/a.png\"]", 0, 1));
+        TraceLongModule foreign = aModule(12L, null, "B", "[\"/uploads/b.png\"]", 1, 1);
+        foreign.setEnterpriseId(77L);
+        when(moduleMapper.selectById(12L)).thenReturn(foreign);
+
+        BusinessException e = assertThrows(BusinessException.class, () -> service.sort(List.of(11L, 12L), 23L));
+        assertEquals("无权限操作", e.getMessage());
+        verify(moduleMapper, never()).updateById(any());
+    }
+
+    @Test
+    void 模块变更后溯源页缓存被清空() {
+        Cache cache = mock(Cache.class);
+        when(cacheManager.getCache("tracePage")).thenReturn(cache);
+        when(moduleMapper.selectById(11L)).thenReturn(aModule(11L, null, "A", "[\"/uploads/a.png\"]", 0, 1));
+
+        service.delete(11L, 23L);
+
+        verify(cache).clear();
     }
 
     /** 两条查询都必须限定本企业、只取启用模块、按 sort_order 升序 */
