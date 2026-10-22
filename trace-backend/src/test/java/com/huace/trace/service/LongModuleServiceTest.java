@@ -336,6 +336,18 @@ class LongModuleServiceTest {
     }
 
     @Test
+    void 排序列表为空时拒绝而不是静默成功() {
+        // 前端把 JSON 键写错（ids 拼错/漏传）时，controller 转下来的就是 null；
+        // 旧代码静默 return 会让"拖拽排序不再保存"在整条链路上全绿。
+        // 零模块企业发不出拖拽事件，空列表按定义是畸形请求，不是合法 no-op。
+        BusinessException empty = assertThrows(BusinessException.class, () -> service.sort(List.of(), 23L));
+        assertEquals("排序列表不能为空", empty.getMessage());
+        BusinessException missing = assertThrows(BusinessException.class, () -> service.sort(null, 23L));
+        assertEquals("排序列表不能为空", missing.getMessage());
+        verifyNoInteractions(moduleMapper);
+    }
+
+    @Test
     void 模块变更后溯源页缓存被清空() {
         Cache cache = mock(Cache.class);
         when(cacheManager.getCache("tracePage")).thenReturn(cache);

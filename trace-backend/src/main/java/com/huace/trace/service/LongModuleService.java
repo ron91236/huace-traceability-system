@@ -131,10 +131,14 @@ public class LongModuleService {
         evictTracePage();
     }
 
-    /** 拖拽排序：传入完整 id 顺序，任一不属于本企业或有重复则整体拒绝 */
+    /** 拖拽排序：传入完整 id 顺序，空列表、重复或任一不属于本企业则整体拒绝 */
     @Transactional
     public void sort(List<Long> ids, Long enterpriseId) {
-        if (ids == null || ids.isEmpty()) return;
+        // 空 ids 是畸形请求而不是合法 no-op：零模块企业发不出拖拽事件，而前端把 JSON 键写错
+        // （ids 拼错/漏传）时 controller 转下来的就是 null——静默 return 会让"排序不再保存"
+        // 这种事故在整条链路上全绿。校验与下面的重复 id、归属检查同层同级，保持
+        // "全部校验通过才动手写"的形状：一条规则不跨两层，将来管理端若暴露同一排序入口也自带保护。
+        if (ids == null || ids.isEmpty()) throw new BusinessException("排序列表不能为空");
         // 重复 id 会让同一行拿到两个不同 index，sort_order 直接撞车；
         // 与 ownedModule 一样"全部校验通过才动手写"，不做部分生效
         if (ids.stream().distinct().count() != ids.size()) {
