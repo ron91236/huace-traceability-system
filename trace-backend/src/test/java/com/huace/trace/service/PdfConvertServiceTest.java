@@ -11,6 +11,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.security.MessageDigest;
 import java.util.List;
 
@@ -93,11 +94,19 @@ class PdfConvertServiceTest {
         assertTrue(e.getMessage().contains("3 页"), e.getMessage());
         assertTrue(e.getMessage().contains("2 页上限"), e.getMessage());
 
+        // 三次调用要说的是同一句话"共 3 页"，重转也能说出口；
+        // 所以拿第一页的修改时间钉住它确实来自缓存，而不是又被渲染了一遍。
+        Path cacheDir = tmp.resolve("pdf-images").resolve(key);
+        Path firstPage = cacheDir.resolve(key + "_p1.jpg");
+        FileTime before = Files.getLastModifiedTime(firstPage);
+
         assertEquals(List.of(
                 "/uploads/pdf-images/" + key + "/" + key + "_p1.jpg",
                 "/uploads/pdf-images/" + key + "/" + key + "_p2.jpg",
                 "/uploads/pdf-images/" + key + "/" + key + "_p3.jpg"),
                 service.convertPdfToImages(url, 5));
+
+        assertEquals(before, Files.getLastModifiedTime(firstPage));
     }
 
     @Test

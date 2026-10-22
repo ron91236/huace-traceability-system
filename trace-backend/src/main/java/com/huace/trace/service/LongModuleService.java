@@ -190,7 +190,9 @@ public class LongModuleService {
         } catch (IOException e) {
             throw new BusinessException("文件读取失败，请重新上传");
         }
-        if (size > PdfConvertService.MAX_PDF_BYTES) throw new BusinessException("PDF 超过 20MB，请压缩后重新上传");
+        if (size > PdfConvertService.MAX_PDF_BYTES) {
+            throw new BusinessException("PDF 超过 " + PdfConvertService.MAX_PDF_BYTES / 1024 / 1024 + "MB，请压缩后重新上传");
+        }
         List<String> pages = pdfConvertService.convertPdfToImages(url, MAX_PAGES);
         // 加密/损坏的 PDF 到这里是空结果，直接回 200 前端既没东西可展示也没东西可报错
         if (pages.isEmpty()) throw new BusinessException("PDF 无法解析，请确认文件未加密且格式正确");
