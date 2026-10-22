@@ -598,7 +598,7 @@ const reportDetailVisible = ref(false)
 const currentReport = ref<any>(null)
 const currentReportImages = ref<string[]>([])
 const reportImagesLoading = ref(false)
-const reportPageCache = ref<Record<number, string[]>>({})
+const reportPageCache = ref<Record<number, Promise<string[]>>>({})
 const flatReportImages = ref<string[]>([])
 const flatReportStart = ref<Record<number, number>>({})
 
@@ -611,21 +611,27 @@ function reportPagesOf(report: any): string[] {
   return []
 }
 
-async function loadReportPages(report: any): Promise<string[]> {
-  const cached = reportPageCache.value[report.id]
-  if (cached) return cached
-  let pages = reportPagesOf(report)
-  if (!pages.length && report.reportPdf) {
-    try {
-      const res = await convertPdfToImages(report.reportPdf)
-      pages = res.data || []
-    } catch (e) {
-      console.warn('PDF转图片失败，回退iframe模式')
-      pages = []
+// 缓存放 Promise 而不是结果：全批次转图要好几秒，用户这期间关掉再开另一份报告，
+// 按结果缓存会因为上一轮还没落缓存而对同一份 PDF 再发一次请求，
+// 后端磁盘缓存此时也还没有文件可命中，等于让 1.8G 的生产机把 PDFBox 渲染重复做一遍
+function loadReportPages(report: any): Promise<string[]> {
+  const inflight = reportPageCache.value[report.id]
+  if (inflight) return inflight
+  const task = (async () => {
+    let pages = reportPagesOf(report)
+    if (!pages.length && report.reportPdf) {
+      try {
+        const res = await convertPdfToImages(report.reportPdf)
+        pages = res.data || []
+      } catch (e) {
+        console.warn('PDF转图片失败，回退iframe模式')
+        pages = []
+      }
     }
-  }
-  reportPageCache.value = { ...reportPageCache.value, [report.id]: pages }
-  return pages
+    return pages
+  })()
+  reportPageCache.value = { ...reportPageCache.value, [report.id]: task }
+  return task
 }
 
 async function openReportDetail(report: any) {
@@ -638,6 +644,9 @@ async function openReportDetail(report: any) {
     // 生产机 1.8G 内存、单个 PDF 上限 20MB/100 页，这是给没选这个模板的企业凭空加负载
     const list = isLongImageMode.value ? testReports.value : [report]
     const groups = await Promise.all(list.map(loadReportPages))
+    // 转图期间用户可能已经关掉弹窗换了另一份报告，不判过期就会把上一份的页图
+    // 塞进当前这份的弹窗：标题是 B、图是 A，放大后的下标也是按 A 的列表算的
+    if (currentReport.value !== report) return
     const flat: string[] = []
     const start: Record<number, number> = {}
     list.forEach((r: any, i: number) => {
@@ -646,11 +655,18 @@ async function openReportDetail(report: any) {
     })
     flatReportImages.value = flat
     flatReportStart.value = start
-    currentReportImages.value = reportPageCache.value[report.id] || []
+    currentReportImages.value = (await reportPageCache.value[report.id]) || []
   } finally {
-    reportImagesLoading.value = false
+    // 过期那一轮的 finally 不能清 loading，它清掉的是新一轮正在转的圈
+    if (currentReport.value === report) reportImagesLoading.value = false
   }
 }
+
+const TALL_VIEWER_CLASS = 'report-tall-viewer'
+
+// 查看器 teleport 到 body，样式挂不到组件作用域上，只能借 body class 圈定生效范围
+watch(reportDetailVisible, (open) => document.body.classList.toggle(TALL_VIEWER_CLASS, open))
+onUnmounted(() => document.body.classList.remove(TALL_VIEWER_CLASS))
 
 const customFields = computed(() => {
   // 新版格式：customFields 是 object { key: { label, value, type } }
@@ -1876,13 +1892,14 @@ onMounted(async () => {
   top: max(40px, env(safe-area-inset-top, 0px) + 16px) !important;
 }
 
-/* 整页报告多为竖版长图：顶部对齐 + 允许纵向滚动，左右键仍可跨报告翻页 */
-.el-image-viewer__canvas {
+/* 整页报告多为竖版长图：顶部对齐 + 允许纵向滚动，左右键仍可跨报告翻页。
+   必须挂在弹窗打开时才有的 body class 上：查看器 teleport 到 body、这里又是非 scoped 样式，
+   常驻会波及本页产品图/证书图和整个 SPA 其它页面的预览器——横图会被 width:100% 拉到满屏宽 */
+.report-tall-viewer .el-image-viewer__canvas {
   align-items: flex-start !important;
   overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch;
 }
-.el-image-viewer__canvas img {
+.report-tall-viewer .el-image-viewer__canvas img {
   max-width: 100vw;
   width: 100%;
   height: auto !important;
