@@ -57,7 +57,7 @@
             </el-form-item>
           </el-form>
           <div class="lm-detail-footer">
-            <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+            <el-button type="primary" :disabled="!enabled" :loading="saving" @click="handleSave">保存</el-button>
             <el-button @click="handleRevert">还原</el-button>
             <el-popconfirm title="确认删除该模块？" @confirm="handleDelete">
               <template #reference><el-button type="danger" plain>删除模块</el-button></template>
@@ -169,7 +169,12 @@ async function handleSave() {
     else await createLongModule(payload)
     ElMessage.success('保存成功')
     await loadData()
-    select(modules.value.find(m => m.name === payload.name) || modules.value[0])
+    // 能按 id 就按 id 回选：名称不可靠——新建时后端会 trim 后落库，改名时旧名字已不存在，
+    // 两种情况按名字找都会落空并跳到第一个模块，用户以为保存没生效
+    const saved = payload.id
+      ? modules.value.find(m => m.id === payload.id)
+      : modules.value.find(m => m.name === String(payload.name || '').trim())
+    select(saved || modules.value[0])
   } finally { saving.value = false }
 }
 
@@ -201,6 +206,7 @@ function initSortable() {
       pagesSortable = new Sortable(pagesRef.value, {
         animation: 200, handle: '.lm-page',
         onEnd: (evt: any) => {
+          if (evt.oldIndex === undefined || evt.newIndex === undefined) return
           const moved = pageList.value.splice(evt.oldIndex, 1)[0]
           pageList.value.splice(evt.newIndex, 0, moved)
         },
