@@ -26,29 +26,29 @@ public class EnterpriseLongModuleController {
 
     @PostMapping
     public Result<Void> create(@RequestBody TraceLongModule form,
-                              @AuthenticationPrincipal UserPrincipal principal) {
+                               @AuthenticationPrincipal UserPrincipal principal) {
         longModuleService.create(form, principal.getUserId());
         return Result.ok();
     }
 
     @PutMapping("/sort")
     public Result<Void> sort(@RequestBody Map<String, List<Long>> body,
-                            @AuthenticationPrincipal UserPrincipal principal) {
+                             @AuthenticationPrincipal UserPrincipal principal) {
         longModuleService.sort(body.get("ids"), principal.getUserId());
         return Result.ok();
     }
 
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id,
-                              @RequestBody TraceLongModule form,
-                              @AuthenticationPrincipal UserPrincipal principal) {
+                               @RequestBody TraceLongModule form,
+                               @AuthenticationPrincipal UserPrincipal principal) {
         longModuleService.update(id, form, principal.getUserId());
         return Result.ok();
     }
 
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id,
-                              @AuthenticationPrincipal UserPrincipal principal) {
+                               @AuthenticationPrincipal UserPrincipal principal) {
         longModuleService.delete(id, principal.getUserId());
         return Result.ok();
     }
