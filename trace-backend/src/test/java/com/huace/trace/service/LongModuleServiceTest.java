@@ -324,6 +324,14 @@ class LongModuleServiceTest {
     }
 
     @Test
+    void 排序列表有重复模块时整体拒绝() {
+        // 去重校验在任何查库/写入之前就拦住，所以这里不需要 stub selectById
+        BusinessException e = assertThrows(BusinessException.class, () -> service.sort(List.of(11L, 11L), 23L));
+        assertEquals("排序列表不能有重复模块", e.getMessage());
+        verify(moduleMapper, never()).updateById(any());
+    }
+
+    @Test
     void 模块变更后溯源页缓存被清空() {
         Cache cache = mock(Cache.class);
         when(cacheManager.getCache("tracePage")).thenReturn(cache);
