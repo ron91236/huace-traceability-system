@@ -171,6 +171,9 @@ class LongModuleServiceTest {
         TraceLongModule form = new TraceLongModule();
         form.setName("有机养土");
         form.setPages("[\"/uploads/a.png\"]");
+        // 归属必须由登录态覆盖，不是"请求体没填才补"：塞一个别人的企业 id 也要被冲掉，
+        // 否则 create 里 if (form.getEnterpriseId() == null) 式的"别覆盖客户端数据"重构能同时骗过两套测试
+        form.setEnterpriseId(77L);
         when(moduleMapper.selectCount(any())).thenReturn(3L);
 
         service.create(form, 23L);

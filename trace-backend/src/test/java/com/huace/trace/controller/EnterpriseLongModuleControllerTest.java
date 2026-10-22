@@ -81,7 +81,9 @@ class EnterpriseLongModuleControllerTest {
                 .andExpect(jsonPath("$.code").value(200));
 
         // 键名必须是 ids：Jackson 若没按 Map<String, List<Long>> 泛型还原，元素会是 Integer，这里即红；
-        // 若路由被 /{id} 抢走，"sort" 转 Long 在进方法前就失败，sort 不会被调到
+        // 若路由被 /{id} 抢走，"sort" 转 Long 在进方法前就失败，sort 不会被调到。
+        // 注意此时 HTTP 仍是 200（GlobalExceptionHandler 把异常包成 code:500 的正常响应），
+        // 真正变红的是下面这条 $.code 断言与 sort 的 verify——别把它当成 status 的重复检查删掉
         verify(longModuleService).sort(List.of(2L, 1L), ENTERPRISE_ID);
         verify(longModuleService, never()).update(any(), any(), any());
     }
@@ -109,10 +111,11 @@ class EnterpriseLongModuleControllerTest {
                 .andExpect(jsonPath("$.code").value(200));
 
         ArgumentCaptor<TraceLongModule> formCaptor = ArgumentCaptor.forClass(TraceLongModule.class);
-        // 第二参必须是登录态的 23 而不是请求体的 999；
-        // 将来谁把取值从 getUserId() 换成别的来源，这条用例同样会红
+        // 第二参必须是登录态的 23 而不是请求体的 999；将来谁把取值从 getUserId() 换成别的来源，这条用例同样会红。
+        // 刻意不锁 form.getEnterpriseId() 是否还是 999：本仓库两种写法都在用（EnterpriseController 直接在控制器里
+        // 覆盖掉），对齐那种更严格的写法不该让这条用例变红。真正的防线是 LongModuleServiceTest 里
+        // 「请求体企业 id 必须被登录态无条件冲掉」那条。
         verify(longModuleService).create(formCaptor.capture(), eq(ENTERPRISE_ID));
-        // 请求体的 999 只被反序列化进 form，归属由 service.create 用第二参覆盖——控制器不拿它当权威
-        assertEquals(999L, formCaptor.getValue().getEnterpriseId().longValue());
+        assertEquals("模块", formCaptor.getValue().getName());
     }
 }
