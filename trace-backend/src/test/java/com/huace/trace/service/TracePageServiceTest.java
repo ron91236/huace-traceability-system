@@ -1,6 +1,7 @@
 package com.huace.trace.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huace.trace.common.BusinessException;
 import com.huace.trace.entity.*;
@@ -13,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,6 +36,8 @@ import static org.mockito.Mockito.*;
  * 8. 其他商品/企业的批次被拒绝
  * 9. 未开通的企业忽略 batchId，批次列表返回空
  * 10. 未绑定或未回填生产日期时的批次列表行为
+ * 以及长图模板取数开关：
+ * 11. 只有 config_json.renderMode=long-image 的模板才附带 longModules
  */
 @ExtendWith(MockitoExtension.class)
 class TracePageServiceTest {
@@ -55,6 +59,7 @@ class TracePageServiceTest {
     @Mock private OrderCodeMapper orderCodeMapper;
     @Mock private IpRegionService ipRegionService;
     @Mock private HgzService hgzService;
+    @Mock private LongModuleService longModuleService;
 
     @InjectMocks
     private TracePageService service;
@@ -310,5 +315,52 @@ class TracePageServiceTest {
 
         assertTrue(service.listBatchesBySerialNo("00000626").isEmpty());
         verify(batchMapper, never()).selectList(any(LambdaQueryWrapper.class));
+    }
+
+    // ==================== 长图模板 ====================
+
+    @Test
+    void 长图模板输出longModules() throws Exception {
+        CodePackageItem item = buildItem("1234567890");
+        item.setTraceTemplate("long-image");
+        when(codePackageItemMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(item);
+
+        TraceTemplate tpl = new TraceTemplate();
+        tpl.setId(99L);
+        tpl.setTemplateKey("long-image");
+        tpl.setTemplateName("长图溯源");
+        tpl.setConfigJson("{\"renderMode\":\"long-image\"}");
+        when(templateMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(tpl);
+        // objectMapper 是 @Mock，不 stub 则 readValue 返回 null → templateConfig 缺失 → 分支不进
+        when(objectMapper.readValue(anyString(), any(TypeReference.class)))
+                .thenReturn(new HashMap<>(Map.of("renderMode", "long-image")));
+        when(longModuleService.resolveForTrace(1L, 2L)).thenReturn(List.of(
+                Map.of("key", "11", "name", "有机养土", "pages", List.of("/uploads/a.png"))));
+
+        Map<String, Object> result = service.queryBySerialNo("00000626", null, null);
+
+        assertEquals("long-image", result.get("templateKey"));
+        assertNotNull(result.get("longModules"));
+        verify(longModuleService).resolveForTrace(1L, 2L);
+    }
+
+    @Test
+    void 非长图模板不查模块() throws Exception {
+        CodePackageItem item = buildItem("1234567890");
+        item.setTraceTemplate("default");
+        when(codePackageItemMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(item);
+
+        TraceTemplate tpl = new TraceTemplate();
+        tpl.setId(1L);
+        tpl.setTemplateKey("default");
+        tpl.setConfigJson("{\"theme\":{\"key\":\"standard-green\"}}");
+        when(templateMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(tpl);
+        when(objectMapper.readValue(anyString(), any(TypeReference.class)))
+                .thenReturn(new HashMap<>(Map.of("theme", Map.of("key", "standard-green"))));
+
+        Map<String, Object> result = service.queryBySerialNo("00000626", null, null);
+
+        assertNull(result.get("longModules"));
+        verify(longModuleService, never()).resolveForTrace(any(), any());
     }
 }

@@ -39,6 +39,7 @@ public class TracePageService {
     private final OrderCodeMapper orderCodeMapper;
     private final IpRegionService ipRegionService;
     private final HgzService hgzService;
+    private final LongModuleService longModuleService;
 
     /**
      * 清除全部溯源页缓存。
@@ -63,7 +64,7 @@ public class TracePageService {
      * （检测报告、生产日期、基地、合格证随之变化）；未开通的企业忽略 batchId，始终展示码绑定的批次。
      * 缓存 key 含 batchId，不同批次的展示结果互不污染。
      */
-    @Cacheable(value = "tracePage", key = "'serial:' + #serialNo + ':b' + (#batchId == null ? 0 : #batchId) + ':v5'")
+    @Cacheable(value = "tracePage", key = "'serial:' + #serialNo + ':b' + (#batchId == null ? 0 : #batchId) + ':v6'")
     public Map<String, Object> queryBySerialNo(String serialNo, Long batchId, HttpServletRequest request) {
         // 1. 优先从 MongoDB 查询码包明细（亿级数据外部存储）
         CodePackageItem item = mongoCodeItemService.findBoundBySerialNo(serialNo)
@@ -234,6 +235,12 @@ public class TracePageService {
                     Map<String, Object> config = objectMapper.readValue(
                             template.getConfigJson(), new TypeReference<Map<String, Object>>() {});
                     result.put("templateConfig", config);
+
+                    // 7.0 长图模板：附带企业自助配置的整屏长图模块（商品级优先，回落企业默认）
+                    if ("long-image".equals(config.get("renderMode")) && item.getEnterpriseId() != null) {
+                        result.put("longModules", longModuleService.resolveForTrace(
+                                item.getEnterpriseId(), item.getGoodsId()));
+                    }
 
                     // 7.1 查询企业自定义字段数据
                     if (item.getEnterpriseId() != null) {
