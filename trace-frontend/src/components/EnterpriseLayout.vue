@@ -49,6 +49,10 @@
             <el-icon><Stamp /></el-icon>
             <span>合格证管理</span>
           </el-menu-item>
+          <el-menu-item index="/enterprise/long-image">
+            <el-icon><PictureFilled /></el-icon>
+            <span>溯源长图</span>
+          </el-menu-item>
           <el-sub-menu index="order-mgmt">
             <template #title>
               <el-icon><Document /></el-icon>

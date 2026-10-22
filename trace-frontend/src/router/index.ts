@@ -48,6 +48,7 @@ const enterpriseRoutes: RouteRecordRaw[] = [
   { path: 'iot-device', name: 'EntIotDevice', component: () => import('@/views/enterprise/iot-device/IotDeviceList.vue'), meta: { title: 'IoT设备管理' } },
   { path: 'iot-alert', name: 'EntIotAlert', component: () => import('@/views/enterprise/iot-alert/IotAlertList.vue'), meta: { title: 'IoT告警' } },
   { path: 'hgz', name: 'EntHgz', component: () => import('@/views/enterprise/hgz/HgzList.vue'), meta: { title: '合格证管理' } },
+  { path: 'long-image', name: 'EntLongImage', component: () => import('@/views/enterprise/long-image/LongImageModules.vue'), meta: { title: '溯源长图' } },
 ]
 
 // 数字标签系统（独立布局，管理员与企业用户均可进入；管理员全局只读查看）
