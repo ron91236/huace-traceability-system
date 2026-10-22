@@ -664,7 +664,8 @@ async function openReportDetail(report: any) {
 
 const TALL_VIEWER_CLASS = 'report-tall-viewer'
 
-// 查看器 teleport 到 body，样式挂不到组件作用域上，只能借 body class 圈定生效范围
+// 查看器是 el-image 内部渲染的深层 DOM，样式只能写在非 scoped 块里、因而全局生效；
+// body 在查看器的任何渲染位置都是它的祖先，借一个 body class 才能把范围圈回报告弹窗
 watch(reportDetailVisible, (open) => document.body.classList.toggle(TALL_VIEWER_CLASS, open))
 onUnmounted(() => document.body.classList.remove(TALL_VIEWER_CLASS))
 
@@ -1881,7 +1882,7 @@ onMounted(async () => {
 </style>
 
 <style lang="scss">
-/* 图片预览器关闭按钮可见性（el-image-viewer teleport到body，需非scoped样式） */
+/* 图片预览器关闭按钮可见性（查看器是 el-image 内部渲染的深层 DOM，scoped 选择器够不着） */
 .el-image-viewer__wrapper .el-image-viewer__close {
   display: flex !important;
   opacity: 1 !important;
@@ -1893,8 +1894,8 @@ onMounted(async () => {
 }
 
 /* 整页报告多为竖版长图：顶部对齐 + 允许纵向滚动，左右键仍可跨报告翻页。
-   必须挂在弹窗打开时才有的 body class 上：查看器 teleport 到 body、这里又是非 scoped 样式，
-   常驻会波及本页产品图/证书图和整个 SPA 其它页面的预览器——横图会被 width:100% 拉到满屏宽 */
+   必须挂在弹窗打开时才有的 body class 上：本块非 scoped，规则常驻会波及本页产品图/证书图
+   和整个 SPA 其它页面的预览器——横图会被 width:100% 拉到满屏宽 */
 .report-tall-viewer .el-image-viewer__canvas {
   align-items: flex-start !important;
   overflow-y: auto !important;
