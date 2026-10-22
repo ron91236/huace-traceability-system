@@ -2,7 +2,7 @@
   <div class="long-board">
     <div class="long-board-body" ref="bodyRef">
       <template v-if="activeKey === REPORT_KEY">
-        <div v-for="r in reports" :key="r.id" class="lb-card" @click="$emit('open-report', r)">
+        <div v-for="r in reportList" :key="r.id" class="lb-card" @click="$emit('open-report', r)">
           <div class="lb-card-head">
             <span class="lb-card-name">{{ r.reportName }}</span>
             <el-tag v-if="r.testResult" :type="r.testResult === '合格' ? 'success' : 'danger'" size="small">{{ r.testResult }}</el-tag>
@@ -14,7 +14,7 @@
           </div>
           <div class="lb-card-link">查看报告 ›</div>
         </div>
-        <div v-if="!reports.length" class="lb-blank">该批次暂无检测报告</div>
+        <div v-if="!reportList.length" class="lb-blank">该批次暂无检测报告</div>
       </template>
 
       <template v-else-if="activeKey === HGZ_KEY">
@@ -32,7 +32,8 @@
       </template>
 
       <template v-else>
-        <img v-for="(p, i) in activePages" :key="p + i" :src="p" class="lb-page" :loading="i > 1 ? 'lazy' : 'eager'" alt="" />
+        <img v-for="(p, i) in activePages" :key="p + i" :src="p" class="lb-page" :loading="i > 1 ? 'lazy' : 'eager'"
+          :alt="`${activeModuleName} 第${i + 1}页`" />
         <div v-if="!activePages.length" class="lb-blank">该模块暂无内容</div>
       </template>
     </div>
@@ -61,7 +62,11 @@ defineEmits<{ (e: 'open-report', report: any): void }>()
 
 // spec §7 要求消费端二次过滤：后端已经滤过一遍，但脏数据或旧缓存里仍可能躺着 pages 为空的
 // 模块，直接进导航就是一个点进去什么都没有的空胶囊。导航与内容区共用这一个列表，避免两边口径不一致
-const visibleModules = computed(() => (props.modules || []).filter(m => m.pages?.length))
+const visibleModules = computed(() =>
+  (props.modules || []).filter(m => Array.isArray(m.pages) && m.pages.length > 0))
+
+// 与 modules 同一口径：两个 prop 都可能是 null，模板里一处兜底一处不兜底最容易漏
+const reportList = computed(() => props.reports || [])
 
 const navItems = computed(() => {
   const items = visibleModules.value.map(m => ({ key: m.key, name: m.name }))
@@ -77,6 +82,10 @@ watch(navItems, (items) => {
 
 const activePages = computed(() =>
   visibleModules.value.find(m => m.key === activeKey.value)?.pages || [])
+
+// 长图就是这个页面的全部正文，alt 留空等于把整页内容对读屏软件藏起来
+const activeModuleName = computed(() =>
+  visibleModules.value.find(m => m.key === activeKey.value)?.name || '长图')
 
 const bodyRef = ref<HTMLElement>()
 function select(key: string) {
