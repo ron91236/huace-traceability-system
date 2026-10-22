@@ -13,7 +13,7 @@ SET @ddl = IF(@tbl_exists = 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT ''创建时间'',
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT ''更新时间'',
         INDEX idx_ent_goods (enterprise_id, goods_id, status, sort_order)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT=''长图溯源模块：企业自助配置的整屏长图内容''',
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT=''长图溯源模块：企业自助配置的整屏长图内容''',
     'SELECT ''trace_long_module 已存在，跳过''');
 PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
