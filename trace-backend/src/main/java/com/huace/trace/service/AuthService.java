@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 public class AuthService {
 
     private static final int LOGIN_MAX_FAILS = 5;
-    private static final Duration LOGIN_LOCK_WINDOW = Duration.ofMinutes(15);
+    private static final Duration LOGIN_LOCK_WINDOW = Duration.ofMinutes(1);
 
     private final SysUserMapper sysUserMapper;
     private final EnterpriseMapper enterpriseMapper;
@@ -39,7 +39,7 @@ public class AuthService {
         try {
             String fails = redisTemplate.opsForValue().get(failKey);
             if (fails != null && Integer.parseInt(fails) >= LOGIN_MAX_FAILS) {
-                throw new BusinessException("登录失败次数过多，请15分钟后再试");
+                throw new BusinessException("登录失败次数过多，请" + LOGIN_LOCK_WINDOW.toMinutes() + "分钟后再试");
             }
         } catch (BusinessException e) {
             throw e;
