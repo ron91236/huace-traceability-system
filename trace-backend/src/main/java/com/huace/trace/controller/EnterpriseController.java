@@ -46,6 +46,7 @@ public class EnterpriseController {
     private final com.huace.trace.mapper.IotAlertRecordMapper alertRecordMapper;
     private final EnterpriseMapper enterpriseMapper;
     private final TraceTemplateMapper traceTemplateMapper;
+    private final TemplateGrantGuard templateGrantGuard;
     private final LabelSpecMapper labelSpecMapper;
     private final EnterpriseCertMapper enterpriseCertMapper;
     private final CertProductMapper certProductMapper;
@@ -626,20 +627,26 @@ public class EnterpriseController {
         Enterprise enterprise = enterpriseMapper.selectById(principal.getUserId());
         if (enterprise == null || enterprise.getAssignedTemplateIds() == null || enterprise.getAssignedTemplateIds().isBlank()) {
             // 未分配模板时返回所有启用的模板
-            return Result.ok(traceTemplateMapper.selectList(
+            return Result.ok(fillRenderMode(traceTemplateMapper.selectList(
                     new LambdaQueryWrapper<TraceTemplate>()
                             .eq(TraceTemplate::getStatus, 1)
-                            .orderByAsc(TraceTemplate::getId)));
+                            .orderByAsc(TraceTemplate::getId))));
         }
         List<Long> ids = List.of(enterprise.getAssignedTemplateIds().split(","))
                 .stream().map(String::trim).filter(s -> !s.isEmpty()).map(Long::parseLong).toList();
         if (ids.isEmpty()) {
             return Result.ok(List.of());
         }
-        return Result.ok(traceTemplateMapper.selectList(
+        return Result.ok(fillRenderMode(traceTemplateMapper.selectList(
                 new LambdaQueryWrapper<TraceTemplate>()
                         .in(TraceTemplate::getId, ids)
                         .eq(TraceTemplate::getStatus, 1)
-                        .orderByAsc(TraceTemplate::getId)));
+                        .orderByAsc(TraceTemplate::getId))));
+    }
+
+    /** 前端按渲染模式决定菜单显隐，不让它自己解析 config_json */
+    private List<TraceTemplate> fillRenderMode(List<TraceTemplate> templates) {
+        templates.forEach(t -> t.setRenderMode(templateGrantGuard.renderModeOf(t)));
+        return templates;
     }
 }
