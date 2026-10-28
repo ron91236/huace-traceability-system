@@ -49,7 +49,7 @@
             <el-icon><Stamp /></el-icon>
             <span>合格证管理</span>
           </el-menu-item>
-          <el-menu-item index="/enterprise/long-image">
+          <el-menu-item v-if="hasLongImage" index="/enterprise/long-image">
             <el-icon><PictureFilled /></el-icon>
             <span>溯源长图</span>
           </el-menu-item>
@@ -133,7 +133,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { getGroupChildren } from '@/api/enterprise'
+import { getGroupChildren, getAssignedTemplates } from '@/api/enterprise'
 import logoIcon from '@/assets/logo-icon.png'
 import logoFull from '@/assets/logo-full.png'
 
@@ -143,6 +143,7 @@ const userStore = useUserStore()
 const collapsed = ref(false)
 const children = ref<{ id: number; name: string }[]>([])
 const selectedChildId = ref<number | null>(null)
+const hasLongImage = ref(false)
 
 const activeMenu = computed(() => route.path)
 const pageTitle = computed(() => (route.meta.title as string) || '控制台')
@@ -154,6 +155,13 @@ onMounted(async () => {
       const res = await getGroupChildren()
       children.value = res.data || []
     } catch (e) {}
+  }
+  try {
+    const res = await getAssignedTemplates()
+    hasLongImage.value = (res.data || []).some((t: any) => t.renderMode === 'long-image')
+  } catch (e) {
+    // fail-closed：接口异常按未开通处理，与后端守卫同口径
+    hasLongImage.value = false
   }
 })
 
