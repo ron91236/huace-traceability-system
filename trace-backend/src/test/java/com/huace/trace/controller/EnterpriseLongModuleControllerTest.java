@@ -1,9 +1,11 @@
 package com.huace.trace.controller;
 
+import com.huace.trace.common.BusinessException;
 import com.huace.trace.common.GlobalExceptionHandler;
 import com.huace.trace.entity.TraceLongModule;
 import com.huace.trace.security.UserPrincipal;
 import com.huace.trace.service.LongModuleService;
+import com.huace.trace.service.TemplateGrantGuard;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,13 +51,18 @@ class EnterpriseLongModuleControllerTest {
     private static final long ENTERPRISE_ID = 23L;
 
     @Mock private LongModuleService longModuleService;
+    /**
+     * 默认空实现的 mock：void 方法不打桩时什么都不做，所以既有的断言路由与转发的用例
+     * 不需要改动就能穿过守卫。本阶段只测"守卫被接上且能拦住"，不重复测守卫内部逻辑。
+     */
+    @Mock private TemplateGrantGuard templateGrantGuard;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new EnterpriseLongModuleController(longModuleService))
+                .standaloneSetup(new EnterpriseLongModuleController(longModuleService, templateGrantGuard))
                 // 与生产同款异常出口：兜底挂上后 BusinessException 出去的是 Result JSON
                 .setControllerAdvice(new GlobalExceptionHandler())
                 // standalone 模式不加载安全配置，@AuthenticationPrincipal 的解析器要手工挂
@@ -117,5 +124,23 @@ class EnterpriseLongModuleControllerTest {
         // 「请求体企业 id 必须被登录态无条件冲掉」那条。
         verify(longModuleService).create(formCaptor.capture(), eq(ENTERPRISE_ID));
         assertEquals("模块", formCaptor.getValue().getName());
+    }
+
+    @Test
+    void 未开通长图的企业调用任何长图端点都被守卫拦下() throws Exception {
+        doThrow(new BusinessException("该模板未对您开放"))
+                .when(templateGrantGuard)
+                .assertRenderModeAvailable(ENTERPRISE_ID, TemplateGrantGuard.LONG_IMAGE);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/enterprise/long-modules"))
+                .andExpect(status().isOk())
+                // BusinessException 经 GlobalExceptionHandler 出去仍是 HTTP 200，
+                // 所以断言必须打在 $.code 上，status() 在这里永远绿
+                .andExpect(jsonPath("$.code").value(500))
+                .andExpect(jsonPath("$.msg").value("该模板未对您开放"));
+
+        // 守卫必须在服务层之前：走到 service 就等于放行成功
+        verifyNoInteractions(longModuleService);
     }
 }
