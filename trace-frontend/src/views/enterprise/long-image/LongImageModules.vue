@@ -96,10 +96,13 @@ let pagesSortable: Sortable | null = null
 onMounted(async () => {
   try { const g = await getGoods({ page: 1, size: 200 }); goodsList.value = g.data?.list || [] } catch (e) {}
   try {
-    // 权限即“平台是否给本企业开通该模板”：走既有的登录态接口，未配置分配列表的企业返回全部启用模板
+    // 按渲染模式判定而非 templateKey：P2 起长图模板的 key 是 tpl_<时间戳>，判 key 会静默失效
     const t = await getAssignedTemplates()
-    enabled.value = (t.data || []).some((x: any) => x.templateKey === 'long-image')
-  } catch (e) { enabled.value = true }
+    enabled.value = (t.data || []).some((x: any) => x.renderMode === 'long-image')
+  } catch (e) {
+    // fail-closed：原先 catch 里置 true，接口一抖就把未开通企业放开
+    enabled.value = false
+  }
   await loadData()
   initSortable()
 })
