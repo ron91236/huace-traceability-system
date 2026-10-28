@@ -51,7 +51,9 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getOrderCodes, updateOrderCode, previewOrderCode } from '@/api/enterprise'
 import { getTraceTemplateOptions } from '@/api/common'
+import { useUserStore } from '@/stores/user'
 
+const userStore = useUserStore()
 const loading = ref(false)
 const list = ref<any[]>([])
 const total = ref(0)
@@ -66,7 +68,8 @@ const editId = ref(0)
 const templates = ref<any[]>([])
 const form = reactive({ traceTemplate: '', quantity: 1 })
 
-onMounted(async () => { const res = await getTraceTemplateOptions(); templates.value = res.data || []; loadData() })
+// 必须带 enterpriseId：不带则后端按"未指定企业"返回全部启用模板，企业能自绑未开放的模板
+onMounted(async () => { const res = await getTraceTemplateOptions(userStore.userInfo?.enterpriseId); templates.value = res.data || []; loadData() })
 async function loadData() { loading.value = true; try { const res = await getOrderCodes({ page: page.value, size: size.value }); list.value = res.data?.list || []; total.value = res.data?.total || 0 } finally { loading.value = false } }
 function openEdit(row: any) { editId.value = row.id; form.traceTemplate = row.traceTemplate || ''; form.quantity = row.quantity || 1; editVisible.value = true }
 async function handleSave() { await updateOrderCode(editId.value, form); ElMessage.success('保存成功'); editVisible.value = false; loadData() }
