@@ -198,4 +198,55 @@ class TemplateGrantGuardTest {
         assertEquals(2, out.size());
         assertEquals("long-image", out.get(1).getRenderMode());
     }
+
+    @Test
+    void requireGranted放行时把模板行交回调用方() {
+        when(enterpriseMapper.selectById(23L)).thenReturn(enterprise("14,20"));
+        when(traceTemplateMapper.selectList(any())).thenReturn(List.of(
+                template(14L, "{\"renderMode\":\"visual\"}"),
+                template(20L, "{\"renderMode\":\"long-image\"}")));
+
+        TraceTemplate granted = guard.requireGranted(20L, 23L, TemplateGrantGuard.LONG_IMAGE);
+
+        // 企业端要用这行的 config_json 读模块骨架，所以交回的必须是完整模板行，
+        // 而不是一个只填了 id 的壳；renderMode 已由 grantedTemplates 填好，省一次解析
+        assertEquals(20L, granted.getId());
+        assertNotNull(granted.getConfigJson());
+        assertEquals("long-image", granted.getRenderMode());
+    }
+
+    @Test
+    void 未被分配的模板id即使企业有其他长图模板也被拒() {
+        // 这条是 P2 的真正安全边界：企业可以随手拿一个别人的 templateId 来 PUT。
+        // "空=全部可用"的老语义在这里不适用（spec 决定 11），只有显式包含才算开通。
+        when(enterpriseMapper.selectById(23L)).thenReturn(enterprise("14,21"));
+        when(traceTemplateMapper.selectList(any())).thenReturn(List.of(
+                template(14L, "{\"renderMode\":\"visual\"}"),
+                template(21L, "{\"renderMode\":\"long-image\"}")));
+
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> guard.requireGranted(20L, 23L, TemplateGrantGuard.LONG_IMAGE));
+        assertTrue(e.getMessage().contains("未对您开放"), e.getMessage());
+    }
+
+    @Test
+    void 模板id为空时直接拒绝且不查库() {
+        // 企业端 GET 的 templateId 用 @RequestParam(required=false) 收，缺失就是 null；
+        // 在这里挡掉，比让它一路走到 selectList 再落空更省，也比抛 400 更好解释。
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> guard.requireGranted(null, 23L, TemplateGrantGuard.LONG_IMAGE));
+        assertTrue(e.getMessage().contains("未对您开放"), e.getMessage());
+        verifyNoInteractions(enterpriseMapper);
+        verifyNoInteractions(traceTemplateMapper);
+    }
+
+    @Test
+    void requireGranted对模式不匹配的模板即使已分配也拒绝() {
+        when(enterpriseMapper.selectById(23L)).thenReturn(enterprise("20"));
+        when(traceTemplateMapper.selectList(any())).thenReturn(
+                List.of(template(20L, "{\"renderMode\":\"visual\"}")));
+
+        assertThrows(BusinessException.class,
+                () -> guard.requireGranted(20L, 23L, TemplateGrantGuard.LONG_IMAGE));
+    }
 }

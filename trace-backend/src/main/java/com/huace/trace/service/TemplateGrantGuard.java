@@ -45,6 +45,21 @@ public class TemplateGrantGuard {
         }
     }
 
+    /**
+     * 校验企业被显式开放了该模板的该渲染模式，放行则把模板行交回调用方。
+     *
+     * <p>四个条件全过才放行：企业存在、assigned_template_ids 显式含该 id、模板启用、
+     * config_json.renderMode 匹配。后三条里除了"按 id 挑一行"都由 grantedTemplates 兜住。
+     * 交回模板行是因为企业端接着还要用它的 config_json 读模块骨架，省一次回查。
+     */
+    public TraceTemplate requireGranted(Long templateId, Long enterpriseId, String renderMode) {
+        if (templateId == null) throw new BusinessException(DENIED);
+        return grantedTemplates(enterpriseId, renderMode).stream()
+                .filter(t -> templateId.equals(t.getId()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(DENIED));
+    }
+
     /** 该企业被显式开放的、指定渲染模式的启用模板，按 id 升序 */
     public List<TraceTemplate> grantedTemplates(Long enterpriseId, String renderMode) {
         if (enterpriseId == null) return List.of();
