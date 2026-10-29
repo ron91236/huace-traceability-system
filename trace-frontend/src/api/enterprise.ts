@@ -117,3 +117,17 @@ export const getLongModules = (templateId: number) => request.get('/enterprise/l
 export const saveLongModulePages = (templateId: number, key: string, pages: string[]) =>
   request.put(`/enterprise/long-modules/${templateId}/${key}`, { pages })
 export const convertModulePdf = (url: string) => request.post('/enterprise/long-modules/convert', { url })
+
+// 落地页内容：区块骨架归模板（管理端写），企业只按 blockKey 填内容
+export const getLandingContent = (templateId: number) => request.get('/enterprise/landing-content', { params: { templateId } })
+/** 内容写入：路径 (templateId, blockKey) 就是行坐标，请求体只有 content */
+export const saveLandingBlock = (templateId: number, blockKey: string, content: string) =>
+  request.put(`/enterprise/landing-content/${templateId}/${blockKey}`, { content })
+
+// 侧边栏外链：与模板无关的企业资产，未开通落地页也能先存好
+export const getSideLinks = () => request.get('/enterprise/side-links')
+export const createSideLink = (data: any) => request.post('/enterprise/side-links', data)
+export const updateSideLink = (id: number, data: any) => request.put(`/enterprise/side-links/${id}`, data)
+export const deleteSideLink = (id: number) => request.delete(`/enterprise/side-links/${id}`)
+/** 拖拽排序：必须传入本企业全部链接 id 的完整有序列表；漏传会残留旧 sort_order */
+export const sortSideLinks = (ids: number[]) => request.put('/enterprise/side-links/sort', { ids })

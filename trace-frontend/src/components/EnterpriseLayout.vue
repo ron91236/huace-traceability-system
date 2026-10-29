@@ -53,6 +53,15 @@
             <el-icon><PictureFilled /></el-icon>
             <span>溯源长图</span>
           </el-menu-item>
+          <el-menu-item v-if="hasLanding" index="/enterprise/landing">
+            <el-icon><Reading /></el-icon>
+            <span>静态落地页</span>
+          </el-menu-item>
+          <!-- 外链是与模板无关的企业资产：没开通落地页也该先把公众号/微博链接存好 -->
+          <el-menu-item index="/enterprise/side-links">
+            <el-icon><Link /></el-icon>
+            <span>侧边栏链接</span>
+          </el-menu-item>
           <el-sub-menu index="order-mgmt">
             <template #title>
               <el-icon><Document /></el-icon>
@@ -144,6 +153,7 @@ const collapsed = ref(false)
 const children = ref<{ id: number; name: string }[]>([])
 const selectedChildId = ref<number | null>(null)
 const hasLongImage = ref(false)
+const hasLanding = ref(false)
 
 const activeMenu = computed(() => route.path)
 const pageTitle = computed(() => (route.meta.title as string) || '控制台')
@@ -158,10 +168,13 @@ onMounted(async () => {
   }
   try {
     const res = await getAssignedTemplates()
-    hasLongImage.value = (res.data || []).some((t: any) => t.renderMode === 'long-image')
+    const list = res.data || []
+    hasLongImage.value = list.some((t: any) => t.renderMode === 'long-image')
+    hasLanding.value = list.some((t: any) => t.renderMode === 'landing')
   } catch (e) {
     // fail-closed：接口异常按未开通处理，与后端守卫同口径
     hasLongImage.value = false
+    hasLanding.value = false
   }
 })
 
