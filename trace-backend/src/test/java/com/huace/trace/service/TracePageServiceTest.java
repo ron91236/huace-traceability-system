@@ -37,7 +37,7 @@ import static org.mockito.Mockito.*;
  * 9. 未开通的企业忽略 batchId，批次列表返回空
  * 10. 未绑定或未回填生产日期时的批次列表行为
  * 以及长图模板取数开关：
- * 11. 只有 config_json.renderMode=long-image 的模板才附带 longModules
+ * 11. 只有 config_json.renderMode=long-image 的模板才附带 longModules，且取数入参是模板行 + 企业 id
  */
 @ExtendWith(MockitoExtension.class)
 class TracePageServiceTest {
@@ -335,8 +335,8 @@ class TracePageServiceTest {
         when(objectMapper.readValue(anyString(), any(TypeReference.class)))
                 .thenReturn(new HashMap<>(Map.of("renderMode", "long-image")));
         List<Map<String, Object>> modules = List.of(
-                Map.of("key", "11", "name", "有机养土", "pages", List.of("/uploads/a.png")));
-        when(longModuleService.resolveForTrace(1L, 2L)).thenReturn(modules);
+                Map.of("key", "m1730000000000", "name", "有机养土", "pages", List.of("/uploads/a.png")));
+        when(longModuleService.resolveForTrace(tpl, 1L)).thenReturn(modules);
 
         Map<String, Object> result = service.queryBySerialNo("00000626", null, null);
 
@@ -344,7 +344,9 @@ class TracePageServiceTest {
         // 断相等而不是断非空：要证明下发的确实是 resolveForTrace 的返回，
         // 存一个空列表也"非空"的写法会照样通过，前端拿到的却是空白长图
         assertEquals(modules, result.get("longModules"));
-        verify(longModuleService).resolveForTrace(1L, 2L);
+        // 断的是"把模板行本身交下去"，不是"id 对得上"：骨架现在读自 config_json，
+        // 换成传 id 让服务自己去查的写法会让这条断言形同虚设
+        verify(longModuleService).resolveForTrace(tpl, 1L);
     }
 
     @Test

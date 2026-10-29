@@ -64,7 +64,9 @@ public class TracePageService {
      * （检测报告、生产日期、基地、合格证随之变化）；未开通的企业忽略 batchId，始终展示码绑定的批次。
      * 缓存 key 含 batchId，不同批次的展示结果互不污染。
      */
-    @Cacheable(value = "tracePage", key = "'serial:' + #serialNo + ':b' + (#batchId == null ? 0 : #batchId) + ':v6'")
+    // v7：长图取数从"企业 + 商品"换成"模板 + 企业"，缓存的形状与含义都变了，
+    // 版本号必须跟着走，否则灰度期间旧缓存会继续按商品维度供数据。
+    @Cacheable(value = "tracePage", key = "'serial:' + #serialNo + ':b' + (#batchId == null ? 0 : #batchId) + ':v7'")
     public Map<String, Object> queryBySerialNo(String serialNo, Long batchId, HttpServletRequest request) {
         // 1. 优先从 MongoDB 查询码包明细（亿级数据外部存储）
         CodePackageItem item = mongoCodeItemService.findBoundBySerialNo(serialNo)
@@ -236,10 +238,10 @@ public class TracePageService {
                             template.getConfigJson(), new TypeReference<Map<String, Object>>() {});
                     result.put("templateConfig", config);
 
-                    // 7.0 长图模板：附带企业自助配置的整屏长图模块（商品级优先，回落企业默认）
+                    // 7.0 长图模板：模块骨架来自这个模板的 config_json，页图来自企业，
+                    // 模板行直接传下去省一次回查（P2 起不再有商品级回落）
                     if ("long-image".equals(config.get("renderMode")) && item.getEnterpriseId() != null) {
-                        result.put("longModules", longModuleService.resolveForTrace(
-                                item.getEnterpriseId(), item.getGoodsId()));
+                        result.put("longModules", longModuleService.resolveForTrace(template, item.getEnterpriseId()));
                     }
 
                     // 7.1 查询企业自定义字段数据
