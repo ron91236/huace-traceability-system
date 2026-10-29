@@ -28,6 +28,8 @@ public class TraceTemplateService {
     private final CodePackageItemMapper codePackageItemMapper;
     private final ObjectMapper objectMapper;
     private final TracePageService tracePageService;
+    /** 放在最后：@RequiredArgsConstructor 的字段顺序就是构造参数顺序，测试手工构造时追加即可 */
+    private final TemplateConfigReader configReader;
 
     public PageResult<TraceTemplate> list(int page, int size, String keyword) {
         LambdaQueryWrapper<TraceTemplate> w = new LambdaQueryWrapper<>();
@@ -40,6 +42,7 @@ public class TraceTemplateService {
     }
 
     public void create(TraceTemplate t) {
+        configReader.validate(t.getConfigJson());
         t.setTemplateKey("tpl_" + System.currentTimeMillis());
         if (t.getStatus() == null) t.setStatus(1);
         templateMapper.insert(t);
@@ -49,6 +52,8 @@ public class TraceTemplateService {
     public void update(Long id, TraceTemplate t) {
         TraceTemplate existing = templateMapper.selectById(id);
         if (existing == null) throw new BusinessException("模板不存在");
+        // 列表页状态开关只 PUT {status}，configJson 为 null 表示这次不动骨架，不能拿 null 去校验
+        if (t.getConfigJson() != null) configReader.validate(t.getConfigJson());
         t.setId(id);
         t.setTemplateKey(existing.getTemplateKey()); // 不允许修改 key
         templateMapper.updateById(t);
