@@ -25,6 +25,7 @@
         <el-table-column label="渲染方式" width="100" align="center">
           <template #default="{ row }">
             <el-tag v-if="renderModeOf(row) === 'long-image'" type="warning" size="small">长图</el-tag>
+            <el-tag v-else-if="renderModeOf(row) === 'landing'" type="success" size="small">落地页</el-tag>
             <el-tag v-else size="small" type="info">可视化</el-tag>
           </template>
         </el-table-column>
@@ -62,8 +63,9 @@
 
     <TemplateEditor v-model="showEditor" :template-data="editingTemplate" @saved="onSaved" />
     <LongModuleDesigner v-model="showDesigner" :template-data="editingTemplate" @saved="onSaved" />
+    <LandingBlockDesigner v-model="showBlockDesigner" :template-data="editingTemplate" @saved="onSaved" />
 
-    <el-dialog v-model="showTypeChooser" title="选择模板类型" width="560px" :close-on-click-modal="false">
+    <el-dialog v-model="showTypeChooser" title="选择模板类型" width="640px" :close-on-click-modal="false">
       <div class="type-grid">
         <div class="type-card" @click="startCreate('visual')">
           <div class="type-name">可视化模板</div>
@@ -72,6 +74,10 @@
         <div class="type-card" @click="startCreate('long-image')">
           <div class="type-name">长图模板</div>
           <div class="type-desc">只定模块名称与顺序，整页图由企业上传</div>
+        </div>
+        <div class="type-card" @click="startCreate('landing')">
+          <div class="type-name">落地页模板</div>
+          <div class="type-desc">扫码先进静态页，右侧按钮栏跳详情或企业外链</div>
         </div>
       </div>
     </el-dialog>
@@ -84,6 +90,7 @@ import { ElMessage } from 'element-plus'
 import { getTraceTemplates, updateTraceTemplate, deleteTraceTemplate } from '@/api/admin'
 import TemplateEditor from './TemplateEditor.vue'
 import LongModuleDesigner from './LongModuleDesigner.vue'
+import LandingBlockDesigner from './LandingBlockDesigner.vue'
 
 const loading = ref(false)
 const keyword = ref('')
@@ -94,6 +101,7 @@ const templates = ref<any[]>([])
 
 const showEditor = ref(false)
 const showDesigner = ref(false)
+const showBlockDesigner = ref(false)
 const showTypeChooser = ref(false)
 const editingTemplate = ref<any>(null)
 
@@ -138,17 +146,22 @@ function handleCreate() {
   showTypeChooser.value = true
 }
 
+/** 三种模板类型共用同一个"基本信息"入口，编辑器各自独立，避免继续把 1389 行的 TemplateEditor 撑大 */
+function modeToDialog(mode: string) {
+  if (mode === 'long-image') showDesigner.value = true
+  else if (mode === 'landing') showBlockDesigner.value = true
+  else showEditor.value = true
+}
+
 function startCreate(mode: string) {
   showTypeChooser.value = false
   editingTemplate.value = null
-  if (mode === 'long-image') showDesigner.value = true
-  else showEditor.value = true
+  modeToDialog(mode)
 }
 
 function handleEdit(row: any) {
   editingTemplate.value = { ...row }
-  if (renderModeOf(row) === 'long-image') showDesigner.value = true
-  else showEditor.value = true
+  modeToDialog(renderModeOf(row))
 }
 
 async function handleDelete(id: number) {
@@ -175,6 +188,7 @@ async function handleToggleStatus(row: any) {
 function onSaved() {
   showEditor.value = false
   showDesigner.value = false
+  showBlockDesigner.value = false
   loadData()
 }
 
