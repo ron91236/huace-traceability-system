@@ -117,6 +117,11 @@ public class SideLinkService {
         if (url.isEmpty() && image.isEmpty()) {
             throw new BusinessException("跳转链接与跳转图片至少填一项");
         }
+        // 只认 http/https：这个值最终会成为消费者点击时 window.location.href 的目标，
+        // 存进 javascript: 或 data: 就等于把 XSS 写进了库里（图片走本系统上传，不在这条线上）
+        if (!url.isEmpty() && !(url.startsWith("http://") || url.startsWith("https://"))) {
+            throw new BusinessException("跳转链接必须以 http:// 或 https:// 开头");
+        }
         // 空串统一落成 NULL：库里留空串会让"有没有跳转目标"变成两种判法
         form.setUrl(url.isEmpty() ? null : url);
         form.setImage(image.isEmpty() ? null : image);

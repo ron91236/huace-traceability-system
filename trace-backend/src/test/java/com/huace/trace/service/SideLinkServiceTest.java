@@ -101,6 +101,28 @@ class SideLinkServiceTest {
     }
 
     @Test
+    void 非http协议的跳转链接被拒() {
+        // 这个值最终是消费者点击时 window.location.href 的目标，
+        // 存 javascript: 或 data: 等于把 XSS 写进库里，必须在写入这条边界上挡掉
+        BusinessException js = assertThrows(BusinessException.class, () -> {
+            EnterpriseSideLink f = new EnterpriseSideLink();
+            f.setName("恶意");
+            f.setUrl("javascript:alert(1)");
+            service.create(f, ENTERPRISE_ID);
+        });
+        assertTrue(js.getMessage().contains("http"), js.getMessage());
+
+        BusinessException scheme = assertThrows(BusinessException.class, () -> {
+            EnterpriseSideLink f = new EnterpriseSideLink();
+            f.setName("恶意");
+            f.setUrl("data:text/html,<script>1</script>");
+            service.create(f, ENTERPRISE_ID);
+        });
+        assertTrue(scheme.getMessage().contains("http"), scheme.getMessage());
+        verify(linkMapper, never()).insert(any());
+    }
+
+    @Test
     void 名称为空或超长被拒() {
         BusinessException blank = assertThrows(BusinessException.class, () -> {
             EnterpriseSideLink f = new EnterpriseSideLink();
