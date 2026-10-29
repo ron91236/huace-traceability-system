@@ -23,7 +23,7 @@ import static org.mockito.Mockito.*;
  * 1. 长图/落地页要求 assigned_template_ids 显式包含，NULL 或空串一律未开通
  *    ——这与 CommonController 的"空=全部可用"故意相反，不能被"顺手统一"掉
  * 2. 只认启用状态且 renderMode 精确匹配的模板
- * 3. config_json 解析失败按不匹配处理，不抛异常打断请求
+ * 3. config_json 解析失败按不匹配处理，不抛异常打断请求（解析已收进 TemplateConfigReader）
  * 4. "未分配=全部可用"的兜底列表要剔除长图/落地页，而已显式分配的企业不受影响
  */
 @ExtendWith(MockitoExtension.class)
@@ -39,8 +39,10 @@ class TemplateGrantGuardTest {
         // 必须在 @BeforeEach 里构造：字段初始化器跑在 @Mock 注入之前，
         // 写成 `= new TemplateGrantGuard(enterpriseMapper, ...)` 会拿到 null mapper，
         // 表现是抛 NullPointerException 而不是 BusinessException。
-        // ObjectMapper 用真实实例——mock 的 readValue 恒返回 null，会让"不匹配"用例假通过。
-        guard = new TemplateGrantGuard(enterpriseMapper, traceTemplateMapper, new ObjectMapper());
+        // ObjectMapper 必须是真的，而且要交给真的 TemplateConfigReader：
+        // mock 的 readValue 恒返回 null，会让"解析失败按不匹配处理"这类用例假通过。
+        guard = new TemplateGrantGuard(enterpriseMapper, traceTemplateMapper,
+                new TemplateConfigReader(new ObjectMapper()));
     }
 
     private Enterprise enterprise(String assigned) {

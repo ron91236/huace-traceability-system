@@ -1,20 +1,16 @@
 package com.huace.trace.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huace.trace.common.BusinessException;
 import com.huace.trace.entity.Enterprise;
 import com.huace.trace.entity.TraceTemplate;
 import com.huace.trace.mapper.EnterpriseMapper;
 import com.huace.trace.mapper.TraceTemplateMapper;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -27,7 +23,6 @@ import java.util.Set;
  */
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class TemplateGrantGuard {
 
     public static final String LONG_IMAGE = "long-image";
@@ -40,7 +35,8 @@ public class TemplateGrantGuard {
 
     private final EnterpriseMapper enterpriseMapper;
     private final TraceTemplateMapper traceTemplateMapper;
-    private final ObjectMapper objectMapper;
+    /** 放在最后：@RequiredArgsConstructor 的字段顺序就是构造参数顺序 */
+    private final TemplateConfigReader configReader;
 
     /** 未显式开放该渲染模式的模板时抛业务异常 */
     public void assertRenderModeAvailable(Long enterpriseId, String renderMode) {
@@ -87,18 +83,8 @@ public class TemplateGrantGuard {
                 .toList();
     }
 
-    /** 从 config_json 取 renderMode；缺失或解析失败返回 null，由调用方按"不匹配"处理 */
+    /** 从 config_json 取 renderMode；解析细节归 TemplateConfigReader，这里保持方法签名不变 */
     public String renderModeOf(TraceTemplate t) {
-        if (t.getConfigJson() == null || t.getConfigJson().isBlank()) return null;
-        try {
-            Map<String, Object> cfg = objectMapper.readValue(
-                    t.getConfigJson(), new TypeReference<Map<String, Object>>() {});
-            Object v = cfg.get("renderMode");
-            return v == null ? null : String.valueOf(v);
-        } catch (Exception ex) {
-            log.warn("模板 config_json 解析失败，按渲染模式不匹配处理: templateId={}, err={}",
-                    t.getId(), ex.getMessage());
-            return null;
-        }
+        return configReader.renderModeOf(t.getConfigJson());
     }
 }
