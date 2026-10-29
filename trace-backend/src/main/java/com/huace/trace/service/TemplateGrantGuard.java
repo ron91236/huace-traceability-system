@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 模板显式授权守卫。
@@ -31,6 +32,9 @@ public class TemplateGrantGuard {
 
     public static final String LONG_IMAGE = "long-image";
     public static final String LANDING = "landing";
+
+    /** 必须被显式分配才算开放的渲染模式 */
+    public static final Set<String> GRANT_REQUIRED = Set.of(LONG_IMAGE, LANDING);
 
     private static final String DENIED = "该模板未对您开放";
 
@@ -61,10 +65,26 @@ public class TemplateGrantGuard {
                         .in(TraceTemplate::getId, ids)
                         .eq(TraceTemplate::getStatus, 1)
                         .orderByAsc(TraceTemplate::getId));
-        for (TraceTemplate t : templates) {
-            t.setRenderMode(renderModeOf(t));
-        }
+        fillRenderMode(templates);
         return templates.stream().filter(t -> renderMode.equals(t.getRenderMode())).toList();
+    }
+
+    /** 填充派生的 renderMode，供前端按渲染模式决定菜单显隐，不让它自己解析 config_json */
+    public List<TraceTemplate> fillRenderMode(List<TraceTemplate> templates) {
+        templates.forEach(t -> t.setRenderMode(renderModeOf(t)));
+        return templates;
+    }
+
+    /**
+     * 给"未分配模板=全部可用"的兜底列表摘掉需要显式授权的渲染模式（顺带填充 renderMode）。
+     * 否则前端菜单会照这份宽松列表放行长图入口，点进去又被 {@link #assertRenderModeAvailable} 拦下。
+     */
+    public List<TraceTemplate> stripGrantRequired(List<TraceTemplate> templates) {
+        return fillRenderMode(templates).stream()
+                // 存量模板 config_json 里没有 renderMode，取出来是 null；
+                // Set.of 造出的集合 contains(null) 直接抛 NPE，必须先挡掉再判
+                .filter(t -> t.getRenderMode() == null || !GRANT_REQUIRED.contains(t.getRenderMode()))
+                .toList();
     }
 
     /** 从 config_json 取 renderMode；缺失或解析失败返回 null，由调用方按"不匹配"处理 */

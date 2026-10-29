@@ -626,8 +626,9 @@ public class EnterpriseController {
             @AuthenticationPrincipal UserPrincipal principal) {
         Enterprise enterprise = enterpriseMapper.selectById(principal.getUserId());
         if (enterprise == null || enterprise.getAssignedTemplateIds() == null || enterprise.getAssignedTemplateIds().isBlank()) {
-            // 未分配模板时返回所有启用的模板
-            return Result.ok(fillRenderMode(traceTemplateMapper.selectList(
+            // 未分配模板时返回所有启用的模板，但长图/落地页要显式分配才给，
+            // 与 TemplateGrantGuard 保持一致，否则菜单放行了入口、接口却拦下
+            return Result.ok(templateGrantGuard.stripGrantRequired(traceTemplateMapper.selectList(
                     new LambdaQueryWrapper<TraceTemplate>()
                             .eq(TraceTemplate::getStatus, 1)
                             .orderByAsc(TraceTemplate::getId))));
@@ -637,16 +638,10 @@ public class EnterpriseController {
         if (ids.isEmpty()) {
             return Result.ok(List.of());
         }
-        return Result.ok(fillRenderMode(traceTemplateMapper.selectList(
+        return Result.ok(templateGrantGuard.fillRenderMode(traceTemplateMapper.selectList(
                 new LambdaQueryWrapper<TraceTemplate>()
                         .in(TraceTemplate::getId, ids)
                         .eq(TraceTemplate::getStatus, 1)
                         .orderByAsc(TraceTemplate::getId))));
-    }
-
-    /** 前端按渲染模式决定菜单显隐，不让它自己解析 config_json */
-    private List<TraceTemplate> fillRenderMode(List<TraceTemplate> templates) {
-        templates.forEach(t -> t.setRenderMode(templateGrantGuard.renderModeOf(t)));
-        return templates;
     }
 }

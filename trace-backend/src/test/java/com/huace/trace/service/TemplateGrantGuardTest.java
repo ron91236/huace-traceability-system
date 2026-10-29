@@ -24,6 +24,7 @@ import static org.mockito.Mockito.*;
  *    ——这与 CommonController 的"空=全部可用"故意相反，不能被"顺手统一"掉
  * 2. 只认启用状态且 renderMode 精确匹配的模板
  * 3. config_json 解析失败按不匹配处理，不抛异常打断请求
+ * 4. "未分配=全部可用"的兜底列表要剔除长图/落地页，而已显式分配的企业不受影响
  */
 @ExtendWith(MockitoExtension.class)
 class TemplateGrantGuardTest {
@@ -166,5 +167,33 @@ class TemplateGrantGuardTest {
         assertNull(guard.renderModeOf(template(1L, "{\"pages\":[]}")));
         assertNull(guard.renderModeOf(template(1L, null)));
         assertNull(guard.renderModeOf(template(1L, "  ")));
+    }
+
+    @Test
+    void 未分配企业的兜底列表剔除长图与落地页但保留老模板() {
+        // 存量模板 config_json 里没有 renderMode，必须原样留下——
+        // 这条一旦红，7 家 assigned_template_ids 为 NULL 的企业会集体丢模板
+        List<TraceTemplate> out = guard.stripGrantRequired(List.of(
+                template(1L, "{\"pages\":[]}"),
+                template(14L, "{\"renderMode\":\"visual\"}"),
+                template(20L, "{\"renderMode\":\"long-image\"}"),
+                template(21L, "{\"renderMode\":\"landing\"}")));
+
+        assertEquals(List.of(1L, 14L), out.stream().map(TraceTemplate::getId).toList());
+        // 顺带填充 renderMode，前端菜单直接读，不用再解析 config_json
+        assertNull(out.get(0).getRenderMode());
+        assertEquals("visual", out.get(1).getRenderMode());
+    }
+
+    @Test
+    void 已显式分配的企业仍能看到长图模板() {
+        // 与上一条对照：收紧只发生在"未分配"的兜底路径上，
+        // 否则被授权的企业菜单会跟着消失，长图功能等于下线
+        List<TraceTemplate> out = guard.fillRenderMode(List.of(
+                template(14L, "{\"renderMode\":\"visual\"}"),
+                template(20L, "{\"renderMode\":\"long-image\"}")));
+
+        assertEquals(2, out.size());
+        assertEquals("long-image", out.get(1).getRenderMode());
     }
 }
