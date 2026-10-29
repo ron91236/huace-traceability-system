@@ -65,6 +65,7 @@
       <LongImageBoard v-if="isLongImageMode" key="long-image"
         :modules="longModules"
         :reports="testReports"
+        :report-pages="reportPages"
         :hgz="traceData?.hgz || null"
         @open-report="openReportDetail" />
       <div v-else :key="currentPageIdx" class="trace-body" :class="'layout-' + currentLayout" :style="hasPageElements ? { display: 'flex', flexWrap: 'wrap', gap: '4px' } : {}">
@@ -634,6 +635,24 @@ function loadReportPages(report: any): Promise<string[]> {
   return task
 }
 
+// 长图模式下要 eager 拿到报告页图：卡片屏取消后页图就是正文的一部分，
+// 不能等用户点开才转。只限长图模式——可视化模板走的是另一套报告区块，
+// 为它把整批 PDF 都转一遍是给没选这个模板的企业凭空加负载
+// （生产机 1.8G 内存、单个 PDF 上限 20MB/100 页，同 openReportDetail 里的取舍）。
+const reportPages = ref<Record<number, string[]>>({})
+let reportPagesSeq = 0
+
+async function resolveReportPages() {
+  const seq = ++reportPagesSeq
+  if (!isLongImageMode.value) { reportPages.value = {}; return }
+  const list = testReports.value
+  if (!list.length) { reportPages.value = {}; return }
+  const groups = await Promise.all(list.map(async (r: any) => [r.id, await loadReportPages(r)] as const))
+  // 批次切换或报告更新期间旧的一轮会晚到，不判过期就会把上一批次的页图挂到当前批次下面
+  if (seq !== reportPagesSeq) return
+  reportPages.value = Object.fromEntries(groups)
+}
+
 async function openReportDetail(report: any) {
   currentReport.value = report
   reportDetailVisible.value = true
@@ -688,6 +707,10 @@ const currentPageIdx = ref(0)
 
 const isLongImageMode = computed(() => templateConfig.value?.renderMode === 'long-image')
 const longModules = computed<any[]>(() => traceData.value?.longModules || [])
+
+// 必须排在 isLongImageMode 之后：immediate 的 watch 会在 setup 里当场执行回调，
+// 放在它前面会读到还没初始化的 const，消费者页直接 ReferenceError 白屏
+watch([isLongImageMode, testReports], () => resolveReportPages(), { immediate: true })
 
 const hasPageElements = computed(() => {
   const pages = templateConfig.value?.pages
