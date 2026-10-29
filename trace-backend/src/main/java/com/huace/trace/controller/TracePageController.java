@@ -58,6 +58,15 @@ public class TracePageController {
     }
 
     /**
+     * C端静态落地页载荷 - 模板骨架 + 企业内容 + 企业外链，免登录（/api/trace/** 已整体放行）。
+     * 两段路径与 /api/trace/{serialNo} 不冲突。
+     */
+    @GetMapping("/api/trace/landing/{serialNo}")
+    public Result<Map<String, Object>> queryLanding(@PathVariable String serialNo, HttpServletRequest request) {
+        return Result.ok(tracePageService.queryLanding(serialNo, request));
+    }
+
+    /**
      * C端批次切换列表 - 该溯源码可展示的同商品批次（按生产日期倒序）
      */
     @GetMapping("/api/trace/{serialNo}/batches")

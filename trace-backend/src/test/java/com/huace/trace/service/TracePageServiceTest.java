@@ -60,6 +60,14 @@ class TracePageServiceTest {
     @Mock private IpRegionService ipRegionService;
     @Mock private HgzService hgzService;
     @Mock private LongModuleService longModuleService;
+    /**
+     * 落地页这三个依赖都按 mock 处理：本类测的是 queryLanding 的组装与回落判断，
+     * 骨架解析规则在 TemplateConfigReaderTest、内容规则在 LandingContentServiceTest，
+     * 在这里再测一遍只会让同一件事有两个归属。
+     */
+    @Mock private TemplateConfigReader configReader;
+    @Mock private LandingContentService landingContentService;
+    @Mock private SideLinkService sideLinkService;
 
     @InjectMocks
     private TracePageService service;
@@ -367,5 +375,91 @@ class TracePageServiceTest {
 
         assertNull(result.get("longModules"));
         verify(longModuleService, never()).resolveForTrace(any(), any());
+    }
+
+    // ==================== 落地页 ====================
+
+    private TraceTemplate landingTpl() {
+        TraceTemplate tpl = new TraceTemplate();
+        tpl.setId(30L);
+        tpl.setTemplateKey("tpl_landing");
+        tpl.setTemplateName("落地页模板");
+        tpl.setConfigJson("{\"renderMode\":\"landing\"}");
+        return tpl;
+    }
+
+    @Test
+    void 落地页载荷组装区块侧栏配置与外链() {
+        CodePackageItem item = buildItem("1234567890");
+        item.setTraceTemplate("tpl_landing");
+        when(codePackageItemMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(item);
+
+        TraceTemplate tpl = landingTpl();
+        when(templateMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(tpl);
+        when(configReader.renderModeOf(tpl.getConfigJson())).thenReturn("landing");
+        when(landingContentService.resolveForLanding(tpl, 1L)).thenReturn(
+                new java.util.ArrayList<>(List.of(new HashMap<>(Map.of("key", "richtext", "content", "<p>正文</p>")))));
+        when(configReader.sideMenuOf(tpl.getConfigJson())).thenReturn(new HashMap<>(Map.of("enabled", true)));
+        when(configReader.gatesOf(tpl.getConfigJson())).thenReturn(Map.of());
+        when(sideLinkService.resolveForConsumer(1L)).thenReturn(List.of());
+
+        Map<String, Object> result = service.queryLanding("00000004", null);
+
+        assertEquals(true, result.get("isLanding"));
+        assertEquals("landing", result.get("renderMode"));
+        assertEquals("tpl_landing", result.get("templateKey"));
+        assertEquals(1, ((List<?>) result.get("blocks")).size());
+        // 填过 richtext 就不算空页，否则前端会把有内容的页 302 掉
+        assertEquals(false, result.get("contentEmpty"));
+        assertEquals("/trace/00000004", result.get("traceUrl"));
+    }
+
+    @Test
+    void 只有防伪区块时判定为内容全空() {
+        CodePackageItem item = buildItem("1234567890");
+        when(codePackageItemMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(item);
+
+        TraceTemplate tpl = landingTpl();
+        when(templateMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(tpl);
+        when(configReader.renderModeOf(tpl.getConfigJson())).thenReturn("landing");
+        // antiFake 由系统实时供给、从不写内容行：把它算进"填过东西"就会错误地 302（spec §12）
+        when(landingContentService.resolveForLanding(tpl, 1L)).thenReturn(
+                List.of(new HashMap<>(Map.of("key", "antiFake", "enabled", true))));
+        when(configReader.sideMenuOf(tpl.getConfigJson())).thenReturn(Map.of("enabled", false));
+        when(configReader.gatesOf(tpl.getConfigJson())).thenReturn(Map.of());
+        when(sideLinkService.resolveForConsumer(1L)).thenReturn(List.of());
+
+        Map<String, Object> result = service.queryLanding("00000004", null);
+
+        assertEquals(true, result.get("contentEmpty"));
+    }
+
+    @Test
+    void 非落地页模板不查内容与外链() {
+        CodePackageItem item = buildItem("1234567890");
+        when(codePackageItemMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(item);
+
+        TraceTemplate tpl = new TraceTemplate();
+        tpl.setId(14L);
+        tpl.setTemplateKey("tpl_1786948839317");
+        tpl.setConfigJson("{\"renderMode\":\"visual\",\"pages\":[]}");
+        when(templateMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(tpl);
+        when(configReader.renderModeOf(tpl.getConfigJson())).thenReturn("visual");
+
+        Map<String, Object> result = service.queryLanding("00000001", null);
+
+        assertEquals(false, result.get("isLanding"));
+        assertEquals("/trace/00000001", result.get("traceUrl"));
+        assertNull(result.get("blocks"), "非落地页不该带回区块与外链：前端只看 isLanding 就会 302");
+        verifyNoInteractions(landingContentService);
+        verifyNoInteractions(sideLinkService);
+    }
+
+    @Test
+    void 落地页接口对未绑定的码抛业务异常() {
+        when(codePackageItemMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+
+        BusinessException e = assertThrows(BusinessException.class, () -> service.queryLanding("00099999", null));
+        assertTrue(e.getMessage().contains("尚未激活绑定"), e.getMessage());
     }
 }

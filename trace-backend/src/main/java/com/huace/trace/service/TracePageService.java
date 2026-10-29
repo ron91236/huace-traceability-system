@@ -40,6 +40,16 @@ public class TracePageService {
     private final IpRegionService ipRegionService;
     private final HgzService hgzService;
     private final LongModuleService longModuleService;
+    /**
+     * 放在最后：@RequiredArgsConstructor 的字段顺序就是构造参数顺序。
+     * configReader 供落地页骨架读取，另两个是落地页内容与企业外链。
+     */
+    private final TemplateConfigReader configReader;
+    private final LandingContentService landingContentService;
+    private final SideLinkService sideLinkService;
+
+    /** 判定"企业在落地页到底填过东西没有"时算数的区块。antiFake 不在列：它从不写内容行 */
+    private static final List<String> LANDING_CONTENT_KEYS = List.of("richtext", "video", "promoImages");
 
     /**
      * 清除全部溯源页缓存。
@@ -271,6 +281,69 @@ public class TracePageService {
             }
         }
 
+        return result;
+    }
+
+    /**
+     * 消费者静态落地页取数（免登录）。一次给足 LandingView 需要的东西：
+     * 模板骨架（区块 / sideMenu / gates）+ 企业内容 + 企业外链 + 详情页跳转目标。
+     *
+     * <p>模板不是 landing 时不抛错，只回 isLanding=false 加 traceUrl，由前端 302 到 /trace/{sn}：
+     * "落地页模板还没配好"与"这个码本来就不是落地页"对消费者是同一件事——都该直接看详情。
+     *
+     * <p>刻意不挂 {@code @Cacheable}：企业内容与外链一改就要立刻生效，
+     * 而落地页访问量远小于详情页，缓存省下的那点查询不值"改了看不到"的排障成本。
+     */
+    public Map<String, Object> queryLanding(String serialNo, HttpServletRequest request) {
+        CodePackageItem item = mongoCodeItemService.findBoundBySerialNo(serialNo)
+                .map(this::toCodePackageItem)
+                .orElseGet(() -> codePackageItemMapper.selectOne(
+                        new LambdaQueryWrapper<CodePackageItem>()
+                                .eq(CodePackageItem::getSerialNo, serialNo)
+                                .eq(CodePackageItem::getBindStatus, "BOUND")));
+        if (item == null) throw new BusinessException("该溯源码尚未激活绑定，流水号：" + serialNo);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("serialNo", serialNo);
+        result.put("enterpriseId", item.getEnterpriseId());
+        result.put("traceUrl", "/trace/" + serialNo);
+
+        TraceTemplate template = null;
+        if (item.getTraceTemplate() != null) {
+            template = templateMapper.selectOne(new LambdaQueryWrapper<TraceTemplate>()
+                    .eq(TraceTemplate::getTemplateKey, item.getTraceTemplate())
+                    .eq(TraceTemplate::getStatus, 1));
+        }
+        if (template == null) {
+            template = templateMapper.selectOne(new LambdaQueryWrapper<TraceTemplate>()
+                    .eq(TraceTemplate::getTemplateKey, "default")
+                    .eq(TraceTemplate::getStatus, 1));
+        }
+
+        String configJson = template == null ? null : template.getConfigJson();
+        String mode = configReader.renderModeOf(configJson);
+        boolean isLanding = TemplateGrantGuard.LANDING.equals(mode);
+        result.put("isLanding", isLanding);
+        result.put("renderMode", mode);
+        if (template != null) {
+            result.put("templateKey", template.getTemplateKey());
+            result.put("templateName", template.getTemplateName());
+            result.put("backgroundImage", template.getBackgroundImage());
+        }
+        if (!isLanding) return result;
+
+        result.put("blocks", landingContentService.resolveForLanding(template, item.getEnterpriseId()));
+        result.put("sideMenu", configReader.sideMenuOf(configJson));
+        result.put("gates", configReader.gatesOf(configJson));
+        result.put("sideLinks", sideLinkService.resolveForConsumer(item.getEnterpriseId()));
+        // 只有企业真填过这三项之一才算"有内容可看"。antiFake 从不写内容行，
+        // 把它算进来会让"填了富文本却仍被判为空"的页被错误地 302 掉（spec §12）
+        boolean filled = ((List<?>) result.get("blocks")).stream()
+                .filter(b -> b instanceof Map)
+                .map(b -> (Map<?, ?>) b)
+                .anyMatch(b -> LANDING_CONTENT_KEYS.contains(String.valueOf(b.get("key")))
+                        && b.get("content") != null && !String.valueOf(b.get("content")).isBlank());
+        result.put("contentEmpty", !filled);
         return result;
     }
 
