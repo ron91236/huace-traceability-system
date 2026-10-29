@@ -5,6 +5,7 @@ import com.huace.trace.common.BusinessException;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -123,5 +124,94 @@ class TemplateConfigReaderTest {
         BusinessException e = assertThrows(BusinessException.class, () -> reader.validate(
                 "{\"renderMode\":\"long-image\",\"longModules\":[{\"name\":\"没有key\"}]}"));
         assertTrue(e.getMessage().contains("标识"), e.getMessage());
+    }
+
+    // ==================== 落地页骨架 ====================
+
+    @Test
+    void 落地页骨架按sortOrder升序且带上启用标记() {
+        List<TemplateConfigReader.LandingBlockDef> blocks = reader.landingBlocksOf(
+                "{\"renderMode\":\"landing\",\"landingBlocks\":["
+                + "{\"key\":\"video\",\"name\":\"宣传视频\",\"sortOrder\":2,\"enabled\":true},"
+                + "{\"key\":\"richtext\",\"name\":\"内容\",\"sortOrder\":0,\"enabled\":true},"
+                + "{\"key\":\"antiFake\",\"name\":\"防伪查询\",\"sortOrder\":1,\"enabled\":false}]}");
+
+        assertEquals(List.of("richtext", "antiFake", "video"),
+                blocks.stream().map(TemplateConfigReader.LandingBlockDef::key).toList());
+        assertTrue(blocks.get(2).enabled());
+        assertFalse(blocks.get(1).enabled());
+    }
+
+    @Test
+    void 非落地页模板读不出落地页骨架() {
+        // 与 longModulesOf 同一条口径：renderMode 不对就整体返回空，别把老模板里的残留键当成配置
+        assertEquals(List.of(), reader.landingBlocksOf(
+                "{\"renderMode\":\"visual\",\"landingBlocks\":[{\"key\":\"richtext\",\"enabled\":true}]}"));
+        assertEquals(List.of(), reader.landingBlocksOf(null));
+        assertEquals(List.of(), reader.landingBlocksOf("{坏JSON"));
+    }
+
+    @Test
+    void 枚举外的区块key被丢弃() {
+        // 区块 key 是固定枚举（spec §5），拼错的 key 到了消费者端没人能渲染
+        List<TemplateConfigReader.LandingBlockDef> blocks = reader.landingBlocksOf(
+                "{\"renderMode\":\"landing\",\"landingBlocks\":["
+                + "{\"key\":\"rich-text\",\"name\":\"拼错了\",\"sortOrder\":0,\"enabled\":true},"
+                + "{\"key\":\"promoImages\",\"name\":\"宣传图片\",\"sortOrder\":1,\"enabled\":true}]}");
+
+        assertEquals(1, blocks.size());
+        assertEquals("promoImages", blocks.get(0).key());
+    }
+
+    @Test
+    void sideMenu与gates读出配置并带默认值() {
+        Map<String, Object> menu = reader.sideMenuOf(
+                "{\"renderMode\":\"landing\",\"sideMenu\":{\"enabled\":true,\"display\":\"inline\"}}");
+        assertEquals(true, menu.get("enabled"));
+        assertEquals("inline", menu.get("display"));
+
+        Map<String, Object> absent = reader.sideMenuOf("{\"renderMode\":\"landing\"}");
+        // 缺 sideMenu 时不能返回 null 让上层到处判空：默认不启用、悬浮、显示溯源详情、显示底部入口
+        assertEquals(false, absent.get("enabled"));
+        assertEquals("float", absent.get("display"));
+        assertEquals(true, absent.get("showTraceDetail"));
+        assertEquals(true, absent.get("showBottomEntry"));
+
+        assertTrue(reader.gatesOf("{\"renderMode\":\"landing\"}").isEmpty());
+        assertEquals(true, reader.gatesOf(
+                "{\"renderMode\":\"landing\",\"gates\":{\"requireAntiFakeBeforeJump\":true}}")
+                .get("requireAntiFakeBeforeJump"));
+    }
+
+    @Test
+    void 校验放过合法落地页骨架() {
+        assertDoesNotThrow(() -> reader.validate(
+                "{\"renderMode\":\"landing\",\"landingBlocks\":[{\"key\":\"richtext\",\"name\":\"内容\",\"sortOrder\":0,\"enabled\":true}],"
+                        + "\"sideMenu\":{\"enabled\":true,\"display\":\"float\"}}"));
+        // 未配置区块也是合法初始态，跟长图空骨架同理
+        assertDoesNotThrow(() -> reader.validate("{\"renderMode\":\"landing\"}"));
+    }
+
+    @Test
+    void 校验拒绝未知blockKey与重复key() {
+        BusinessException unknown = assertThrows(BusinessException.class, () -> reader.validate(
+                "{\"renderMode\":\"landing\",\"landingBlocks\":[{\"key\":\"vr\",\"name\":\"全景\",\"sortOrder\":0,\"enabled\":true}]}"));
+        assertTrue(unknown.getMessage().contains("区块"), unknown.getMessage());
+
+        BusinessException dup = assertThrows(BusinessException.class, () -> reader.validate(
+                "{\"renderMode\":\"landing\",\"landingBlocks\":["
+                        + "{\"key\":\"video\",\"name\":\"视频\",\"sortOrder\":0,\"enabled\":true},"
+                        + "{\"key\":\"video\",\"name\":\"视频2\",\"sortOrder\":1,\"enabled\":true}]}"));
+        assertTrue(dup.getMessage().contains("重复"), dup.getMessage());
+    }
+
+    @Test
+    void 校验拒绝非法display取值() {
+        // display 只认 float/inline：写错的值到了前端就是"既不悬浮也不直显"的第三种状态。
+        // 这条同时钉住"校验必须读原始输入"——sideMenuOf 会把非法值收敛成默认值，拿它来校验就永远不红
+        BusinessException e = assertThrows(BusinessException.class, () -> reader.validate(
+                "{\"renderMode\":\"landing\",\"sideMenu\":{\"enabled\":true,\"display\":\"popup\"}}"));
+        // 报错文案用中文说"侧边栏显示方式"，与其它校验同一口径；断言跟着文案走，别去猜英文字段名
+        assertTrue(e.getMessage().contains("显示方式"), e.getMessage());
     }
 }
