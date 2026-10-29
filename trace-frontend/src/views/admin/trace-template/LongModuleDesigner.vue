@@ -97,10 +97,23 @@ watch(() => props.templateData, (val) => {
   }
 }, { immediate: true })
 
+/**
+ * key 一经生成不可变：企业端的行是按 key 关联的，改名只动 name。
+ * 只用 Date.now() 是不够的——同一毫秒内连点两次「新增模块」会拿到同一个 key
+ * （浏览器实测复现过），而重复 key 会被 TemplateConfigReader.validate 直接拒掉，
+ * 表现为"加不了第二个模块"。补一段随机并按当前列表去重，保证唯一。
+ */
+function newKey() {
+  let k: string
+  do {
+    k = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+  } while (form.value.modules.some((m: any) => m.key === k))
+  return k
+}
+
 function addModule() {
   if (form.value.modules.length >= MODULE_MAX) return ElMessage.warning(`最多 ${MODULE_MAX} 个模块`)
-  // key 一经生成不可变：企业端的行是按 key 关联的，改名只动 name
-  form.value.modules.push({ key: 'm' + Date.now(), name: '' })
+  form.value.modules.push({ key: newKey(), name: '' })
 }
 
 function removeModule(i: number) {
