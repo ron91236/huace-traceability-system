@@ -75,6 +75,8 @@ export const getBatchTraceInfo = (batchId: number) => request.get(`/trace/batch/
 export const getTraceTemplate = (templateKey: string) => request.get(`/trace/template/${templateKey}`)
 export const verifyAntiFake = (data: { serialNo: string; antiFakeCode: string }) => request.post('/trace/verify', data)
 export const directVerify = (serialNo: string) => request.get(`/trace/direct-verify/${serialNo}`)
+/** 消费者静态落地页载荷（免登录）：模板骨架 + 企业内容 + 企业外链 */
+export const getLanding = (serialNo: string) => request.get(`/trace/landing/${serialNo}`)
 export const getCertPublicInfo = (id: number) => request.get(`/trace/cert/${id}`)
 
 // 承诺达标合格证（公开）

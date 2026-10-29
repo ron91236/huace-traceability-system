@@ -99,6 +99,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/screen/enterprise', name: 'EntScreen', component: () => import('@/views/enterprise/DataScreenView.vue'), meta: { title: '数据大屏', requireAuth: true, requireEnterprise: true } },
   // 合格证打印（独立全屏路由，不嵌入Layout便于打印）
   { path: '/hgz-print/:id', name: 'HgzPrint', component: () => import('@/views/enterprise/hgz/HgzPrint.vue'), meta: { title: '打印合格证', requireAuth: true } },
+  { path: '/s/:serialNo', name: 'Landing', component: () => import('@/views/trace/LandingView.vue'), meta: { title: '产品溯源', public: true } },
   { path: '/trace/:serialNo', name: 'Trace', component: () => import('@/views/trace/TraceView.vue'), meta: { title: '溯源查询', public: true } },
   { path: '/trace/batch/:batchId', name: 'BatchTrace', component: () => import('@/views/trace/TraceView.vue'), meta: { title: '批次溯源', public: true } },
   { path: '/cert/:id', name: 'CertPublic', component: () => import('@/views/cert/CertPublicView.vue'), meta: { title: '证书信息', public: true } },
