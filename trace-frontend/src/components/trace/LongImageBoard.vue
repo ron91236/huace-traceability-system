@@ -1,20 +1,15 @@
 <template>
   <div class="long-board">
     <div class="long-board-body" ref="bodyRef">
+      <!-- 报告自己一屏的两种情形：长图一个模块都没有，或该批次确实没有报告页图 -->
       <template v-if="activeKey === REPORT_KEY">
-        <div v-for="r in reportList" :key="r.id" class="lb-card" @click="$emit('open-report', r)">
-          <div class="lb-card-head">
-            <span class="lb-card-name">{{ r.reportName }}</span>
-            <el-tag v-if="r.testResult" :type="r.testResult === '合格' ? 'success' : 'danger'" size="small">{{ r.testResult }}</el-tag>
-          </div>
-          <div class="lb-card-body">
-            <div v-if="r.testTime" class="lb-field">检测时间：{{ r.testTime }}</div>
-            <div v-if="r.testMethod" class="lb-field">检测方式：{{ r.testMethod }}</div>
-            <div v-if="r.testOrg" class="lb-field">检测机构：{{ r.testOrg }}</div>
-          </div>
-          <div class="lb-card-link">查看报告 ›</div>
+        <img v-for="(p, i) in reportImages" :key="p.url + i" :src="p.url" class="lb-page"
+          :loading="i > 0 ? 'lazy' : 'eager'" :alt="`检测报告 第${i + 1}页`"
+          @click="$emit('open-report', p.report)" />
+        <!-- 报告有条目但页图还在转，与"该批次真没报告"是两件事，说成没报告会误导消费者 -->
+        <div v-if="!reportImages.length" class="lb-blank">
+          {{ reportList.length ? '报告正在加载…' : '该批次暂无检测报告' }}
         </div>
-        <div v-if="!reportList.length" class="lb-blank">该批次暂无检测报告</div>
       </template>
 
       <template v-else-if="activeKey === HGZ_KEY">
@@ -35,6 +30,14 @@
         <img v-for="(p, i) in activePages" :key="p + i" :src="p" class="lb-page" :loading="i > 1 ? 'lazy' : 'eager'"
           :alt="`${activeModuleName} 第${i + 1}页`" />
         <div v-if="!activePages.length" class="lb-blank">该模块暂无内容</div>
+
+        <!-- 报告内联：只挂在最后一个模块屏的末尾，往下滑即到，不在每个模块后重复 -->
+        <div v-if="reportInline && activeKey === lastModuleKey" ref="reportAnchor" class="lb-report">
+          <div class="lb-report-title">检测报告</div>
+          <img v-for="(p, i) in reportImages" :key="p.url + i" :src="p.url" class="lb-page"
+            :loading="i > 2 ? 'lazy' : 'eager'" :alt="`检测报告 第${i + 1}页`"
+            @click="$emit('open-report', p.report)" />
+        </div>
       </template>
     </div>
 
@@ -47,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 
 const REPORT_KEY = '__report'
 const HGZ_KEY = '__hgz'
@@ -55,6 +58,8 @@ const HGZ_KEY = '__hgz'
 const props = defineProps<{
   modules: Array<{ key: string; name: string; pages: string[] }>
   reports: any[]
+  /** reportId → 已解析出的报告页图 URL；没解析完的报告这里是 undefined，按"还没有内容"处理 */
+  reportPages?: Record<number, string[]>
   hgz: any | null
 }>()
 
@@ -67,6 +72,23 @@ const visibleModules = computed(() =>
 
 // 与 modules 同一口径：两个 prop 都可能是 null，模板里一处兜底一处不兜底最容易漏
 const reportList = computed(() => props.reports || [])
+
+/** 报告页图按报告顺序摊平，每张带着自己所属的报告——点开要落在正确的那一份上 */
+const reportImages = computed(() => {
+  const out: Array<{ url: string; report: any }> = []
+  for (const r of reportList.value) {
+    for (const url of props.reportPages?.[r.id] || []) out.push({ url, report: r })
+  }
+  return out
+})
+
+/**
+ * 报告内联的前提：既有模块屏可以追加，又有页图可追加。任一条件不成立就退回"报告自己一屏"——
+ * 零模块时这样报告仍然可达（spec §9.3 边界），一份报告都没转出来时也保留"该批次暂无检测报告"
+ * 的提示，不至于给消费者一个空白屏。
+ */
+const reportInline = computed(() => reportImages.value.length > 0 && visibleModules.value.length > 0)
+const lastModuleKey = computed(() => visibleModules.value[visibleModules.value.length - 1]?.key || '')
 
 const navItems = computed(() => {
   const items = visibleModules.value.map(m => ({ key: m.key, name: m.name }))
@@ -88,7 +110,15 @@ const activeModuleName = computed(() =>
   visibleModules.value.find(m => m.key === activeKey.value)?.name || '长图')
 
 const bodyRef = ref<HTMLElement>()
+const reportAnchor = ref<HTMLElement>()
+
 function select(key: string) {
+  // 报告内联时「检测报告」不再是一屏，点它是切到最后一个模块屏并滚到报告区起点
+  if (key === REPORT_KEY && reportInline.value) {
+    activeKey.value = lastModuleKey.value
+    nextTick(() => reportAnchor.value?.scrollIntoView({ block: 'start' }))
+    return
+  }
   if (activeKey.value === key) return
   activeKey.value = key
   bodyRef.value?.scrollIntoView({ block: 'start' })
@@ -104,7 +134,7 @@ function select(key: string) {
 .lb-card-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lb-card-code { font-size: 12px; color: #999; }
 .lb-card-body { margin-top: 8px; font-size: 13px; color: #666; line-height: 1.9; }
-.lb-card-link, .lb-btn { margin-top: 10px; font-size: 13px; color: var(--trace-accent, #059669); text-decoration: none; display: inline-block; }
+.lb-btn { margin-top: 10px; font-size: 13px; color: var(--trace-accent, #059669); text-decoration: none; display: inline-block; }
 .lb-blank { padding: 40px 16px; text-align: center; color: #909399; font-size: 13px; }
 .lb-nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
@@ -118,4 +148,6 @@ function select(key: string) {
   background: #f2f3f5; color: #333; font-size: 13px; white-space: nowrap;
 }
 .lb-nav-item.active { background: var(--trace-accent, #059669); color: #fff; }
+.lb-report { margin-top: 24px; border-top: 1px dashed #dcdfe6; padding-top: 12px; }
+.lb-report-title { font-size: 14px; font-weight: 600; color: #333; padding: 0 16px 8px; }
 </style>
