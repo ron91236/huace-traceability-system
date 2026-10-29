@@ -111,11 +111,9 @@ export const updateHgz = (id: number, data: any) => request.put(`/enterprise/hgz
 export const voidHgz = (id: number) => request.post(`/enterprise/hgz/${id}/void`)
 export const getHgzQrcode = (id: number) => request.get(`/enterprise/hgz/${id}/qrcode`)
 
-// 长图溯源模块
-export const getLongModules = () => request.get('/enterprise/long-modules')
-export const createLongModule = (data: any) => request.post('/enterprise/long-modules', data)
-export const updateLongModule = (id: number, data: any) => request.put(`/enterprise/long-modules/${id}`, data)
-export const deleteLongModule = (id: number) => request.delete(`/enterprise/long-modules/${id}`)
-/** 拖拽排序：必须传入本企业全部模块 id 的完整有序列表；后端只重排传入项，漏传会残留旧 sortOrder 造成冲突 */
-export const sortLongModules = (ids: number[]) => request.put('/enterprise/long-modules/sort', { ids })
+// 长图溯源内容：模块骨架归模板（管理端写），企业只按 key 填整页图
+export const getLongModules = (templateId: number) => request.get('/enterprise/long-modules', { params: { templateId } })
+/** 页图写入：路径 (templateId, key) 就是行坐标，请求体只有 pages */
+export const saveLongModulePages = (templateId: number, key: string, pages: string[]) =>
+  request.put(`/enterprise/long-modules/${templateId}/${key}`, { pages })
 export const convertModulePdf = (url: string) => request.post('/enterprise/long-modules/convert', { url })
