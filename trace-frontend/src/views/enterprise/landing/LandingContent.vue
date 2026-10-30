@@ -22,6 +22,9 @@
           <div class="lc-head">
             <span class="lc-name">{{ b.name }}</span>
             <el-tag v-if="!b.enabled" size="small" type="info">模板未启用该区块</el-tag>
+            <el-tag v-else-if="b.key === 'antiFake'" size="small" :type="hideAntiFake(b) ? 'info' : 'success'">
+              {{ hideAntiFake(b) ? '不展示' : '展示' }}
+            </el-tag>
             <el-tag v-else size="small" :type="filled(b) ? 'success' : 'default'">{{ filled(b) ? '已填' : '未填' }}</el-tag>
           </div>
 
@@ -45,9 +48,13 @@
             </el-upload>
           </div>
 
-          <div v-else class="lc-sys">
-            防伪查询由系统按每个溯源码实时生成，这里不需要填写。
+          <div v-else-if="b.key === 'antiFake'" class="lc-field">
+            <el-checkbox :model-value="!hideAntiFake(b)" :disabled="saving === b.key"
+              @change="(v: any) => toggleAntiFake(b, v === true)">在落地页展示防伪查询</el-checkbox>
+            <span class="lc-tip">防伪结论由系统按每个溯源码实时生成，这里只决定这块出不出现</span>
           </div>
+
+          <div v-else class="lc-sys">该区块由系统供给，无需填写。</div>
 
           <div v-if="b.key !== 'antiFake'" class="lc-foot">
             <el-button type="primary" size="small" :loading="saving === b.key" @click="save(b)">保存</el-button>
@@ -111,6 +118,23 @@ function filled(b: any) {
 }
 
 function revert(b: any) { draft[b.key] = b.content || '' }
+
+/** 无行/1 都是展示，只有企业明确存过 0 才不展示（与后端 list() 给的默认值一致） */
+function hideAntiFake(b: any) { return draft[b.key] === '0' }
+
+async function toggleAntiFake(b: any, on: boolean) {
+  if (!templateId.value) return
+  saving.value = b.key
+  try {
+    await saveLandingBlock(templateId.value, b.key, on ? '1' : '0')
+    ElMessage.success(on ? '已展示防伪查询' : '已在落地页隐藏防伪查询')
+  } catch {
+    // 保存失败必须把勾选弹回去：界面上留一个没落库的开关，企业会以为已经改好了
+  } finally {
+    saving.value = ''
+    await loadData()
+  }
+}
 
 async function uploadRichImage(file: File): Promise<string> {
   const res: any = await uploadFile(file)

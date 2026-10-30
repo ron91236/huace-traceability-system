@@ -23,8 +23,9 @@ import java.util.Map;
  * 落地页区块内容：区块骨架归模板（管理端写），内容归企业（本轮由企业写的数据）。
  *
  * <p>行坐标是 (template_id, enterprise_id, block_key)，且「企业未填」用**无行**表示，
- * 与长图内容同一套语义（spec §6.2、§12）。antiFake 区块不写行——防伪数据由系统按码实时取，
- * 存一份快照等于给消费者看一个可能已经过期的结论。
+ * 与长图内容同一套语义（spec §6.2、§12）。antiFake 区块存的是开关而不是内容：
+ * 防伪结论由系统按码实时取，库里存快照等于给消费者看一个可能已经过期的结论，
+ * 所以这一行的值只允许 1（展示）/ 0（不展示），无行按展示处理。
  */
 @Service
 @RequiredArgsConstructor
@@ -37,8 +38,10 @@ public class LandingContentService {
      */
     public static final int CONTENT_MAX = 200_000;
 
-    /** 由系统实时供给、不允许企业写内容的区块 */
+    /** 由系统实时供给内容的区块；企业能改的只有"在不在这页上展示" */
     private static final String ANTI_FAKE = "antiFake";
+    private static final String SHOW = "1";
+    private static final String HIDE = "0";
 
     private final TraceLandingContentMapper contentMapper;
     private final ObjectMapper objectMapper;
@@ -59,7 +62,10 @@ public class LandingContentService {
             item.put("name", d.name());
             item.put("sortOrder", d.sortOrder());
             item.put("enabled", d.enabled());
-            item.put("content", ANTI_FAKE.equals(d.key()) ? "" : stored.getOrDefault(d.key(), ""));
+            // antiFake 这一栏给的是生效后的开关：没勾过（无行）就是默认的展示
+            item.put("content", ANTI_FAKE.equals(d.key())
+                    ? (HIDE.equals(stored.get(d.key())) ? HIDE : SHOW)
+                    : stored.getOrDefault(d.key(), ""));
             result.add(item);
         }
         return result;
@@ -68,8 +74,8 @@ public class LandingContentService {
     /**
      * 消费者落地页取数：按骨架顺序输出**启用的且有内容的**区块。
      *
-     * <p>antiFake 是唯一的例外——它永远没有内容，但必须出现在载荷里，
-     * 否则消费者页连防伪入口都没有。它的 content 给 null，是"这块由系统供给"的显式标记，
+     * <p>antiFake 是唯一的例外——它没有内容，但默认要出现在载荷里，否则消费者页连防伪入口都没有；
+     * 企业取消勾选（存 0）时才整块不出现。它的 content 给 null，是"这块由系统供给"的显式标记，
      * 前端据此渲染实时结论而不是空白块。
      */
     public List<Map<String, Object>> resolveForLanding(TraceTemplate template, Long enterpriseId) {
@@ -80,6 +86,8 @@ public class LandingContentService {
             if (!d.enabled()) continue;   // 管理端关掉一块就是不想展示，不是"空着展示"
             String content = stored.get(d.key());
             boolean isAntiFake = ANTI_FAKE.equals(d.key());
+            // 企业取消勾选就是整块藏掉：它没有内容，套不进"没内容就不输出"那条规则，得单独判
+            if (isAntiFake && HIDE.equals(content)) continue;
             if (!isAntiFake && (content == null || content.isBlank())) continue;
             Map<String, Object> item = new HashMap<>();
             item.put("key", d.key());
@@ -105,9 +113,13 @@ public class LandingContentService {
                 // 骨架里没有这个 key 就别写：那会落出一行任何一侧都取不出来的孤儿数据
                 .orElseThrow(() -> new BusinessException("区块不存在"));
 
-        // 先于任何查库动作拒绝：antiFake 压根没有"内容"这个概念，写进去就是一行永远不会被读的脏数据
+        // 先于任何查库动作拒绝：antiFake 没有"内容"这个概念，只允许 1/0 两种开关值，
+        // 写进去一个别的值就是库里一个两侧都不认的孤儿状态
         if (ANTI_FAKE.equals(def.key())) {
-            throw new BusinessException("防伪查询区块由系统按码实时生成，不支持填写内容");
+            String flag = content == null ? "" : content.trim();
+            if (!flag.isEmpty() && !SHOW.equals(flag) && !HIDE.equals(flag)) {
+                throw new BusinessException("防伪查询区块只能勾选展示（1）或不展示（0）");
+            }
         }
 
         String value = content == null ? "" : content.trim();

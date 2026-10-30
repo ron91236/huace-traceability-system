@@ -30,10 +30,10 @@ import static org.mockito.Mockito.*;
 /**
  * 落地页内容读写规则。与长图内容同构，所以钉的是同一组性质：
  * 1. 区块清单来自模板骨架：骨架里有但没填的在企业端要出现（空内容），骨架外的历史行要忽略
- * 2. 消费端只拿"启用的且有内容的"块；antiFake 例外，它天生没有内容但必须出现
+ * 2. 消费端只拿"启用的且有内容的"块；antiFake 例外，它没有内容但默认要出现
  * 3. 保存空内容 = 删行（"企业未填"就是无行）
  * 4. 定位查询同时锁 (template_id, enterprise_id, block_key)，跨企业写不进去
- * 5. antiFake 拒写内容（防伪结论由系统按码实时算），骨架外的 blockKey 拒写
+ * 5. antiFake 只接受 1/0 开关值（0=企业不展示），骨架外的 blockKey 拒写
  * 6. promoImages 必须是 URL 数组，裸字符串挡在库外，别让消费者端每次渲染都去猜
  */
 @ExtendWith(MockitoExtension.class)
@@ -101,8 +101,17 @@ class LandingContentServiceTest {
                 list.stream().map(m -> m.get("key")).toList());
         assertEquals("<p>正文</p>", list.get(0).get("content"));
         assertEquals("", list.get(1).get("content"));
-        // antiFake 也出现在清单里，但没有内容可填：前端按 enabled 自己渲染系统数据
-        assertEquals("", list.get(2).get("content"));
+        // antiFake 没有"内容"，企业能改的只有展示与否；没勾过就是默认的 1（展示）
+        assertEquals("1", list.get(2).get("content"));
+    }
+
+    @Test
+    void 企业勾掉防伪后清单里带的是0() {
+        when(contentMapper.selectList(any())).thenReturn(List.of(aRow(4L, "antiFake", "0")));
+
+        List<Map<String, Object>> list = service.list(template(CONFIG), ENTERPRISE_ID);
+
+        assertEquals("0", list.get(2).get("content"));
     }
 
     @Test
@@ -129,6 +138,28 @@ class LandingContentServiceTest {
         assertEquals(List.of("richtext", "antiFake"), blocks.stream().map(m -> m.get("key")).toList());
         assertEquals(Boolean.TRUE, blocks.get(1).get("enabled"));
         assertNull(blocks.get(1).get("content"), "防伪区块的内容由系统供给，载荷里必须是 null 而不是空串");
+    }
+
+    @Test
+    void 企业勾掉防伪后消费端不再带这块() {
+        when(contentMapper.selectList(any())).thenReturn(List.of(
+                aRow(3L, "richtext", "<p>正文</p>"),
+                aRow(4L, "antiFake", "0")));
+
+        List<Map<String, Object>> blocks = service.resolveForLanding(template(CONFIG), ENTERPRISE_ID);
+
+        // "0" 是企业的显式选择，不能沿用"antiFake 一定出现"的旧规则，否则取消勾选没有效果
+        assertEquals(List.of("richtext"), blocks.stream().map(m -> m.get("key")).toList());
+    }
+
+    @Test
+    void 防伪开关写成1时照常出现() {
+        when(contentMapper.selectList(any())).thenReturn(List.of(aRow(4L, "antiFake", "1")));
+
+        List<Map<String, Object>> blocks = service.resolveForLanding(template(CONFIG), ENTERPRISE_ID);
+
+        assertEquals(List.of("antiFake"), blocks.stream().map(m -> m.get("key")).toList());
+        assertNull(blocks.get(0).get("content"), "开关值只决定出不出现，载荷里的内容仍然由系统供给");
     }
 
     @Test
@@ -231,12 +262,35 @@ class LandingContentServiceTest {
     }
 
     @Test
-    void 防伪区块拒绝写内容() {
-        // 防伪结论由系统按码实时算，存一份快照进库等于给消费者看可能已经过期的结论
+    void 防伪区块只接受1和0两种开关值() {
+        // 防伪结论由系统按码实时算，企业能改的只有"出不出现"；写别的值就是库里一个没人认的开关
         BusinessException e = assertThrows(BusinessException.class,
                 () -> service.saveContent(template(CONFIG), "antiFake", "随便", ENTERPRISE_ID));
         assertTrue(e.getMessage().contains("防伪"), e.getMessage());
         verifyNoInteractions(contentMapper);
+    }
+
+    @Test
+    void 取消勾选防伪落库是一行0() {
+        when(contentMapper.selectOne(any())).thenReturn(null);
+
+        service.saveContent(template(CONFIG), "antiFake", "0", ENTERPRISE_ID);
+
+        ArgumentCaptor<TraceLandingContent> captor = ArgumentCaptor.forClass(TraceLandingContent.class);
+        verify(contentMapper).insert(captor.capture());
+        assertEquals("antiFake", captor.getValue().getBlockKey());
+        assertEquals("0", captor.getValue().getContent());
+    }
+
+    @Test
+    void 重新勾选防伪走删行回到默认展示() {
+        when(contentMapper.selectOne(any())).thenReturn(aRow(4L, "antiFake", "0"));
+
+        // 前端勾回来提交的是 "1"；而清空（空串）按本仓库统一语义是删行，两者效果一样是展示
+        service.saveContent(template(CONFIG), "antiFake", "", ENTERPRISE_ID);
+
+        verify(contentMapper).deleteById(4L);
+        verify(contentMapper, never()).insert(any());
     }
 
     @Test
