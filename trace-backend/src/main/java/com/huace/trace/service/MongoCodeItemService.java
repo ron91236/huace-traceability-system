@@ -141,6 +141,20 @@ public class MongoCodeItemService {
     }
 
     /**
+     * 商品换模板时按 goodsId 同步 MongoDB 那份拷贝的模板标识
+     */
+    public void updateTraceTemplateByGoodsId(Long goodsId, String traceTemplate) {
+        if (!isMongoAvailable()) return;
+        try {
+            Query query = new Query(Criteria.where("goodsId").is(goodsId));
+            mongoTemplate.updateMulti(query, new Update().set("traceTemplate", traceTemplate),
+                    CodePackageItemMongo.class);
+        } catch (DataAccessException e) {
+            log.warn("MongoDB 更新 traceTemplate 失败，goodsId={}: {}", goodsId, e.getMessage());
+        }
+    }
+
+    /**
      * 更新 MongoDB 中指定流水号的扫码次数
      */
     public void updateScanCount(String serialNo, Integer scanCount) {

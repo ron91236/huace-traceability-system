@@ -1,15 +1,20 @@
 package com.huace.trace.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.huace.trace.common.BusinessException;
 import com.huace.trace.common.PageResult;
+import com.huace.trace.entity.CodePackageItem;
 import com.huace.trace.entity.Enterprise;
 import com.huace.trace.entity.Goods;
+import com.huace.trace.entity.OrderCode;
 import com.huace.trace.entity.Product;
 import com.huace.trace.entity.TraceTemplate;
+import com.huace.trace.mapper.CodePackageItemMapper;
 import com.huace.trace.mapper.EnterpriseMapper;
 import com.huace.trace.mapper.GoodsMapper;
+import com.huace.trace.mapper.OrderCodeMapper;
 import com.huace.trace.mapper.ProductMapper;
 import com.huace.trace.mapper.TraceTemplateMapper;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +32,13 @@ public class GoodsService {
     private final EnterpriseMapper enterpriseMapper;
     private final TraceTemplateMapper traceTemplateMapper;
     private final TracePageService tracePageService;
+    /**
+     * 放在最后：@RequiredArgsConstructor 的字段顺序就是构造参数顺序。
+     * 这三个只为"商品换模板要同步已绑定的码"服务。
+     */
+    private final CodePackageItemMapper codePackageItemMapper;
+    private final OrderCodeMapper orderCodeMapper;
+    private final MongoCodeItemService mongoCodeItemService;
 
     public PageResult<Goods> list(int page, int size, String keyword, Long enterpriseId) {
         LambdaQueryWrapper<Goods> w = new LambdaQueryWrapper<>();
@@ -73,7 +85,44 @@ public class GoodsService {
         g.setId(id);
         g.setEnterpriseId(enterpriseId);
         goodsMapper.updateById(g);
+        syncBoundCodesTemplate(id, g.getTraceTemplateId(), existing.getTraceTemplateId());
         tracePageService.evictAllCache();
+    }
+
+    /**
+     * 商品换溯源模板要把它已绑定的码一起带走：扫码页读的是 code_package_item 上那份模板快照，
+     * 不同步的话企业换了模板，已经印出去的码仍按旧模板渲染。
+     *
+     * <p>{@code newTemplateId} 为 null 表示这次 PUT 没带这个字段——updateById 的 NOT_NULL 策略下
+     * 商品列本身也不会变，所以码上的值同样要原样留着，不能当成"清空模板"抹掉。
+     */
+    private void syncBoundCodesTemplate(Long goodsId, Long newTemplateId, Long oldTemplateId) {
+        if (newTemplateId == null || newTemplateId.equals(oldTemplateId)) return;
+        TraceTemplate template = traceTemplateMapper.selectById(newTemplateId);
+        if (template == null) return;
+        String key = template.getTemplateKey();
+
+        codePackageItemMapper.update(null, new LambdaUpdateWrapper<CodePackageItem>()
+                .eq(CodePackageItem::getGoodsId, goodsId)
+                .eq(CodePackageItem::getBindStatus, "BOUND")
+                .set(CodePackageItem::getTraceTemplate, key));
+
+        // 条码段上的模板也一起改：它是"编辑订单条码"再下发时的默认值，留着旧值等于埋一颗
+        // 会把码改回旧模板的雷。段与商品没有直接外键，只能从这些码自己的 order_code_id 反推。
+        List<Long> segmentIds = codePackageItemMapper.selectList(new LambdaQueryWrapper<CodePackageItem>()
+                        .select(CodePackageItem::getOrderCodeId)
+                        .eq(CodePackageItem::getGoodsId, goodsId)
+                        .eq(CodePackageItem::getBindStatus, "BOUND")
+                        .isNotNull(CodePackageItem::getOrderCodeId)
+                        .groupBy(CodePackageItem::getOrderCodeId))
+                .stream().map(CodePackageItem::getOrderCodeId).toList();
+        if (!segmentIds.isEmpty()) {
+            orderCodeMapper.update(null, new LambdaUpdateWrapper<OrderCode>()
+                    .in(OrderCode::getId, segmentIds)
+                    .set(OrderCode::getTraceTemplate, key));
+        }
+
+        mongoCodeItemService.updateTraceTemplateByGoodsId(goodsId, key);
     }
 
     public void delete(Long id, Long enterpriseId) {
