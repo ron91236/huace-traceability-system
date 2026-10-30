@@ -1,14 +1,21 @@
 package com.huace.trace.service;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huace.trace.common.BusinessException;
 import com.huace.trace.entity.*;
+import com.huace.trace.entity.mongo.CodePackageItemMongo;
 import com.huace.trace.mapper.*;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -38,6 +45,8 @@ import static org.mockito.Mockito.*;
  * 10. 未绑定或未回填生产日期时的批次列表行为
  * 以及长图模板取数开关：
  * 11. 只有 config_json.renderMode=long-image 的模板才附带 longModules，且取数入参是模板行 + 企业 id
+ * 以及防伪验证的写入边界：
+ * 12. 验证只推进 scan_count，不把 MongoDB 那份过期拷贝整行写回 MySQL（否则等于解绑）
  */
 @ExtendWith(MockitoExtension.class)
 class TracePageServiceTest {
@@ -74,6 +83,19 @@ class TracePageServiceTest {
 
     /** 默认未开通批次切换定制的企业，用例按需 setBatchSwitchEnabled(1) */
     private Enterprise enterprise;
+
+    /**
+     * LambdaUpdateWrapper 渲染 SET/WHERE 片段时要查实体的列缓存，而缓存只在 MyBatis 启动扫描
+     * 实体时装好；这里是纯 Mockito 环境，不装就抛 "can not find lambda cache for this entity"。
+     */
+    @BeforeAll
+    static void initTableInfo() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), CodePackageItem.class);
+    }
+
+    private static String flat(String sql) {
+        return sql.replaceAll("\\s+", "");
+    }
 
     @BeforeEach
     void setUp() {
@@ -119,7 +141,11 @@ class TracePageServiceTest {
         assertEquals("河南福鹿家鲜啤酒业有限公司", result.get("enterpriseName"));
         assertEquals("德式小麦", result.get("productName"));
         assertNull(result.get("certName"), "认证机构字段已移除");
-        verify(codePackageItemMapper).updateById(any(CodePackageItem.class));
+        // MySQL 兜底出来的整行也不能随手写回：这条路径唯一的正当改动是计数
+        verify(codePackageItemMapper, never()).updateById(any(CodePackageItem.class));
+        String set = flat(captureCountUpdate().getSqlSet());
+        assertTrue(set.contains("scan_count="), set);
+        assertFalse(set.contains("bind_status="), set);
         verify(mongoCodeItemService).updateScanCount(eq("00000626"), eq(6));
     }
 
@@ -155,6 +181,7 @@ class TracePageServiceTest {
         assertEquals(5, result.get("scanCount"));
         assertEquals("验证失败，防伪码不匹配，请谨防假冒", result.get("message"));
         verify(codePackageItemMapper, never()).updateById(any(CodePackageItem.class));
+        verify(codePackageItemMapper, never()).update(isNull(), any(LambdaUpdateWrapper.class));
         verify(mongoCodeItemService, never()).updateScanCount(anyString(), anyInt());
     }
 
@@ -166,6 +193,60 @@ class TracePageServiceTest {
         Map<String, Object> result = service.verifyAntiFakeCode("00000626", "890");
 
         assertEquals(false, result.get("verified"));
+    }
+
+    /** Mongo 里那份过期拷贝：绑码只写 MySQL，所以码在 Mongo 仍是 UNBOUND、关联 id 全是 null */
+    private CodePackageItemMongo staleMongoDoc() {
+        CodePackageItemMongo m = new CodePackageItemMongo();
+        m.setItemId(1L);
+        m.setPackageId(32L);
+        m.setSerialNo("00000626");
+        m.setAntiFakeCode("1234567890");
+        m.setBindStatus("UNBOUND");
+        return m;
+    }
+
+    @SuppressWarnings("unchecked")
+    private LambdaUpdateWrapper<CodePackageItem> captureCountUpdate() {
+        ArgumentCaptor<LambdaUpdateWrapper<CodePackageItem>> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(codePackageItemMapper).update(isNull(), captor.capture());
+        return captor.getValue();
+    }
+
+    @Test
+    void 扫码即验证只写扫码次数不动绑定状态() {
+        // 旧写法把 Mongo 文档整个 updateById 回 MySQL，NOT_NULL 策略连 bind_status='UNBOUND'
+        // 一起写回去 —— 消费者点一次验证就把企业已激活的码解绑了（2026-10-29 生产实测复现）
+        when(mongoCodeItemService.findBySerialNo("00000626")).thenReturn(Optional.of(staleMongoDoc()));
+
+        Map<String, Object> result = service.directVerifyBySerialNo("00000626");
+
+        assertEquals(true, result.get("verified"));
+        assertEquals(1, result.get("scanCount"));
+        verify(codePackageItemMapper, never()).updateById(any(CodePackageItem.class));
+        LambdaUpdateWrapper<CodePackageItem> w = captureCountUpdate();
+        String set = flat(w.getSqlSet());
+        assertTrue(set.contains("scan_count="), set);
+        assertFalse(set.contains("bind_status="), set);
+        assertFalse(set.contains("enterprise_id="), set);
+        assertFalse(set.contains("trace_template="), set);
+        // WHERE 必须锁在流水号上：条件为空就是一条全表 UPDATE，会把九千多个未绑定码一起改掉
+        assertTrue(flat(w.getSqlSegment()).contains("serial_no="), w.getSqlSegment());
+        verify(mongoCodeItemService).updateScanCount(eq("00000626"), eq(1));
+    }
+
+    @Test
+    void 防伪码验证命中时也只写扫码次数() {
+        when(mongoCodeItemService.findBySerialNo("00000626")).thenReturn(Optional.of(staleMongoDoc()));
+
+        Map<String, Object> result = service.verifyAntiFakeCode("00000626", "1234567890");
+
+        assertEquals(true, result.get("verified"));
+        assertEquals(1, result.get("scanCount"));
+        verify(codePackageItemMapper, never()).updateById(any(CodePackageItem.class));
+        String set = flat(captureCountUpdate().getSqlSet());
+        assertTrue(set.contains("scan_count="), set);
+        assertFalse(set.contains("bind_status="), set);
     }
 
     @Test

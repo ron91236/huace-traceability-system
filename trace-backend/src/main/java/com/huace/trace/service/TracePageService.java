@@ -1,6 +1,7 @@
 package com.huace.trace.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huace.trace.common.BusinessException;
@@ -542,8 +543,7 @@ public class TracePageService {
         int scanCount = item.getScanCount() != null ? item.getScanCount() : 0;
         if (match) {
             scanCount++;
-            item.setScanCount(scanCount);
-            codePackageItemMapper.updateById(item);
+            bumpScanCount(serialNo, scanCount);
             // 同步更新 MongoDB 中的扫码次数
             mongoCodeItemService.updateScanCount(serialNo, scanCount);
         }
@@ -587,8 +587,7 @@ public class TracePageService {
         }
         // 每次扫码都视为一次有效查询，递增计数
         int scanCount = (item.getScanCount() != null ? item.getScanCount() : 0) + 1;
-        item.setScanCount(scanCount);
-        codePackageItemMapper.updateById(item);
+        bumpScanCount(serialNo, scanCount);
         mongoCodeItemService.updateScanCount(serialNo, scanCount);
 
         result.put("verified", true);
@@ -607,6 +606,17 @@ public class TracePageService {
         }
         result.put("queryTime", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")));
         return result;
+    }
+
+    /**
+     * 验证只推进扫码计数，必须用定向更新而不是整行 updateById：这两条验证路径先读 MongoDB 的码拷贝，
+     * 而绑定关系只写 MySQL、从不写 MongoDB，那份拷贝至今还是 bind_status=UNBOUND 且关联 id 全空；
+     * NOT_NULL 策略会把这身过期状态写回 MySQL，等于消费者验一次就把企业已激活的码解绑。
+     */
+    private void bumpScanCount(String serialNo, int scanCount) {
+        codePackageItemMapper.update(null, new LambdaUpdateWrapper<CodePackageItem>()
+                .eq(CodePackageItem::getSerialNo, serialNo)
+                .set(CodePackageItem::getScanCount, scanCount));
     }
 
     /**
