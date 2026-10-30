@@ -376,8 +376,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { getTraceInfo, getTraceBatches, getBatchTraceInfo, getTraceTemplate, verifyAntiFake, directVerify, getTraceVideos, getTraceIotLatest, getTraceTemperature, getTraceGpsTrack, getBatchVideos, getBatchIotLatest, convertPdfToImages } from '@/api/common'
+import { useRoute, useRouter } from 'vue-router'
+import { getTraceInfo, getTraceBatches, getBatchTraceInfo, getTraceTemplate, verifyAntiFake, directVerify, getTraceVideos, getTraceIotLatest, getTraceTemperature, getTraceGpsTrack, getBatchVideos, getBatchIotLatest, convertPdfToImages, getLanding } from '@/api/common'
 import LiveVideoElement from '@/components/trace/LiveVideoElement.vue'
 import IotSensorElement from '@/components/trace/IotSensorElement.vue'
 import IotChartElement from '@/components/trace/IotChartElement.vue'
@@ -389,6 +389,7 @@ import DOMPurify from 'dompurify'
 import { SECTION_FIELDS, isInfoSection, getSectionAllFields } from '@/constants/section-fields'
 
 const route = useRoute()
+const router = useRouter()
 const loading = ref(false)
 const error = ref('')
 const traceData = ref<any>(null)
@@ -983,6 +984,17 @@ async function loadTrace() {
         const tplRes = await getTraceTemplate(res.data.traceTemplate)
         templateConfig.value = tplRes.data
           } catch (e) { templateConfig.value = null; console.warn('模板加载失败') }
+    }
+    // 落地页模板的正文长在 /s/：码上印的、发放列表生成的链接都是 /trace/（`?a=` 也重定向到这里），
+    // 不在这里转过去的话企业填的落地页内容消费者永远看不到。
+    // 判据与 LandingView 的回落条件严格互补（它退的是 !isLanding || contentEmpty），
+    // 否则空内容的码会在两个页面之间来回弹。批次模式没有码可转，跳过。
+    if (!isBatchMode.value && templateConfig.value?.renderMode === 'landing') {
+      const l: any = await getLanding(serialNo.value).catch(() => null)
+      if (l?.data?.isLanding && !l?.data?.contentEmpty) {
+        await router.replace(`/s/${serialNo.value}`)
+        return
+      }
     }
     // 加载可切换批次与视频/IoT扩展数据（并行，不阻塞主查询）
     loadBatches()
