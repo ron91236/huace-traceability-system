@@ -106,7 +106,8 @@ function gateBlocks(): boolean {
 
 function goTrace() {
   if (gateBlocks()) return
-  router.push(`/trace/${sn.value}`)
+  // detail=1 让 TraceView 别再转回落地页：它自己就是落地页「溯源详情」按钮的目标
+  router.push({ path: `/trace/${sn.value}`, query: { detail: '1' } })
 }
 
 function onLink(l: any) {

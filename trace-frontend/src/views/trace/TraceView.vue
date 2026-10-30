@@ -986,10 +986,11 @@ async function loadTrace() {
           } catch (e) { templateConfig.value = null; console.warn('模板加载失败') }
     }
     // 落地页模板的正文长在 /s/：码上印的、发放列表生成的链接都是 /trace/（`?a=` 也重定向到这里），
-    // 不在这里转过去的话企业填的落地页内容消费者永远看不到。
-    // 判据与 LandingView 的回落条件严格互补（它退的是 !isLanding || contentEmpty），
-    // 否则空内容的码会在两个页面之间来回弹。批次模式没有码可转，跳过。
-    if (!isBatchMode.value && templateConfig.value?.renderMode === 'landing') {
+    // 不在这里转过去的话企业填的落地页内容消费者永远看不到。判据与 LandingView 的回落条件严格
+    // 互补（它退的是 !isLanding || contentEmpty），否则空内容的码会在两个页面之间来回弹。
+    // ?detail=1 是落地页「溯源详情」按钮带的标记：那是用户明确要看详情页，再转回去就永远进不去了。
+    // 批次模式没有码可转，跳过。
+    if (!isBatchMode.value && route.query.detail !== '1' && templateConfig.value?.renderMode === 'landing') {
       const l: any = await getLanding(serialNo.value).catch(() => null)
       if (l?.data?.isLanding && !l?.data?.contentEmpty) {
         await router.replace(`/s/${serialNo.value}`)
