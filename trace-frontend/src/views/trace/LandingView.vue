@@ -201,10 +201,11 @@ onMounted(async () => {
   padding: 2px 8px; border-radius: 8px 0 0 8px; background: rgba(0, 0, 0, .45);
   color: #fff; font-size: 10px; letter-spacing: .5px; line-height: 1.6;
 }
-/* 窄栏改竖排：图标在上、文案在下，宽度固定，长名字换行而不是把侧栏撑宽 */
+/* 窄栏改竖排：图标在上、文案在下。宽度按"6-7 个汉字一行放得下"定的（实测
+   「低GI产品证书」文字宽约 85px），再窄就会断出「低GI产品 / 证书」这种孤零零的第二行 */
 .ld-btn {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
-  width: 74px; max-width: 23vw; padding: 8px 5px 9px; border: none; border-radius: 10px 0 0 10px;
+  width: 96px; max-width: 30vw; padding: 8px 5px 9px; border: none; border-radius: 10px 0 0 10px;
   background: rgba(255, 255, 255, .97); color: var(--trace-accent, #059669); font-size: 12px;
   line-height: 1.3; text-align: center; overflow-wrap: break-word; cursor: pointer;
   box-shadow: -1px 2px 8px rgba(0, 0, 0, .18); -webkit-tap-highlight-color: transparent;
