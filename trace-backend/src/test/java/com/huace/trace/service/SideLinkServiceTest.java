@@ -2,6 +2,7 @@ package com.huace.trace.service;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.huace.trace.common.BusinessException;
 import com.huace.trace.entity.EnterpriseSideLink;
@@ -30,6 +31,7 @@ import static org.mockito.Mockito.*;
  * 4. 跨企业改/删别人的行被拒；排序列表为空或重复都整体拒绝，不做部分生效
  * 5. 消费者只拿 status=1 的项且按 sort_order 升序
  * 6. 更新与排序都不能顺带把 status 写成 null（那等于凭空停用按钮，而接口照样 200）
+ * 7. 更新逐列显式 SET：updateById 的 NOT_NULL 策略会跳过 null，"清空图标/清空跳转地址"就永远不生效
  */
 @ExtendWith(MockitoExtension.class)
 class SideLinkServiceTest {
@@ -153,7 +155,18 @@ class SideLinkServiceTest {
 
         BusinessException e = assertThrows(BusinessException.class, () -> service.update(5L, form, ENTERPRISE_ID));
         assertEquals("无权限操作", e.getMessage());
-        verify(linkMapper, never()).updateById(any());
+        verify(linkMapper, never()).update(isNull(), any(LambdaUpdateWrapper.class));
+    }
+
+    @SuppressWarnings("unchecked")
+    private LambdaUpdateWrapper<EnterpriseSideLink> captureUpdate() {
+        ArgumentCaptor<LambdaUpdateWrapper<EnterpriseSideLink>> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(linkMapper).update(isNull(), captor.capture());
+        return captor.getValue();
+    }
+
+    private static String flat(String sql) {
+        return sql.replaceAll("\\s+", "");
     }
 
     @Test
@@ -167,10 +180,59 @@ class SideLinkServiceTest {
 
         service.update(5L, form, ENTERPRISE_ID);
 
+        LambdaUpdateWrapper<EnterpriseSideLink> w = captureUpdate();
+        assertTrue(flat(w.getSqlSet()).contains("status="), w.getSqlSet());
+        assertTrue(w.getParamNameValuePairs().containsValue(0),
+                "status 不许被写成 null（那等于凭空停用按钮）：" + w.getParamNameValuePairs());
+        assertFalse(flat(w.getSqlSet()).contains("sort_order="), "排序不由更新接口管：" + w.getSqlSet());
+        assertTrue(flat(w.getSqlSegment()).toUpperCase().contains("ID="), w.getSqlSegment());
+    }
+
+    @Test
+    void 清空图标与跳转地址要真的进SET() {
+        // updateById 的 NOT_NULL 策略会跳过 null 字段，"清空"这类操作在它下面永远不生效，
+        // 而接口照样回 200 —— 更新必须逐列显式 SET
+        EnterpriseSideLink existing = aLink(5L, "https://a", "/uploads/old.png", 1);
+        existing.setIcon("/uploads/old-icon.png");
+        when(linkMapper.selectById(5L)).thenReturn(existing);
+
+        EnterpriseSideLink form = new EnterpriseSideLink();
+        form.setName("只看二维码");
+        form.setImage("/uploads/qr.png");
+
+        service.update(5L, form, ENTERPRISE_ID);
+
+        LambdaUpdateWrapper<EnterpriseSideLink> w = captureUpdate();
+        String set = flat(w.getSqlSet());
+        assertTrue(set.contains("url=") && set.contains("icon="), set);
+        assertEquals(2, w.getParamNameValuePairs().values().stream().filter(java.util.Objects::isNull).count(),
+                "url 与 icon 各一个 null 才会真的被清掉：" + w.getParamNameValuePairs());
+    }
+
+    @Test
+    void 图标路径超过列宽被拒() {
+        // icon 列是 VARCHAR(64)，超长在严格模式下是 "Data too long" 的 500，不如在写入前说清楚
+        EnterpriseSideLink form = new EnterpriseSideLink();
+        form.setName("公众号");
+        form.setUrl("https://a");
+        form.setIcon("/uploads/" + "x".repeat(64));
+
+        BusinessException e = assertThrows(BusinessException.class, () -> service.create(form, ENTERPRISE_ID));
+        assertTrue(e.getMessage().contains("图标"), e.getMessage());
+    }
+
+    @Test
+    void 图标为空串时落成NULL() {
+        EnterpriseSideLink form = new EnterpriseSideLink();
+        form.setName("公众号");
+        form.setUrl("https://a");
+        form.setIcon("   ");
+
+        service.create(form, ENTERPRISE_ID);
+
         ArgumentCaptor<EnterpriseSideLink> captor = ArgumentCaptor.forClass(EnterpriseSideLink.class);
-        verify(linkMapper).updateById(captor.capture());
-        assertEquals(0, captor.getValue().getStatus());
-        assertEquals(ENTERPRISE_ID, captor.getValue().getEnterpriseId(), "更新不许把行改到别的企业名下");
+        verify(linkMapper).insert(captor.capture());
+        assertNull(captor.getValue().getIcon(), "空串与 null 两种「没有图标」会让前端判两次");
     }
 
     @Test

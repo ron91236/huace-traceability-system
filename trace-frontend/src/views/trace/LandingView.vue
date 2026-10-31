@@ -35,7 +35,7 @@
         <div class="ld-btn-group">
           <button v-if="showTraceDetail" class="ld-btn ld-btn-trace" @click="goTrace">溯源详情</button>
           <button v-for="l in links" :key="l.id" class="ld-btn" @click="onLink(l)">
-            <img v-if="isImg(l.icon)" :src="l.icon" class="ld-btn-ico" :alt="l.name" />
+            <img v-if="isIconImage(l.icon)" :src="l.icon" class="ld-btn-ico" :alt="l.name" />
             <span>{{ l.name }}</span>
           </button>
         </div>
@@ -54,6 +54,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import DOMPurify from 'dompurify'
 import { getLanding, directVerify } from '@/api/common'
+import { isIconImage } from '@/utils/constants'
 
 const route = useRoute()
 const router = useRouter()
@@ -85,10 +86,6 @@ function promoList(b: any): string[] {
     const v = JSON.parse(b.content || '[]')
     return Array.isArray(v) ? v.filter(Boolean) : []
   } catch { return [] }
-}
-
-function isImg(v?: string) {
-  return !!v && /\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(v)
 }
 
 function toggle() { collapsed.value = !collapsed.value }

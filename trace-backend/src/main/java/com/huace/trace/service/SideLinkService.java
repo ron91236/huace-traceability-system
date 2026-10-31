@@ -1,6 +1,7 @@
 package com.huace.trace.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.huace.trace.common.BusinessException;
 import com.huace.trace.entity.EnterpriseSideLink;
 import com.huace.trace.mapper.EnterpriseSideLinkMapper;
@@ -24,6 +25,8 @@ public class SideLinkService {
 
     /** 与表字段 VARCHAR(50) 一致 */
     public static final int NAME_MAX = 50;
+    /** 与表字段 VARCHAR(64) 一致：本系统上传的 /uploads/ 路径约 45 字，留不下也别说得含糊 */
+    public static final int ICON_MAX = 64;
 
     private final EnterpriseSideLinkMapper linkMapper;
 
@@ -63,12 +66,17 @@ public class SideLinkService {
     public void update(Long id, EnterpriseSideLink form, Long enterpriseId) {
         EnterpriseSideLink existing = owned(id, enterpriseId);
         validate(form);
-        form.setId(existing.getId());
-        form.setEnterpriseId(enterpriseId);
-        form.setSortOrder(existing.getSortOrder());
         // 前端只 PUT 改动字段时 status 是 null，直接落库等于把按钮停用，而接口照样回 200
         if (form.getStatus() == null) form.setStatus(existing.getStatus());
-        linkMapper.updateById(form);
+        // 逐列显式 SET 而不是 updateById：NOT_NULL 策略会跳过 null 字段，于是"清空图标"
+        // "清空跳转地址"这类操作永远不生效，界面刷新后值又回来，而接口一直是 200
+        linkMapper.update(null, new LambdaUpdateWrapper<EnterpriseSideLink>()
+                .eq(EnterpriseSideLink::getId, existing.getId())
+                .set(EnterpriseSideLink::getName, form.getName())
+                .set(EnterpriseSideLink::getIcon, form.getIcon())
+                .set(EnterpriseSideLink::getUrl, form.getUrl())
+                .set(EnterpriseSideLink::getImage, form.getImage())
+                .set(EnterpriseSideLink::getStatus, form.getStatus()));
     }
 
     @Transactional
@@ -125,5 +133,10 @@ public class SideLinkService {
         // 空串统一落成 NULL：库里留空串会让"有没有跳转目标"变成两种判法
         form.setUrl(url.isEmpty() ? null : url);
         form.setImage(image.isEmpty() ? null : image);
+
+        // 图标可空（消费者页只在它看起来像图片地址时才渲染），同样只留一种"没有"的表示
+        String icon = form.getIcon() == null ? "" : form.getIcon().trim();
+        if (icon.length() > ICON_MAX) throw new BusinessException("图标地址不能超过 " + ICON_MAX + " 字");
+        form.setIcon(icon.isEmpty() ? null : icon);
     }
 }

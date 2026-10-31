@@ -15,7 +15,14 @@
         <el-table-column width="40">
           <template #default><span class="sl-drag">⠿</span></template>
         </el-table-column>
-        <el-table-column prop="name" label="按钮文案" min-width="120" />
+        <el-table-column label="按钮文案" min-width="120">
+          <template #default="{ row }">
+            <span class="sl-name-cell">
+              <img v-if="isIconImage(row.icon)" :src="row.icon" class="sl-name-ico" :alt="row.name" />
+              <span>{{ row.name }}</span>
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column label="跳转地址" min-width="200">
           <template #default="{ row }">
             <a v-if="row.url" :href="row.url" target="_blank" rel="noopener noreferrer" class="sl-link">{{ row.url }}</a>
@@ -50,6 +57,17 @@
         <el-form-item label="按钮文案" required>
           <el-input v-model="form.name" maxlength="50" show-word-limit placeholder="如：关注公众号" />
         </el-form-item>
+        <el-form-item label="按钮图标">
+          <div class="sl-icon-row">
+            <el-upload :auto-upload="false" :show-file-list="false" accept="image/*" :on-change="onIconPick">
+              <el-button size="small">选择图标</el-button>
+            </el-upload>
+            <img v-if="isIconImage(form.icon)" :src="form.icon" class="sl-icon-preview" alt="图标预览" />
+            <el-button v-if="form.icon" size="small" link type="danger" @click="form.icon = ''">清除</el-button>
+            <span v-else class="sl-muted">未设置</span>
+          </div>
+          <div class="sl-hint">显示在按钮文字左侧的小图标，建议正方形、不超过 64×64</div>
+        </el-form-item>
         <el-form-item label="跳转地址">
           <el-input v-model="form.url" placeholder="https://… 微博、企业官网等" />
         </el-form-item>
@@ -77,6 +95,7 @@ import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import Sortable from 'sortablejs'
 import { getSideLinks, createSideLink, updateSideLink, deleteSideLink, sortSideLinks } from '@/api/enterprise'
+import { isIconImage } from '@/utils/constants'
 import { uploadFile } from '@/api/common'
 
 const loading = ref(false)
@@ -111,6 +130,16 @@ function openEdit(row: any) {
     name: row.name || '', icon: row.icon || '', url: row.url || '', image: row.image || '', status: row.status ?? 1,
   })
   dialogVisible.value = true
+}
+
+async function onIconPick(file: any) {
+  try {
+    const res: any = await uploadFile(file.raw)
+    if (!res.data?.url) return ElMessage.error('上传失败')
+    form.icon = res.data.url
+  } catch {
+    // request 拦截器已处理错误提示
+  }
 }
 
 async function onImagePick(file: any) {
@@ -193,5 +222,10 @@ onUnmounted(() => sortable?.destroy())
 .sl-link { color: var(--el-color-primary); word-break: break-all; }
 .sl-muted { color: #909399; }
 .sl-thumb { width: 40px; height: 40px; }
+.sl-name-cell { display: inline-flex; align-items: center; gap: 6px; }
+.sl-name-ico { width: 16px; height: 16px; object-fit: contain; }
+.sl-icon-row { display: flex; align-items: center; gap: 10px; }
+.sl-icon-preview { width: 22px; height: 22px; object-fit: contain; border: 1px solid var(--el-border-color); border-radius: 4px; }
+.sl-hint { font-size: 12px; color: #909399; margin-top: 4px; }
 .sl-preview { display: block; max-width: 180px; margin-top: 8px; border-radius: 6px; }
 </style>
