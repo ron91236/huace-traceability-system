@@ -3,8 +3,10 @@ package com.huace.trace.service;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.huace.trace.common.BusinessException;
+import com.huace.trace.entity.Enterprise;
 import com.huace.trace.entity.Order;
 import com.huace.trace.entity.OrderCode;
+import com.huace.trace.mapper.EnterpriseMapper;
 import com.huace.trace.mapper.OrderCodeMapper;
 import com.huace.trace.mapper.OrderMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -24,11 +26,15 @@ public class ExportService {
 
     private final OrderMapper orderMapper;
     private final OrderCodeMapper orderCodeMapper;
+    private final EnterpriseMapper enterpriseMapper;
 
     public void exportOrder(Long orderId, Long enterpriseId, HttpServletResponse response) throws IOException {
         Order order = orderMapper.selectById(orderId);
         if (order == null) throw new BusinessException("订单不存在");
         if (enterpriseId != null && !order.getEnterpriseId().equals(enterpriseId)) throw new BusinessException("无权限操作");
+
+        Enterprise enterprise = enterpriseMapper.selectById(order.getEnterpriseId());
+        String enterpriseName = enterprise != null ? enterprise.getName() : "未知企业";
 
         List<OrderCode> orderCodes = orderCodeMapper.selectList(
                 new LambdaQueryWrapper<OrderCode>().eq(OrderCode::getOrderId, orderId));
@@ -56,7 +62,7 @@ public class ExportService {
 
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setHeader("Content-Disposition",
-                "attachment;filename=" + URLEncoder.encode("订单_" + order.getOrderNo() + ".xlsx", "UTF-8"));
+                "attachment;filename=" + URLEncoder.encode(enterpriseName + "_订单_" + order.getOrderNo() + ".xlsx", "UTF-8"));
 
         EasyExcel.write(response.getOutputStream(), OrderExportRow.class)
                 .sheet("订单详情")
