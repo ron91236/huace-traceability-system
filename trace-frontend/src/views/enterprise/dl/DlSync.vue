@@ -43,7 +43,7 @@
             <el-tag v-else type="warning" size="small">进行中</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="同步时间" width="170"><template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T', ' ').substring(0,19) : '' }}</template></el-table-column>
+        <el-table-column label="同步时间" width="170"><template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template></el-table-column>
       </el-table>
       <div class="pagination-wrap">
         <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total"
@@ -76,6 +76,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getDlSyncRecords, manualDlSync } from '@/api/digital-label'

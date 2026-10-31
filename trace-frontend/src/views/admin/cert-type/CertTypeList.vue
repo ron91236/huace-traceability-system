@@ -13,7 +13,7 @@
         <el-table-column prop="id" label="ID" width="60" />
         <el-table-column prop="name" label="证书类型名称" min-width="200" />
         <el-table-column prop="createdAt" label="创建时间" width="180">
-          <template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T',' ').substring(0,19) : '' }}</template>
+          <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
@@ -44,6 +44,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'

@@ -22,15 +22,16 @@
           <template #default="{ row }"><el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">{{ row.status === 1 ? '在线' : '离线' }}</el-tag></template>
         </el-table-column>
         <el-table-column label="最后在线" width="160">
-          <template #default="{ row }">{{ row.lastOnlineAt ? row.lastOnlineAt.replace('T', ' ').substring(0, 19) : '-' }}</template>
+          <template #default="{ row }">{{ formatDateTime(row.lastOnlineAt) || '-' }}</template>
         </el-table-column>
-        <el-table-column label="注册时间" width="160"><template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T', ' ').substring(0,19) : '' }}</template></el-table-column>
+        <el-table-column label="注册时间" width="160"><template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template></el-table-column>
       </el-table>
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, onMounted } from 'vue'
 import { getAdminIotDevices } from '@/api/admin'
 

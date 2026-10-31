@@ -69,7 +69,7 @@
       <el-table :data="logList" v-loading="logLoading" border stripe max-height="500">
         <el-table-column prop="createdAt" label="时间" width="160">
           <template #default="{ row }">
-            {{ row.createdAt ? row.createdAt.replace('T', ' ').substring(0, 19) : '-' }}
+            {{ formatDateTime(row.createdAt) || '-' }}
           </template>
         </el-table-column>
         <el-table-column prop="changeType" label="类型" width="100" align="center">
@@ -101,6 +101,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, onMounted, watch } from 'vue'
 import { getPackageInventory, getSpecInventory, getInventoryLogs } from '@/api/admin'
 

@@ -148,6 +148,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -202,7 +203,7 @@ const actionLabelMap: Record<string, string> = { SUBMIT: '提交审核', APPROVE
 
 function formatTime(t: string) {
   if (!t) return ''
-  return t.replace('T', ' ').substring(0, 19)
+  return formatDateTime(t)
 }
 
 function batchLabel(b: any) {

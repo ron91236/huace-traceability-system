@@ -26,7 +26,7 @@
           </template>
         </el-table-column>
         <el-table-column label="检测时间" width="170">
-          <template #default="{ row }">{{ row.testTime ? row.testTime.replace('T',' ').substring(0,19) : '' }}</template>
+          <template #default="{ row }">{{ formatDateTime(row.testTime) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="160">
           <template #default="{ row }">
@@ -103,6 +103,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Upload } from '@element-plus/icons-vue'

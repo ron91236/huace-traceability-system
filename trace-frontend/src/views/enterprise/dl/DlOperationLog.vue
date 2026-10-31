@@ -35,7 +35,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="creator" label="创建人" width="120" />
-        <el-table-column label="时间" width="170"><template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T', ' ').substring(0,19) : '' }}</template></el-table-column>
+        <el-table-column label="时间" width="170"><template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template></el-table-column>
         <el-table-column label="详情" width="90">
           <template #default="{ row }">
             <el-button v-if="row.beforeData || row.afterData" size="small" type="primary" link @click="showDetail(row)">详情</el-button>
@@ -67,6 +67,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { getDlOperationLogs } from '@/api/digital-label'
 import { useDlAdmin } from '@/composables/useDlAdmin'

@@ -56,7 +56,7 @@
                   <el-table-column prop="wasteCount" label="作废" width="60" />
                   <el-table-column prop="bindCount" label="绑定数" width="70" />
                   <el-table-column label="生产时间" width="160">
-                    <template #default="{ row: oc }">{{ oc.productionTime ? oc.productionTime.replace('T',' ').substring(0,19) : '-' }}</template>
+                    <template #default="{ row: oc }">{{ formatDateTime(oc.productionTime) || '-' }}</template>
                   </el-table-column>
                   <el-table-column prop="traceTemplate" label="溯源模板" width="100">
                     <template #default="{ row: oc }">{{ oc.templateName || '-' }}</template>
@@ -95,7 +95,7 @@
           <template #default="{ row }"><el-tag :type="statusMap[row.status]?.type" size="small">{{ statusMap[row.status]?.label }}</el-tag></template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" width="170">
-          <template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T',' ').substring(0,19) : '' }}</template>
+          <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
@@ -188,6 +188,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Download } from '@element-plus/icons-vue'

@@ -40,7 +40,7 @@
             <span v-else>0</span>
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" width="170"><template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T', ' ').substring(0,19) : '' }}</template></el-table-column>
+        <el-table-column label="创建时间" width="170"><template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template></el-table-column>
         <el-table-column label="操作" width="230">
           <template #default="{ row }">
             <template v-if="row.labelVersionCount > 0">
@@ -80,6 +80,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance } from 'element-plus'

@@ -18,7 +18,7 @@
         <el-table-column prop="testReportName" label="检测报告" width="140">
           <template #default="{ row }">{{ row.testReportName || '-' }}</template>
         </el-table-column>
-        <el-table-column label="创建时间" width="170"><template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T', ' ').substring(0,19) : '' }}</template></el-table-column>
+        <el-table-column label="创建时间" width="170"><template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template></el-table-column>
         <el-table-column label="操作" width="240">
           <template #default="{ row }">
             <el-button size="small" @click="openForm(row)">编辑</el-button>
@@ -64,6 +64,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getBatches, createBatch, updateBatch, getBatchQrcode, copyBatch, getGoods, getBases, getAllTestReports } from '@/api/enterprise'

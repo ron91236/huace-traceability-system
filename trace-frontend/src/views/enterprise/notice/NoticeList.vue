@@ -22,6 +22,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, onMounted } from 'vue'
 import { getNotices } from '@/api/enterprise'
 const loading = ref(false)
@@ -31,6 +32,6 @@ const page = ref(1)
 const size = ref(20)
 const keyword = ref('')
 onMounted(() => loadData())
-function formatTime(t: string) { if (!t) return ''; return t.replace('T', ' ').substring(0, 19) }
+function formatTime(t: string) { if (!t) return ''; return formatDateTime(t) }
 async function loadData() { loading.value = true; try { const res = await getNotices({ page: page.value, size: size.value, keyword: keyword.value }); list.value = res.data?.list || []; total.value = res.data?.total || 0 } finally { loading.value = false } }
 </script>

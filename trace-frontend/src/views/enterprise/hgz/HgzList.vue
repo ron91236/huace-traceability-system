@@ -32,7 +32,7 @@
           <template #default="{ row }">{{ row.batchName || '-' }}</template>
         </el-table-column>
         <el-table-column label="开具日期" width="105">
-          <template #default="{ row }">{{ row.useTime ? row.useTime.replace('T',' ').substring(0,19) : '' }}</template>
+          <template #default="{ row }">{{ formatDateTime(row.useTime) }}</template>
         </el-table-column>
         <el-table-column label="状态" width="80">
           <template #default="{ row }">
@@ -172,6 +172,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Search, Refresh, Plus } from '@element-plus/icons-vue'

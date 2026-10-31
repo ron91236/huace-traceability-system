@@ -56,7 +56,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="importTime" label="导入时间" width="170">
-          <template #default="{ row }">{{ row.importTime ? row.importTime.replace('T',' ').substring(0,19) : '' }}</template>
+          <template #default="{ row }">{{ formatDateTime(row.importTime) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
@@ -94,7 +94,7 @@
           <el-tag v-if="detailPkg.dispatched" type="danger" size="small">已下发</el-tag>
           <el-tag v-else type="info" size="small">未下发</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item v-if="detailPkg.dispatched" label="下发时间">{{ detailPkg.dispatchedAt?.replace('T',' ').substring(0,19) || '-' }}</el-descriptions-item>
+        <el-descriptions-item v-if="detailPkg.dispatched" label="下发时间">{{ formatDateTime(detailPkg.dispatchedAt) || '-' }}</el-descriptions-item>
         <el-descriptions-item v-if="detailPkg.dispatched" label="下发操作人">{{ detailPkg.dispatchedBy || '-' }}</el-descriptions-item>
       </el-descriptions>
       <el-table :data="detailList" stripe max-height="300" size="small">
@@ -116,7 +116,7 @@
           <el-table-column prop="operatorName" label="操作人" width="120" />
           <el-table-column prop="reason" label="原因" show-overflow-tooltip />
           <el-table-column prop="createdAt" label="时间" width="170">
-            <template #default="{ row }">{{ row.createdAt?.replace('T',' ').substring(0,19) || '' }}</template>
+            <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
           </el-table-column>
         </el-table>
       </div>
@@ -125,6 +125,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Upload, Lock } from '@element-plus/icons-vue'

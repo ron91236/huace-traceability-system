@@ -24,7 +24,7 @@
                 <el-descriptions-item label="包装规格">{{ row.goodsPackageSpec || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="重量规格">{{ row.goodsWeightSpec || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="作废数">{{ row.wasteCount || 0 }}</el-descriptions-item>
-                <el-descriptions-item label="绑定时间">{{ row.createdAt ? row.createdAt.replace('T',' ').substring(0,19) : '-' }}</el-descriptions-item>
+                <el-descriptions-item label="绑定时间">{{ formatDateTime(row.createdAt) || '-' }}</el-descriptions-item>
               </el-descriptions>
             </div>
           </template>
@@ -66,7 +66,7 @@
           <template #default="{ row }">{{ row.wasteCount || 0 }}</template>
         </el-table-column>
         <el-table-column prop="createdAt" label="绑定时间" width="170">
-          <template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T',' ').substring(0,19) : '-' }}</template>
+          <template #default="{ row }">{{ formatDateTime(row.createdAt) || '-' }}</template>
         </el-table-column>
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
@@ -83,6 +83,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search } from '@element-plus/icons-vue'

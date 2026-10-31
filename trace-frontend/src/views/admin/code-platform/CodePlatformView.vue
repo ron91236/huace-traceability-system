@@ -165,6 +165,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCodePackages, getCodePackageDetail, generateCodePackage, exportCodePackage, getLastSerialByRule } from '@/api/admin'
@@ -256,7 +257,7 @@ async function loadData() {
 
 function formatTime(t: string) {
   if (!t) return ''
-  return t.replace('T', ' ').substring(0, 19)
+  return formatDateTime(t)
 }
 
 function formatCount(n: number) {

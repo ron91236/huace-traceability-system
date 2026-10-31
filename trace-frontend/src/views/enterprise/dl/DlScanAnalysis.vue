@@ -30,7 +30,7 @@
                     </template>
                   </el-table-column>
                   <el-table-column label="扫码时间" width="180">
-                    <template #default="{ row: d }">{{ d.scanTime ? d.scanTime.replace('T',' ').substring(0,19) : '' }}</template>
+                    <template #default="{ row: d }">{{ formatDateTime(d.scanTime) }}</template>
                   </el-table-column>
                 </el-table>
                 <div v-else-if="!row._detailLoading" style="padding:12px;color:#9ca3af">暂无扫码明细</div>
@@ -66,6 +66,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from '@/utils/echarts'
 import chinaGeoJson from '@/assets/china.geo.json'

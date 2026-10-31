@@ -72,6 +72,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
@@ -91,7 +92,7 @@ const form = reactive({ name: '', description: '', category: '', code: '' })
 
 function formatTime(t: string) {
   if (!t) return ''
-  return t.replace('T', ' ').substring(0, 19)
+  return formatDateTime(t)
 }
 
 onMounted(() => loadData())

@@ -41,7 +41,7 @@
           <template #default="{ row }">{{ row.city || '-' }}</template>
         </el-table-column>
         <el-table-column label="登录时间" min-width="170">
-          <template #default="{ row }">{{ row.loginTime ? row.loginTime.replace('T',' ').substring(0,19) : '' }}</template>
+          <template #default="{ row }">{{ formatDateTime(row.loginTime) }}</template>
         </el-table-column>
       </el-table>
       <div class="pagination-wrap">
@@ -53,6 +53,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, onMounted } from 'vue'
 import { getDlLoginLogs } from '@/api/digital-label'
 import { useDlAdmin } from '@/composables/useDlAdmin'

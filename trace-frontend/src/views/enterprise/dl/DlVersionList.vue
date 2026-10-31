@@ -47,11 +47,11 @@
           </template>
         </el-table-column>
         <el-table-column label="发布时间" width="165">
-          <template #default="{ row }">{{ row.publishedAt ? row.publishedAt.replace('T', ' ').substring(0, 19) : '-' }}</template>
+          <template #default="{ row }">{{ formatDateTime(row.publishedAt) || '-' }}</template>
         </el-table-column>
-        <el-table-column label="创建时间" width="165"><template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T', ' ').substring(0,19) : '' }}</template></el-table-column>
+        <el-table-column label="创建时间" width="165"><template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template></el-table-column>
         <el-table-column label="修改时间" width="165">
-          <template #default="{ row }">{{ row.updatedAt ? row.updatedAt.replace('T', ' ').substring(0, 19) : '' }}</template>
+          <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
@@ -81,6 +81,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'

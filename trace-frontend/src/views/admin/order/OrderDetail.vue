@@ -64,7 +64,7 @@
             <el-table-column prop="wasteCount" label="作废" width="60" />
             <el-table-column prop="bindCount" label="绑定数" width="70" />
             <el-table-column prop="productionTime" label="生产时间" width="160">
-              <template #default="{ row }">{{ row.productionTime ? row.productionTime.replace('T',' ').substring(0,19) : '-' }}</template>
+              <template #default="{ row }">{{ formatDateTime(row.productionTime) || '-' }}</template>
             </el-table-column>
             <el-table-column prop="traceTemplate" label="溯源模板" width="100">
               <template #default="{ row }">{{ row.templateName || '-' }}</template>
@@ -170,6 +170,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'

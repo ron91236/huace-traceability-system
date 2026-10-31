@@ -134,6 +134,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, onMounted } from 'vue'
 import { Search, Refresh, Upload, Iphone, FolderOpened } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -176,7 +177,7 @@ const resUploading = ref(false)
 
 function formatDate(d: string) {
   if (!d) return '-'
-  return d.replace('T', ' ').substring(0, 19)
+  return formatDateTime(d)
 }
 
 onMounted(() => loadData())

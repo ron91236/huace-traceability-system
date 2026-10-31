@@ -43,7 +43,7 @@
           </template>
         </el-table-column>
         <el-table-column label="创建时间" width="170">
-          <template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T',' ').substring(0,19) : '' }}</template>
+          <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">
@@ -85,6 +85,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getTraceTemplates, updateTraceTemplate, deleteTraceTemplate } from '@/api/admin'

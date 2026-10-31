@@ -22,7 +22,7 @@
           <template #default="{ row }"><el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">{{ row.status === 1 ? '在线' : '离线' }}</el-tag></template>
         </el-table-column>
         <el-table-column label="最后在线" width="160">
-          <template #default="{ row }">{{ row.lastOnlineAt ? row.lastOnlineAt.replace('T', ' ').substring(0, 19) : '-' }}</template>
+          <template #default="{ row }">{{ formatDateTime(row.lastOnlineAt) || '-' }}</template>
         </el-table-column>
         <el-table-column label="操作" width="200">
           <template #default="{ row }">
@@ -87,6 +87,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getIotDevices, createIotDevice, updateIotDevice, deleteIotDevice, getDeviceLatest } from '@/api/enterprise'

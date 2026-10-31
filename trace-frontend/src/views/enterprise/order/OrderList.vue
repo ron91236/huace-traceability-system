@@ -42,7 +42,7 @@
                   <el-table-column prop="quantity" label="数量" width="70" />
                   <el-table-column prop="bindCount" label="绑定数" width="70" />
                   <el-table-column label="生产时间" width="160">
-                    <template #default="{ row: oc }">{{ oc.productionTime ? oc.productionTime.replace('T',' ').substring(0,19) : '-' }}</template>
+                    <template #default="{ row: oc }">{{ formatDateTime(oc.productionTime) || '-' }}</template>
                   </el-table-column>
                   <template #empty><el-empty description="暂无条码数据" :image-size="60" /></template>
                 </el-table>
@@ -64,7 +64,7 @@
         <el-table-column label="状态" width="100">
           <template #default="{ row }"><el-tag :type="statusMap[row.status]?.type" size="small">{{ statusMap[row.status]?.label }}</el-tag></template>
         </el-table-column>
-        <el-table-column label="创建时间" width="170"><template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T', ' ').substring(0,19) : '' }}</template></el-table-column>
+        <el-table-column label="创建时间" width="170"><template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template></el-table-column>
         <el-table-column label="操作" width="300">
           <template #default="{ row }">
             <el-button size="small" @click="$router.push(`/enterprise/order/${row.id}`)">查看</el-button>
@@ -91,6 +91,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/datetime'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getOrders, createOrder, deleteOrder, submitOrder, getEnterpriseCerts, getAddresses, getOrderDetail } from '@/api/enterprise'
