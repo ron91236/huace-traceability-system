@@ -11,8 +11,10 @@
         <el-table-column prop="orderCodeId" label="订单条码ID" width="120" />
         <el-table-column prop="startSerial" label="开始流水号" width="140" />
         <el-table-column prop="endSerial" label="结束流水号" width="140" />
-        <el-table-column prop="produceTime" label="生产时间" width="170" />
-        <el-table-column prop="createdAt" label="创建时间" width="170" />
+        <el-table-column label="生产时间" width="170">
+          <template #default="{ row }">{{ row.produceTime ? row.produceTime.replace('T',' ').substring(0,19) : '' }}</template>
+        </el-table-column>
+        <el-table-column label="创建时间" width="170"><template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T', ' ').substring(0,19) : '' }}</template></el-table-column>
         <el-table-column label="操作" width="100">
           <template #default="{ row }">
             <el-popconfirm title="确认删除?" @confirm="handleDelete(row.id)">

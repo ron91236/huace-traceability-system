@@ -21,8 +21,10 @@
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }"><el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">{{ row.status === 1 ? '在线' : '离线' }}</el-tag></template>
         </el-table-column>
-        <el-table-column prop="lastOnlineAt" label="最后在线" width="160" />
-        <el-table-column prop="createdAt" label="注册时间" width="160" />
+        <el-table-column label="最后在线" width="160">
+          <template #default="{ row }">{{ row.lastOnlineAt ? row.lastOnlineAt.replace('T', ' ').substring(0, 19) : '-' }}</template>
+        </el-table-column>
+        <el-table-column label="注册时间" width="160"><template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T', ' ').substring(0,19) : '' }}</template></el-table-column>
       </el-table>
     </el-card>
   </div>

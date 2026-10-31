@@ -55,8 +55,8 @@
                   <el-table-column prop="quantity" label="数量" width="70" />
                   <el-table-column prop="wasteCount" label="作废" width="60" />
                   <el-table-column prop="bindCount" label="绑定数" width="70" />
-                  <el-table-column prop="productionTime" label="生产时间" width="160">
-                    <template #default="{ row: oc }">{{ oc.productionTime || '-' }}</template>
+                  <el-table-column label="生产时间" width="160">
+                    <template #default="{ row: oc }">{{ oc.productionTime ? oc.productionTime.replace('T',' ').substring(0,19) : '-' }}</template>
                   </el-table-column>
                   <el-table-column prop="traceTemplate" label="溯源模板" width="100">
                     <template #default="{ row: oc }">{{ oc.templateName || '-' }}</template>

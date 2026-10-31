@@ -28,7 +28,7 @@
             <el-table-column prop="handleStatus" label="状态" width="80">
               <template #default="{ row }"><el-tag :type="row.handleStatus === 1 ? 'success' : 'danger'" size="small">{{ row.handleStatus === 1 ? '已处理' : '未处理' }}</el-tag></template>
             </el-table-column>
-            <el-table-column prop="createdAt" label="时间" width="160" />
+            <el-table-column label="时间" width="160"><template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T', ' ').substring(0,19) : '' }}</template></el-table-column>
             <el-table-column label="操作" width="100">
               <template #default="{ row }">
                 <el-button v-if="row.handleStatus !== 1" size="small" type="primary" @click="openHandle(row)">处理</el-button>

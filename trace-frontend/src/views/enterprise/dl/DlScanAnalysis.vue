@@ -29,7 +29,9 @@
                       {{ [d.locationProvince, d.locationCity].filter(Boolean).join(' ') || '未知' }}
                     </template>
                   </el-table-column>
-                  <el-table-column prop="scanTime" label="扫码时间" width="180" />
+                  <el-table-column label="扫码时间" width="180">
+                    <template #default="{ row: d }">{{ d.scanTime ? d.scanTime.replace('T',' ').substring(0,19) : '' }}</template>
+                  </el-table-column>
                 </el-table>
                 <div v-else-if="!row._detailLoading" style="padding:12px;color:#9ca3af">暂无扫码明细</div>
               </div>

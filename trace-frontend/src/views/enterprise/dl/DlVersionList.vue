@@ -46,11 +46,13 @@
             <el-tag v-else type="info" size="small">草稿</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="publishedAt" label="发布时间" width="165">
-          <template #default="{ row }">{{ row.publishedAt || '-' }}</template>
+        <el-table-column label="发布时间" width="165">
+          <template #default="{ row }">{{ row.publishedAt ? row.publishedAt.replace('T', ' ').substring(0, 19) : '-' }}</template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="165" />
-        <el-table-column prop="updatedAt" label="修改时间" width="165" />
+        <el-table-column label="创建时间" width="165"><template #default="{ row }">{{ row.createdAt ? row.createdAt.replace('T', ' ').substring(0,19) : '' }}</template></el-table-column>
+        <el-table-column label="修改时间" width="165">
+          <template #default="{ row }">{{ row.updatedAt ? row.updatedAt.replace('T', ' ').substring(0, 19) : '' }}</template>
+        </el-table-column>
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <template v-if="!isAdmin">
