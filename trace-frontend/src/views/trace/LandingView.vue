@@ -201,11 +201,12 @@ onMounted(async () => {
   padding: 2px 8px; border-radius: 8px 0 0 8px; background: rgba(0, 0, 0, .45);
   color: #fff; font-size: 10px; letter-spacing: .5px; line-height: 1.6;
 }
-/* 窄栏改竖排：图标在上、文案在下。宽度按"6-7 个汉字一行放得下"定的（实测
-   「低GI产品证书」文字宽约 85px），再窄就会断出「低GI产品 / 证书」这种孤零零的第二行 */
+/* 窄栏竖排：图标在上、文案在下，长名字换行而不是把侧栏撑宽。
+   66px 是实测出来的：文字区在 62~70px 之间都会断成「低GI产品 / 证书」「朝日唯品 / Morning / Club」，
+   到 72px 就变成「低GI产品证 / 书」——留 6px 余量是因为各机型字体度量不完全一样。 */
 .ld-btn {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
-  width: 96px; max-width: 30vw; padding: 8px 5px 9px; border: none; border-radius: 10px 0 0 10px;
+  width: 66px; max-width: 22vw; padding: 8px 5px 9px; border: none; border-radius: 10px 0 0 10px;
   background: rgba(255, 255, 255, .97); color: var(--trace-accent, #059669); font-size: 12px;
   line-height: 1.3; text-align: center; overflow-wrap: break-word; cursor: pointer;
   box-shadow: -1px 2px 8px rgba(0, 0, 0, .18); -webkit-tap-highlight-color: transparent;
@@ -214,6 +215,6 @@ onMounted(async () => {
 /* 按下去往屏幕里缩一点：触屏没有 hover，只能靠按压反馈说明它是个按钮 */
 .ld-btn:active { transform: translateX(3px); background: #e9fbf0; }
 .ld-btn-trace { font-weight: 600; }
-.ld-btn-ico { width: 26px; height: 26px; object-fit: contain; }
+.ld-btn-ico { width: 30px; height: 30px; object-fit: contain; }
 .ld-qr { display: block; width: 100%; margin: 0 auto; }
 </style>
