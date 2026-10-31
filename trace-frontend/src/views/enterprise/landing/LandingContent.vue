@@ -21,14 +21,23 @@
         <div v-for="b in blocks" :key="b.key" class="lc-block">
           <div class="lc-head">
             <span class="lc-name">{{ b.name }}</span>
-            <el-tag v-if="!b.enabled" size="small" type="info">模板未启用该区块</el-tag>
-            <el-tag v-else-if="b.key === 'antiFake'" size="small" :type="hideAntiFake(b) ? 'info' : 'success'">
-              {{ hideAntiFake(b) ? '不展示' : '展示' }}
-            </el-tag>
+            <el-tag v-if="b.key === 'display'" size="small" type="info">改动即时生效</el-tag>
+            <el-tag v-else-if="!b.enabled" size="small" type="info">模板未启用该区块</el-tag>
             <el-tag v-else size="small" :type="filled(b) ? 'success' : 'default'">{{ filled(b) ? '已填' : '未填' }}</el-tag>
           </div>
 
-          <RichTextEditor v-if="b.key === 'richtext'" v-model="draft[b.key]" :upload-image="uploadRichImage" />
+          <div v-if="b.key === 'display'" class="lc-display">
+            <div v-for="it in DISPLAY_ITEMS" :key="it.key" class="lc-display-row">
+              <div>
+                <div class="lc-display-label">{{ it.label }}</div>
+                <div class="lc-tip">{{ allowed[it.key] === false ? '该模板未开放此项，企业侧不能单独打开' : it.hint }}</div>
+              </div>
+              <el-switch :model-value="display[it.key] !== false" :disabled="allowed[it.key] === false || saving === b.key"
+                @change="(v: any) => toggleDisplay(b, it.key, v === true)" />
+            </div>
+          </div>
+
+          <RichTextEditor v-else-if="b.key === 'richtext'" v-model="draft[b.key]" :upload-image="uploadRichImage" />
 
           <div v-else-if="b.key === 'video'" class="lc-field">
             <el-input v-model="draft[b.key]" placeholder="宣传视频地址，以 /uploads/ 开头" />
@@ -48,15 +57,9 @@
             </el-upload>
           </div>
 
-          <div v-else-if="b.key === 'antiFake'" class="lc-field">
-            <el-checkbox :model-value="!hideAntiFake(b)" :disabled="saving === b.key"
-              @change="(v: any) => toggleAntiFake(b, v === true)">在落地页展示防伪查询</el-checkbox>
-            <span class="lc-tip">防伪结论由系统按每个溯源码实时生成，这里只决定这块出不出现</span>
-          </div>
-
           <div v-else class="lc-sys">该区块由系统供给，无需填写。</div>
 
-          <div v-if="b.key !== 'antiFake'" class="lc-foot">
+          <div v-if="b.key !== 'display'" class="lc-foot">
             <el-button type="primary" size="small" :loading="saving === b.key" @click="save(b)">保存</el-button>
             <el-button size="small" @click="revert(b)">还原</el-button>
             <span class="lc-tip">清空并保存等于撤掉这一区块的内容</span>
@@ -76,10 +79,20 @@ import { uploadFile } from '@/api/common'
 
 const templates = ref<any[]>([])
 const templateId = ref<number | null>(null)
-// 后端返回的是"模板骨架 ⊕ 已填内容"，content 已是可直接编辑的字符串
-const blocks = ref<Array<{ key: string; name: string; sortOrder: number; enabled: boolean; content: string }>>([])
+// 后端返回的是"模板骨架 ⊕ 已填内容"，content 已是可直接编辑的字符串；
+// 只有末尾那条 display 的 content 是开关对象，另存在 display/allowed 里
+const blocks = ref<Array<{ key: string; name: string; sortOrder: number; enabled: boolean; content: any; allowed?: any }>>([])
 const draft = reactive<Record<string, string>>({})
+const display = reactive<Record<string, boolean>>({})
+const allowed = reactive<Record<string, boolean>>({})
 const saving = ref('')
+
+const DISPLAY_ITEMS = [
+  { key: 'title', label: '页面标题', hint: '落地页顶部显示模板名，不想露出模板名就关掉' },
+  { key: 'antiFake', label: '防伪查询区块', hint: '防伪结论由系统按每个溯源码实时生成' },
+  { key: 'traceDetail', label: '侧边栏「溯源详情」', hint: '右侧按钮栏里的溯源详情入口' },
+  { key: 'bottomEntry', label: '底部「查看溯源详情」', hint: '页面底部那个通栏大按钮' },
+]
 
 onMounted(async () => {
   try {
@@ -101,7 +114,14 @@ async function loadData() {
   if (!templateId.value) return
   const res: any = await getLandingContent(templateId.value)
   blocks.value = res.data || []
-  for (const b of blocks.value) draft[b.key] = b.content || ''
+  for (const b of blocks.value) {
+    if (b.key === 'display') {
+      Object.assign(display, b.content || {})
+      Object.assign(allowed, b.allowed || {})
+      continue
+    }
+    draft[b.key] = String(b.content ?? '')
+  }
 }
 
 /** promoImages 存的是 URL 的 JSON 数组（与后端 LandingContentService 的约定一致） */
@@ -119,17 +139,15 @@ function filled(b: any) {
 
 function revert(b: any) { draft[b.key] = b.content || '' }
 
-/** 无行/1 都是展示，只有企业明确存过 0 才不展示（与后端 list() 给的默认值一致） */
-function hideAntiFake(b: any) { return draft[b.key] === '0' }
-
-async function toggleAntiFake(b: any, on: boolean) {
+/** 开关与内容块共用同一个写入接口：值是 '1'/'0'，无行按展示处理 */
+async function toggleDisplay(block: any, key: string, on: boolean) {
   if (!templateId.value) return
-  saving.value = b.key
+  saving.value = block.key
   try {
-    await saveLandingBlock(templateId.value, b.key, on ? '1' : '0')
-    ElMessage.success(on ? '已展示防伪查询' : '已在落地页隐藏防伪查询')
+    await saveLandingBlock(templateId.value, key, on ? '1' : '0')
+    ElMessage.success(on ? '已设为展示' : '已设为不展示')
   } catch {
-    // 保存失败必须把勾选弹回去：界面上留一个没落库的开关，企业会以为已经改好了
+    // 保存失败必须把开关弹回去：界面上留一个没落库的状态，企业会以为已经改好了
   } finally {
     saving.value = ''
     await loadData()
@@ -182,6 +200,10 @@ async function save(b: any) {
 .lc-img img { display: block; width: 100%; }
 .lc-img-del { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; line-height: 18px; text-align: center; background: rgba(0,0,0,.55); color: #fff; border-radius: 50%; }
 .lc-sys { font-size: 13px; color: #606266; }
+.lc-display { display: flex; flex-direction: column; }
+.lc-display-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid var(--el-border-color-lighter); }
+.lc-display-row:first-child { border-top: none; }
+.lc-display-label { font-size: 14px; }
 .lc-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
 .lc-tip { font-size: 12px; color: #909399; }
 </style>

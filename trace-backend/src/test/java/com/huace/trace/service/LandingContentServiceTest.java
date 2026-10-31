@@ -33,8 +33,9 @@ import static org.mockito.Mockito.*;
  * 2. 消费端只拿"启用的且有内容的"块；antiFake 例外，它没有内容但默认要出现
  * 3. 保存空内容 = 删行（"企业未填"就是无行）
  * 4. 定位查询同时锁 (template_id, enterprise_id, block_key)，跨企业写不进去
- * 5. antiFake 只接受 1/0 开关值（0=企业不展示），骨架外的 blockKey 拒写
- * 6. promoImages 必须是 URL 数组，裸字符串挡在库外，别让消费者端每次渲染都去猜
+ * 5. 展示开关（title/antiFake/traceDetail/bottomEntry）只接受 1/0，无行=展示，且不受骨架校验限制
+ * 6. 模板侧关掉的项在清单的 allowed 里是 false，企业自己打开也不生效
+ * 7. 骨架外的 blockKey 拒写；promoImages 必须是 URL 数组，裸字符串挡在库外
  */
 @ExtendWith(MockitoExtension.class)
 class LandingContentServiceTest {
@@ -53,6 +54,13 @@ class LandingContentServiceTest {
             + "{\"key\":\"richtext\",\"name\":\"内容\",\"sortOrder\":0,\"enabled\":true},"
             + "{\"key\":\"promoImages\",\"name\":\"宣传图片\",\"sortOrder\":1,\"enabled\":true},"
             + "{\"key\":\"antiFake\",\"name\":\"防伪查询\",\"sortOrder\":2,\"enabled\":true}]}";
+
+    /** 管理端把防伪区块停掉、把底部入口关了：企业侧这两项不该还能自己打开 */
+    private static final String CONFIG_MENU_OFF =
+            "{\"renderMode\":\"landing\",\"sideMenu\":{\"enabled\":true,\"display\":\"inline\","
+            + "\"showTraceDetail\":true,\"showBottomEntry\":false},\"landingBlocks\":["
+            + "{\"key\":\"richtext\",\"name\":\"内容\",\"sortOrder\":0,\"enabled\":true},"
+            + "{\"key\":\"antiFake\",\"name\":\"防伪查询\",\"sortOrder\":1,\"enabled\":false}]}";
 
     /**
      * LambdaQueryWrapper 渲染 SQL 片段时要查实体的列缓存，纯 Mockito 环境不装就抛
@@ -97,21 +105,53 @@ class LandingContentServiceTest {
 
         List<Map<String, Object>> list = service.list(template(CONFIG), ENTERPRISE_ID);
 
-        assertEquals(List.of("richtext", "promoImages", "antiFake"),
+        assertEquals(List.of("richtext", "promoImages", "display"),
                 list.stream().map(m -> m.get("key")).toList());
         assertEquals("<p>正文</p>", list.get(0).get("content"));
         assertEquals("", list.get(1).get("content"));
-        // antiFake 没有"内容"，企业能改的只有展示与否；没勾过就是默认的 1（展示）
-        assertEquals("1", list.get(2).get("content"));
+        // 防伪区块没有可填内容，已从清单里挪进「页面展示设置」；没关过就是四项全展示
+        assertEquals(Map.of("title", true, "antiFake", true, "traceDetail", true, "bottomEntry", true),
+                displayOf(list));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Boolean> displayOf(List<Map<String, Object>> list) {
+        return (Map<String, Boolean>) aBlock(list, "display").get("content");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Boolean> allowedOf(List<Map<String, Object>> list) {
+        return (Map<String, Boolean>) aBlock(list, "display").get("allowed");
+    }
+
+    private Map<String, Object> aBlock(List<Map<String, Object>> list, String key) {
+        return list.stream().filter(m -> key.equals(m.get("key"))).findFirst().orElseThrow();
     }
 
     @Test
-    void 企业勾掉防伪后清单里带的是0() {
-        when(contentMapper.selectList(any())).thenReturn(List.of(aRow(4L, "antiFake", "0")));
+    void 企业关掉的开关在清单里是false() {
+        when(contentMapper.selectList(any())).thenReturn(List.of(
+                aRow(4L, "antiFake", "0"), aRow(5L, "bottomEntry", "0")));
 
         List<Map<String, Object>> list = service.list(template(CONFIG), ENTERPRISE_ID);
 
-        assertEquals("0", list.get(2).get("content"));
+        assertEquals(false, displayOf(list).get("antiFake"));
+        assertEquals(false, displayOf(list).get("bottomEntry"));
+        assertEquals(true, displayOf(list).get("title"));
+    }
+
+    @Test
+    void 模板关掉的项既不允许也不生效() {
+        // 管理端把防伪区块停掉、把底部入口关了：企业端要看到灰掉的开关，而不是"我开了消费者却没有"
+        when(contentMapper.selectList(any())).thenReturn(List.of());
+
+        List<Map<String, Object>> list = service.list(template(CONFIG_MENU_OFF), ENTERPRISE_ID);
+
+        assertEquals(false, allowedOf(list).get("antiFake"));
+        assertEquals(false, allowedOf(list).get("bottomEntry"));
+        assertEquals(true, allowedOf(list).get("traceDetail"));
+        assertEquals(false, displayOf(list).get("antiFake"));
+        assertEquals(false, displayOf(list).get("bottomEntry"));
     }
 
     @Test
@@ -262,12 +302,25 @@ class LandingContentServiceTest {
     }
 
     @Test
-    void 防伪区块只接受1和0两种开关值() {
+    void 防伪开关只接受1和0() {
         // 防伪结论由系统按码实时算，企业能改的只有"出不出现"；写别的值就是库里一个没人认的开关
         BusinessException e = assertThrows(BusinessException.class,
                 () -> service.saveContent(template(CONFIG), "antiFake", "随便", ENTERPRISE_ID));
-        assertTrue(e.getMessage().contains("防伪"), e.getMessage());
+        assertTrue(e.getMessage().contains("开关"), e.getMessage());
         verifyNoInteractions(contentMapper);
+    }
+
+    @Test
+    void 开关key不在骨架里也允许写() {
+        // title / traceDetail / bottomEntry 本来就不是区块，若按骨架校验会被当成"区块不存在"拒掉
+        when(contentMapper.selectOne(any())).thenReturn(null);
+
+        service.saveContent(template(CONFIG), "title", "0", ENTERPRISE_ID);
+
+        ArgumentCaptor<TraceLandingContent> captor = ArgumentCaptor.forClass(TraceLandingContent.class);
+        verify(contentMapper).insert(captor.capture());
+        assertEquals("title", captor.getValue().getBlockKey());
+        assertEquals("0", captor.getValue().getContent());
     }
 
     @Test

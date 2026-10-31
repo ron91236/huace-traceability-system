@@ -483,6 +483,8 @@ class TracePageServiceTest {
         when(configReader.sideMenuOf(tpl.getConfigJson())).thenReturn(new HashMap<>(Map.of("enabled", true)));
         when(configReader.gatesOf(tpl.getConfigJson())).thenReturn(Map.of());
         when(sideLinkService.resolveForConsumer(1L)).thenReturn(List.of());
+        when(landingContentService.effectiveDisplay(tpl, 1L)).thenReturn(
+                new HashMap<>(Map.of("title", true, "antiFake", false)));
 
         Map<String, Object> result = service.queryLanding("00000004", null);
 
@@ -490,6 +492,8 @@ class TracePageServiceTest {
         assertEquals("landing", result.get("renderMode"));
         assertEquals("tpl_landing", result.get("templateKey"));
         assertEquals(1, ((List<?>) result.get("blocks")).size());
+        // 生效后的展示开关要原样带给前端，否则前端得自己比对 sideMenu 与 blocks 推该不该出现
+        assertEquals(Map.of("title", true, "antiFake", false), result.get("display"));
         // 填过 richtext 就不算空页，否则前端会把有内容的页 302 掉
         assertEquals(false, result.get("contentEmpty"));
         assertEquals("/trace/00000004", result.get("traceUrl"));

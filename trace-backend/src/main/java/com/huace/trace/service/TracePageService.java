@@ -336,6 +336,9 @@ public class TracePageService {
         result.put("blocks", landingContentService.resolveForLanding(template, item.getEnterpriseId()));
         result.put("sideMenu", configReader.sideMenuOf(configJson));
         result.put("gates", configReader.gatesOf(configJson));
+        // 生效后的展示开关（标题/防伪/侧栏溯源详情/底部入口）：模板允许的与企业没关的取交集，
+        // 前端只看这一份，不必再去比对 sideMenu 与 blocks 推"这块到底该不该出现"
+        result.put("display", landingContentService.effectiveDisplay(template, item.getEnterpriseId()));
         result.put("sideLinks", sideLinkService.resolveForConsumer(item.getEnterpriseId()));
         // 只有企业真填过这三项之一才算"有内容可看"。antiFake 从不写内容行，
         // 把它算进来会让"填了富文本却仍被判为空"的页被错误地 302 掉（spec §12）

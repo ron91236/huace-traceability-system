@@ -1,7 +1,7 @@
 <template>
   <div class="landing" :style="pageStyle">
     <template v-if="loaded">
-      <h1 v-if="payload.templateName" class="ld-title">{{ payload.templateName }}</h1>
+      <h1 v-if="showTitle && payload.templateName" class="ld-title">{{ payload.templateName }}</h1>
 
       <div class="ld-body">
         <section v-for="b in blocks" :key="b.key" :class="['ld-block', 'ld-block-' + b.key]">
@@ -72,9 +72,13 @@ const qrTitle = ref('')
 const blocks = computed(() => payload.value.blocks || [])
 const links = computed(() => payload.value.sideLinks || [])
 const menu = computed(() => payload.value.sideMenu || {})
+// 生效后的展示开关：模板允许的与企业没关的已经在后端取过交集了，前端只看这一份。
+// 载荷里没有这块（旧缓存）时全部按"展示"处理，不给消费者一个凭空少东西的页面。
+const display = computed<any>(() => payload.value.display || {})
 const isFloat = computed(() => menu.value.display !== 'inline')
-const showTraceDetail = computed(() => menu.value.showTraceDetail !== false)
-const showBottomEntry = computed(() => menu.value.showBottomEntry !== false)
+const showTitle = computed(() => display.value.title !== false)
+const showTraceDetail = computed(() => display.value.traceDetail !== false)
+const showBottomEntry = computed(() => display.value.bottomEntry !== false)
 // 无外链且不显示溯源详情时整个侧边栏不出现（照参考页 hasMenuItems）；底部入口独立，不受此约束
 const menuVisible = computed(() => !!menu.value.enabled && (links.value.length > 0 || showTraceDetail.value))
 

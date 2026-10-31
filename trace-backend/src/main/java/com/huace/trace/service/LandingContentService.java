@@ -23,9 +23,9 @@ import java.util.Map;
  * 落地页区块内容：区块骨架归模板（管理端写），内容归企业（本轮由企业写的数据）。
  *
  * <p>行坐标是 (template_id, enterprise_id, block_key)，且「企业未填」用**无行**表示，
- * 与长图内容同一套语义（spec §6.2、§12）。antiFake 区块存的是开关而不是内容：
- * 防伪结论由系统按码实时取，库里存快照等于给消费者看一个可能已经过期的结论，
- * 所以这一行的值只允许 1（展示）/ 0（不展示），无行按展示处理。
+ * 与长图内容同一套语义（spec §6.2、§12）。同一张表还存落地页的展示开关
+ * （{@link #DISPLAY_KEYS}）：那些行存的不是内容而是 1/0，无行按"展示"处理，
+ * 所以不会因为上线了这轮配置而改变任何已有页面的样子。
  */
 @Service
 @RequiredArgsConstructor
@@ -43,6 +43,14 @@ public class LandingContentService {
     private static final String SHOW = "1";
     private static final String HIDE = "0";
 
+    /**
+     * 落地页的四项展示开关（页面标题 / 防伪查询 / 侧栏「溯源详情」/ 底部大按钮）。
+     * 与内容同表同坐标，值只允许 1/0，**无行=展示**，所以老页面的样子不会因为这轮上线而变。
+     */
+    public static final List<String> DISPLAY_KEYS = List.of("title", "antiFake", "traceDetail", "bottomEntry");
+    /** 开关在清单里汇总成一条，省得前端去区块列表里翻四行 */
+    public static final String DISPLAY_BLOCK = "display";
+
     private final TraceLandingContentMapper contentMapper;
     private final ObjectMapper objectMapper;
     private final CacheManager cacheManager;
@@ -50,25 +58,61 @@ public class LandingContentService {
     private final TemplateConfigReader configReader;
 
     /**
-     * 企业端列表：模板骨架 ⊕ 该企业已填内容。
+     * 企业端列表：模板骨架 ⊕ 该企业已填内容，末尾再挂一条汇总的「页面展示设置」。
      * 骨架里有但没填的区块带空串出现（企业要看清"该填哪几栏"），骨架外的历史行被忽略。
      */
     public List<Map<String, Object>> list(TraceTemplate template, Long enterpriseId) {
         Map<String, String> stored = storedContents(template, enterpriseId);
         List<Map<String, Object>> result = new ArrayList<>();
         for (TemplateConfigReader.LandingBlockDef d : skeleton(template)) {
+            // 防伪区块没有可填内容，改由下面那条开关管，留在清单里只会多一格填不了的东西
+            if (ANTI_FAKE.equals(d.key())) continue;
             Map<String, Object> item = new HashMap<>();
             item.put("key", d.key());
             item.put("name", d.name());
             item.put("sortOrder", d.sortOrder());
             item.put("enabled", d.enabled());
-            // antiFake 这一栏给的是生效后的开关：没勾过（无行）就是默认的展示
-            item.put("content", ANTI_FAKE.equals(d.key())
-                    ? (HIDE.equals(stored.get(d.key())) ? HIDE : SHOW)
-                    : stored.getOrDefault(d.key(), ""));
+            item.put("content", stored.getOrDefault(d.key(), ""));
             result.add(item);
         }
+        Map<String, Object> display = new HashMap<>();
+        display.put("key", DISPLAY_BLOCK);
+        display.put("name", "页面展示设置");
+        display.put("enabled", true);
+        display.put("content", effectiveDisplay(template, stored));
+        display.put("allowed", allowedDisplay(template));
+        result.add(display);
         return result;
+    }
+
+    /** 生效后的展示开关：模板允许的 ∧ 企业没关的 */
+    public Map<String, Boolean> effectiveDisplay(TraceTemplate template, Long enterpriseId) {
+        return effectiveDisplay(template, enterpriseId == null
+                ? Map.of() : storedContents(template, enterpriseId));
+    }
+
+    private Map<String, Boolean> effectiveDisplay(TraceTemplate template, Map<String, String> stored) {
+        Map<String, Boolean> allowed = allowedDisplay(template);
+        Map<String, Boolean> out = new java.util.LinkedHashMap<>();
+        for (String key : DISPLAY_KEYS) {
+            out.put(key, Boolean.TRUE.equals(allowed.get(key)) && !HIDE.equals(stored.get(key)));
+        }
+        return out;
+    }
+
+    /**
+     * 模板侧允不允许。企业端拿它把不允许的开关显示成灰的——否则会出现"我明明打开了，
+     * 消费者那边却没有"，而管理端骨架本来就是唯一能决定这块存不存的地方。
+     */
+    private Map<String, Boolean> allowedDisplay(TraceTemplate template) {
+        boolean antiFakeOn = template != null && skeleton(template).stream()
+                .anyMatch(d -> ANTI_FAKE.equals(d.key()) && d.enabled());
+        Map<String, Object> menu = configReader.sideMenuOf(template == null ? null : template.getConfigJson());
+        return Map.of(
+                "title", true,
+                "antiFake", antiFakeOn,
+                "traceDetail", !Boolean.FALSE.equals(menu.get("showTraceDetail")),
+                "bottomEntry", !Boolean.FALSE.equals(menu.get("showBottomEntry")));
     }
 
     /**
@@ -107,20 +151,25 @@ public class LandingContentService {
      */
     @Transactional
     public void saveContent(TraceTemplate template, String blockKey, String content, Long enterpriseId) {
-        TemplateConfigReader.LandingBlockDef def = skeleton(template).stream()
-                .filter(d -> d.key().equals(blockKey))
-                .findFirst()
-                // 骨架里没有这个 key 就别写：那会落出一行任何一侧都取不出来的孤儿数据
-                .orElseThrow(() -> new BusinessException("区块不存在"));
+        String key = blockKey == null ? "" : blockKey.trim();
 
-        // 先于任何查库动作拒绝：antiFake 没有"内容"这个概念，只允许 1/0 两种开关值，
-        // 写进去一个别的值就是库里一个两侧都不认的孤儿状态
-        if (ANTI_FAKE.equals(def.key())) {
+        // 展示开关排在骨架校验之前：title / traceDetail / bottomEntry 本来就不是骨架里的区块，
+        // 走下面的查询会被当成"区块不存在"拒掉
+        if (DISPLAY_KEYS.contains(key)) {
             String flag = content == null ? "" : content.trim();
+            // 空串=回到默认（展示），与"清空内容删行"同一套语义，所以交给 upsert 的空值分支处理
             if (!flag.isEmpty() && !SHOW.equals(flag) && !HIDE.equals(flag)) {
-                throw new BusinessException("防伪查询区块只能勾选展示（1）或不展示（0）");
+                throw new BusinessException("展示开关只能提交 1（展示）或 0（不展示）");
             }
+            upsert(template, key, flag, enterpriseId);
+            return;
         }
+
+        TemplateConfigReader.LandingBlockDef def = skeleton(template).stream()
+                .filter(d -> d.key().equals(key))
+                .findFirst()
+                // 骨架里没有这个 key 就别写：那会落出一行任何一侧要不到的孤儿数据
+                .orElseThrow(() -> new BusinessException("区块不存在"));
 
         String value = content == null ? "" : content.trim();
         if ("promoImages".equals(def.key()) && !value.isEmpty()) {
@@ -128,10 +177,14 @@ public class LandingContentService {
         }
         if (value.length() > CONTENT_MAX) throw new BusinessException("内容过长，请精简后重新提交");
 
+        upsert(template, def.key(), value, enterpriseId);
+    }
+
+    private void upsert(TraceTemplate template, String blockKey, String value, Long enterpriseId) {
         TraceLandingContent existing = contentMapper.selectOne(new LambdaQueryWrapper<TraceLandingContent>()
                 .eq(TraceLandingContent::getTemplateId, template.getId())
                 .eq(TraceLandingContent::getEnterpriseId, enterpriseId)
-                .eq(TraceLandingContent::getBlockKey, def.key()));
+                .eq(TraceLandingContent::getBlockKey, blockKey));
 
         if (value.isEmpty()) {
             if (existing != null) contentMapper.deleteById(existing.getId());
@@ -143,7 +196,7 @@ public class LandingContentService {
             TraceLandingContent row = new TraceLandingContent();
             row.setTemplateId(template.getId());
             row.setEnterpriseId(enterpriseId);
-            row.setBlockKey(def.key());
+            row.setBlockKey(blockKey);
             row.setContent(value);
             contentMapper.insert(row);
         } else {
