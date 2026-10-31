@@ -33,10 +33,14 @@
       <div v-if="menuVisible" :class="['ld-float', { collapsed: isFloat && collapsed }]">
         <div v-if="isFloat" class="ld-float-trigger" @click="toggle">{{ collapsed ? '‹' : '›' }}</div>
         <div class="ld-btn-group">
-          <button v-if="showTraceDetail" class="ld-btn ld-btn-trace" @click="goTrace">溯源详情</button>
+          <!-- 直显态没有把手，光靠阴影看不出这一列能点，所以给一句明示 -->
+          <div class="ld-cap">轻触查看</div>
+          <button v-if="showTraceDetail" class="ld-btn ld-btn-trace" @click="goTrace">
+            <span class="ld-btn-name">溯源详情</span>
+          </button>
           <button v-for="l in links" :key="l.id" class="ld-btn" @click="onLink(l)">
             <img v-if="isIconImage(l.icon)" :src="l.icon" class="ld-btn-ico" :alt="l.name" />
-            <span>{{ l.name }}</span>
+            <span class="ld-btn-name">{{ l.name }}</span>
           </button>
         </div>
       </div>
@@ -186,13 +190,29 @@ onMounted(async () => {
   width: 22px; height: 54px; display: flex; align-items: center; justify-content: center;
   background: rgba(0,0,0,.45); color: #fff; border-radius: 8px 0 0 8px; font-size: 14px; cursor: pointer;
 }
-.ld-btn-group { display: flex; flex-direction: column; gap: 8px; }
-.ld-btn {
-  display: flex; align-items: center; gap: 6px; padding: 9px 12px; border: none; border-radius: 8px 0 0 8px;
-  background: rgba(255,255,255,.96); color: var(--trace-accent, #059669); font-size: 13px;
-  box-shadow: -1px 1px 6px rgba(0,0,0,.12); text-align: left; max-width: 40vw;
+.ld-btn-group {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+  /* 进场时往屏幕内探两次：静态贴在一旁的东西很容易被当成页面装饰 */
+  animation: ld-nudge .9s ease-out .5s 2;
 }
+@keyframes ld-nudge { 0%, 100% { transform: translateX(0); } 45% { transform: translateX(-10px); } }
+@media (prefers-reduced-motion: reduce) { .ld-btn-group { animation: none; } }
+.ld-cap {
+  padding: 2px 8px; border-radius: 8px 0 0 8px; background: rgba(0, 0, 0, .45);
+  color: #fff; font-size: 10px; letter-spacing: .5px; line-height: 1.6;
+}
+/* 窄栏改竖排：图标在上、文案在下，宽度固定，长名字换行而不是把侧栏撑宽 */
+.ld-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  width: 74px; max-width: 23vw; padding: 8px 5px 9px; border: none; border-radius: 10px 0 0 10px;
+  background: rgba(255, 255, 255, .97); color: var(--trace-accent, #059669); font-size: 12px;
+  line-height: 1.3; text-align: center; overflow-wrap: break-word; cursor: pointer;
+  box-shadow: -1px 2px 8px rgba(0, 0, 0, .18); -webkit-tap-highlight-color: transparent;
+  transition: transform .12s ease, background .12s ease;
+}
+/* 按下去往屏幕里缩一点：触屏没有 hover，只能靠按压反馈说明它是个按钮 */
+.ld-btn:active { transform: translateX(3px); background: #e9fbf0; }
 .ld-btn-trace { font-weight: 600; }
-.ld-btn-ico { width: 16px; height: 16px; }
+.ld-btn-ico { width: 26px; height: 26px; object-fit: contain; }
 .ld-qr { display: block; width: 100%; margin: 0 auto; }
 </style>
