@@ -1,6 +1,7 @@
 package com.huace.trace.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.huace.trace.common.PageResult;
 import com.huace.trace.common.BusinessException;
@@ -9,17 +10,26 @@ import com.huace.trace.entity.TestReport;
 import com.huace.trace.mapper.BatchTestReportMapper;
 import com.huace.trace.mapper.TestReportMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TestReportService {
 
+    /** 报告字段是给溯源页的 Map 用的，Map 序列化不认实体上的 @JsonFormat，只能在这里定格式 */
+    private static final DateTimeFormatter DISPLAY_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
     private final TestReportMapper testReportMapper;
     private final BatchTestReportMapper batchTestReportMapper;
+    private final CacheManager cacheManager;
 
     public PageResult<TestReport> list(int page, int size, String keyword, Long enterpriseId) {
         LambdaQueryWrapper<TestReport> w = new LambdaQueryWrapper<>();
@@ -45,9 +55,22 @@ public class TestReportService {
         TestReport existing = testReportMapper.selectById(id);
         if (existing == null) throw new BusinessException("检测报告不存在");
         if (!existing.getEnterpriseId().equals(enterpriseId)) throw new BusinessException("无权限操作");
-        report.setId(id);
-        report.setEnterpriseId(enterpriseId);
-        testReportMapper.updateById(report);
+        // 逐列显式 SET：updateById 走 NOT_NULL 策略，企业在表单里删掉的检测时间/检测机构会以
+        // null 提交并被整个跳过，库里留旧值、消费者页照旧显示，而接口回的是 200。
+        // 归属 enterprise_id 不进 SET：请求体里带的那个不该把报告搬到别的企业名下。
+        testReportMapper.update(null, new LambdaUpdateWrapper<TestReport>()
+                .eq(TestReport::getId, id)
+                .set(TestReport::getReportName, report.getReportName())
+                .set(TestReport::getTestCode, report.getTestCode())
+                .set(TestReport::getReportImage, report.getReportImage())
+                .set(TestReport::getReportPdf, report.getReportPdf())
+                .set(TestReport::getTestOrg, report.getTestOrg())
+                .set(TestReport::getTestTime, report.getTestTime())
+                .set(TestReport::getTestMethod, report.getTestMethod())
+                .set(TestReport::getTestBasis, report.getTestBasis())
+                .set(TestReport::getTestType, report.getTestType())
+                .set(TestReport::getTestResult, report.getTestResult()));
+        evictTracePage();
     }
 
     public void delete(Long id, Long enterpriseId) {
@@ -55,6 +78,7 @@ public class TestReportService {
         if (existing == null) throw new BusinessException("检测报告不存在");
         if (!existing.getEnterpriseId().equals(enterpriseId)) throw new BusinessException("无权限操作");
         testReportMapper.deleteById(id);
+        evictTracePage();
     }
 
     // ==================== 批次-报告关联 ====================
@@ -118,7 +142,7 @@ public class TestReportService {
         info.put("reportName", report.getReportName());
         info.put("testCode", report.getTestCode());
         info.put("testOrg", report.getTestOrg());
-        info.put("testTime", report.getTestTime());
+        info.put("testTime", report.getTestTime() == null ? null : DISPLAY_TIME.format(report.getTestTime()));
         info.put("testMethod", report.getTestMethod());
         info.put("testBasis", report.getTestBasis());
         info.put("testType", report.getTestType());
@@ -146,5 +170,15 @@ public class TestReportService {
             result.add(buildReportInfo(r));
         }
         return result;
+    }
+
+    /** 报告一改消费者扫码页就得立刻看到，直接清缓存（注入 TracePageService 会成循环依赖） */
+    private void evictTracePage() {
+        try {
+            Cache cache = cacheManager.getCache("tracePage");
+            if (cache != null) cache.clear();
+        } catch (Exception e) {
+            log.warn("清除溯源页缓存失败", e);
+        }
     }
 }

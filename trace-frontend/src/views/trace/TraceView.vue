@@ -71,7 +71,7 @@
       <div v-else :key="currentPageIdx" class="trace-body" :class="'layout-' + currentLayout" :style="hasPageElements ? { display: 'flex', flexWrap: 'wrap', gap: '4px' } : {}">
         <!-- 新版：页面元素模式 -->
         <template v-if="hasPageElements">
-          <div v-for="el in currentPageElements" :key="el.id" class="page-element" :class="'el-type-' + el.type" :style="{ flex: '0 0 ' + elementBasis(el), boxSizing: 'border-box' }">
+          <div v-for="(el, i) in currentPageElements" :key="el.id" class="page-element" :class="'el-type-' + el.type" :style="{ flex: '0 0 ' + elementBasis(el), boxSizing: 'border-box', order: elementOrder(i) }">
             <!-- 文本 -->
             <div v-if="el.type === 'text'" class="el-text" :style="el.style || {}">{{ el.content }}</div>
             <!-- 富文本 -->
@@ -113,7 +113,7 @@
                     <div class="field-label">{{ field.label }}</div>
                     <!-- 图片自适应：容器高度随图片比例自动撑开，不裁剪不压缩 -->
                     <div v-if="getImageList(field.field).length > 0" class="field-image-list">
-                      <el-image v-for="(img, idx) in getImageList(field.field)" :key="idx" lazy :src="img" fit="contain" class="field-image-item" :preview-src-list="getImageList(field.field)" :initial-index="idx" />
+                      <el-image v-for="(img, idx) in getImageList(field.field)" :key="idx" lazy :src="img" fit="contain" :class="['field-image-item', { 'is-solo': getImageList(field.field).length === 1 }]" :preview-src-list="getImageList(field.field)" :initial-index="idx" />
                     </div>
                   </div>
                   <div v-else-if="field.type === 'video'" class="field-item field-item-block field-media">
@@ -179,18 +179,18 @@
               <div :ref="(dom: any) => setMapRef(el.id, dom)" class="trace-map-container" :id="'map-' + el.id"></div>
             </div>
           </div>
-          <!-- 子页面返回按钮 -->
-          <div v-if="currentPageIdx > 0" class="back-to-home">
+          <!-- 子页面返回按钮（.trace-body 是 flex 容器，导航类元素要显式排到内容之后） -->
+          <div v-if="currentPageIdx > 0" class="back-to-home" :style="{ order: NAV_ORDER }">
             <el-button round @click="currentPageIdx = 0">
               <el-icon><Back /></el-icon> 返回首页
             </el-button>
           </div>
           <!-- 页面导航按钮 -->
-          <div v-if="templateConfig?.pages?.length > 1" class="page-nav">
+          <div v-if="templateConfig?.pages?.length > 1" class="page-nav" :style="{ order: NAV_ORDER }">
             <el-button v-for="(p, i) in templateConfig.pages" :key="p.id" :type="currentPageIdx === i ? 'primary' : 'default'" size="small" round @click="currentPageIdx = i">{{ p.name }}</el-button>
           </div>
           <!-- 页面分页指示器 -->
-          <div v-if="templateConfig?.pages?.length > 1" class="page-dots">
+          <div v-if="templateConfig?.pages?.length > 1" class="page-dots" :style="{ order: NAV_ORDER }">
             <span v-for="(p, i) in templateConfig.pages" :key="p.id" :class="['dot', { active: currentPageIdx === i }]" @click="currentPageIdx = i" />
           </div>
         </template>
@@ -290,37 +290,41 @@
           </div>
         </div>
         </template>
-      </div>
-      </Transition>
 
-      <!-- 检测报告（长图模式下由底部导航的同名胶囊承载，此处不重复渲染） -->
-      <div v-if="!isLongImageMode && testReports.length > 0" class="trace-section test-report-section">
-        <div class="section-title">
-          <span class="test-report-icon">🧪</span>
-          <span>检测报告</span>
-        </div>
-        <div class="test-report-summary">
-          检测概况：本产品共检测 <strong>{{ testReports.length }}</strong> 次
-        </div>
-        <!-- 按月份分组 -->
-        <div v-for="group in groupedReports" :key="group.month" class="month-group">
-          <div class="month-label">{{ group.month }}</div>
-          <div v-for="report in group.reports" :key="report.id" class="report-card">
-            <div class="report-card-header">
-              <span class="report-name">{{ report.reportName }}</span>
-              <el-tag v-if="report.testResult" :type="report.testResult === '合格' ? 'success' : 'danger'" size="small">{{ report.testResult }}</el-tag>
-            </div>
-            <div class="report-card-body">
-              <div v-if="report.testTime" class="report-field"><span class="label">检测时间：</span>{{ report.testTime }}</div>
-              <div v-if="report.testMethod" class="report-field"><span class="label">检测方式：</span>{{ report.testMethod }}</div>
-              <div v-if="report.testOrg" class="report-field"><span class="label">检测机构：</span>{{ report.testOrg }}</div>
-            </div>
-            <div class="report-card-footer">
-              <a class="view-detail-link" @click="openReportDetail(report)">查看详情</a>
+        <!-- 检测报告。flex 容器里用 order 插到"检测信息"模块后面：模板勾了这个模块的话，
+             消费者就是在看检测信息，报告要顺手能往下看，而不是翻完整页找它在末尾；
+             没勾这个模块时仍留在最后，与改动前一致。 -->
+        <div v-if="testReports.length > 0 && currentPageIdx === reportAnchor.page"
+             class="trace-section test-report-section"
+             :style="{ order: reportAnchor.order, flex: '0 0 100%', boxSizing: 'border-box' }">
+          <div class="section-title">
+            <span class="test-report-icon">🧪</span>
+            <span>检测报告</span>
+          </div>
+          <div class="test-report-summary">
+            检测概况：本产品共检测 <strong>{{ testReports.length }}</strong> 次
+          </div>
+          <!-- 按月份分组 -->
+          <div v-for="group in groupedReports" :key="group.month" class="month-group">
+            <div class="month-label">{{ group.month }}</div>
+            <div v-for="report in group.reports" :key="report.id" class="report-card">
+              <div class="report-card-header">
+                <span class="report-name">{{ report.reportName }}</span>
+                <el-tag v-if="report.testResult" :type="report.testResult === '合格' ? 'success' : 'danger'" size="small">{{ report.testResult }}</el-tag>
+              </div>
+              <div class="report-card-body">
+                <div v-if="report.testTime" class="report-field"><span class="label">检测时间：</span>{{ report.testTime }}</div>
+                <div v-if="report.testMethod" class="report-field"><span class="label">检测方式：</span>{{ report.testMethod }}</div>
+                <div v-if="report.testOrg" class="report-field"><span class="label">检测机构：</span>{{ report.testOrg }}</div>
+              </div>
+              <div class="report-card-footer">
+                <a class="view-detail-link" @click="openReportDetail(report)">查看详情</a>
+              </div>
             </div>
           </div>
         </div>
       </div>
+      </Transition>
 
       <!-- 承诺达标合格证（有证才展示） -->
       <div v-if="!isLongImageMode && traceData?.hgz" class="trace-section hgz-section">
@@ -950,6 +954,23 @@ function elementBasis(el: any): string {
   return w
 }
 
+/**
+ * .trace-body 在页面元素模式下是 flex 容器，检测报告要靠 order 插到"检测信息"模块后面，
+ * 所以元素按 DOM 次序取 10 的整数倍，给报告留出 +5 的位；导航类元素排在所有内容之后。
+ * 报告只在锚点那一页渲染一次，多页模板不会每页都挂一份。
+ */
+const NAV_ORDER = 1000
+function elementOrder(i: number): number { return i * 10 }
+
+const reportAnchor = computed<{ page: number; order: number }>(() => {
+  const pages: any[] = templateConfig.value?.pages || []
+  for (let p = 0; p < pages.length; p++) {
+    const idx: number = (pages[p].elements || []).findIndex((e: any) => e.type === 'test-info')
+    if (idx >= 0) return { page: p, order: elementOrder(idx) + 5 }
+  }
+  return { page: Math.max(0, pages.length - 1), order: 900 }
+})
+
 function getImageList(path: string): string[] {
   const val = getFieldValue(path)
   if (!val) return []
@@ -1265,6 +1286,14 @@ onMounted(async () => {
           height: 200px;
           flex-shrink: 0;
           border-radius: 8px;
+
+          // 只有一张时没有"滑动浏览"可言：营业执照这类 A4 扫描件被塞进 200px 方框就看不清了，
+          // 按整宽展示，与资质证书里那张图一致
+          &.is-solo {
+            width: 100%;
+            height: auto;
+            max-width: 100%;
+          }
         }
       }
       video { background: #000; }

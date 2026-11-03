@@ -426,7 +426,10 @@ public class TracePageService {
         batchInfo.put("testCode", batch.getTestCode());
         batchInfo.put("testReport", batch.getTestReport());
         batchInfo.put("testOrg", batch.getTestOrg());
-        batchInfo.put("testTime", batch.getTestTime());
+        // LocalDateTime 放进 Map 就丢掉实体上的 @JsonFormat，序列化出来是带 T 的 ISO 串，
+        // 消费者页会原样印成"2026-08-02T00:00:00"
+        batchInfo.put("testTime", batch.getTestTime() == null ? null
+                : batch.getTestTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
         batchInfo.put("testMethod", batch.getTestMethod());
         batchInfo.put("testBasis", batch.getTestBasis());
         batchInfo.put("testType", batch.getTestType());
