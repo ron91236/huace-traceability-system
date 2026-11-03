@@ -68,9 +68,12 @@ public class EnterpriseService {
             throw new BusinessException("登录密码不能为空");
         }
 
-        if (!StringUtils.hasText(enterprise.getLoginAccount())) {
+        String account = enterprise.getLoginAccount() == null ? null : enterprise.getLoginAccount().trim();
+        if (!StringUtils.hasText(account)) {
             throw new BusinessException("登录账号不能为空");
         }
+        enterprise.setLoginAccount(account);
+        assertAccountAvailable(account);
 
         if (enterprise.getStatus() == null) {
             enterprise.setStatus(1);
@@ -79,7 +82,7 @@ public class EnterpriseService {
 
         // 同步创建 sys_user 记录
         SysUser user = new SysUser();
-        user.setUsername(enterprise.getLoginAccount());
+        user.setUsername(account);
         user.setPasswordHash(enterprise.getLoginPasswordHash());
         user.setNickname(enterprise.getName());
         user.setPhone(enterprise.getPhone());
@@ -94,6 +97,15 @@ public class EnterpriseService {
     @Transactional
     public void update(Long id, Enterprise enterprise) {
         enterprise.setId(id);
+        String account = enterprise.getLoginAccount() == null ? null : enterprise.getLoginAccount().trim();
+        if (StringUtils.hasText(account)) {
+            enterprise.setLoginAccount(account);
+            // 账号没改就别查：查了会命中自己那一行，变成"保存一次报一次重复"
+            Enterprise current = enterpriseMapper.selectById(id);
+            if (!account.equals(current == null ? null : current.getLoginAccount())) {
+                assertAccountAvailable(account);
+            }
+        }
         // 处理密码更新
         String rawPassword = StringUtils.hasText(enterprise.getLoginPassword())
                 ? enterprise.getLoginPassword()
@@ -107,11 +119,11 @@ public class EnterpriseService {
         tracePageService.evictAllCache();
 
         // 同步更新 sys_user
-        if (StringUtils.hasText(enterprise.getLoginAccount())) {
+        if (StringUtils.hasText(account)) {
             SysUser existingUser = sysUserMapper.selectOne(
                     new LambdaQueryWrapper<SysUser>().eq(SysUser::getEnterpriseId, id));
             if (existingUser != null) {
-                existingUser.setUsername(enterprise.getLoginAccount());
+                existingUser.setUsername(account);
                 if (StringUtils.hasText(enterprise.getLoginPasswordHash())) {
                     existingUser.setPasswordHash(enterprise.getLoginPasswordHash());
                 }
@@ -120,6 +132,23 @@ public class EnterpriseService {
                 existingUser.setEmail(enterprise.getEmail());
                 sysUserMapper.updateById(existingUser);
             }
+        }
+    }
+
+    /**
+     * 登录账号在两张表上各挂一个唯一索引：enterprise.uk_login_account 与 sys_user.uk_username
+     * （企业账号会同步建一条 sys_user，而管理端账号也住在那张表里）。
+     * 撞上去后 MySQL 抛的那一整段带 ### 与索引名的异常，会被全局兜底原样拼进"系统内部错误: "
+     * 回显到弹窗上——管理员看到的就是乱码。所以两处都先查一遍，把"已存在"说成人话。
+     */
+    private void assertAccountAvailable(String account) {
+        if (enterpriseMapper.selectCount(new LambdaQueryWrapper<Enterprise>()
+                .eq(Enterprise::getLoginAccount, account)) > 0) {
+            throw new BusinessException("登录账号「" + account + "」已存在，请换一个");
+        }
+        if (sysUserMapper.selectCount(new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getUsername, account)) > 0) {
+            throw new BusinessException("登录账号「" + account + "」已存在，请换一个");
         }
     }
 
