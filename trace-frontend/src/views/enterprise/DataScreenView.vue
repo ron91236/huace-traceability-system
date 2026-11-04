@@ -36,7 +36,7 @@
         <div ref="cityChartRef" class="chart-body"></div>
       </div>
       <div class="chart-card">
-        <div class="chart-title">扫码率</div>
+        <div class="chart-title">激活码扫码率</div>
         <div ref="scanRateChartRef" class="chart-body"></div>
       </div>
       <div class="chart-card">
@@ -157,7 +157,7 @@ function renderData(data: any) {
         splitLine: { show: false },
         axisLabel: { show: false },
         detail: { valueAnimation: true, fontSize: 24, color: '#fff', offsetCenter: [0, '10%'], formatter: '{value}%' },
-        data: [{ value: ratePercent, name: '扫码率' }],
+        data: [{ value: ratePercent, name: '激活码扫码率' }],
         title: { color: darkTextColor, fontSize: 12, offsetCenter: [0, '40%'] },
       }],
     })

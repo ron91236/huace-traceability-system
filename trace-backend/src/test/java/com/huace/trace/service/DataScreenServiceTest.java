@@ -31,10 +31,12 @@ class DataScreenServiceTest {
     private DataScreenService service;
 
     private void stubCommonCounts() {
-        // kpi.totalInventory, scanRate.total, scanRate.bound
-        when(codePackageItemMapper.selectCount(any())).thenReturn(11L, 10L, 7L);
-        // kpi.totalScans, scanRate.scanned
-        when(scanRecordMapper.selectCount(any())).thenReturn(100L, 3L);
+        // kpi.totalInventory（在库未绑定）、scanRate.total（已绑定）
+        when(codePackageItemMapper.selectCount(any())).thenReturn(11L, 10L);
+        // kpi.totalScans（过滤自扫后的真实扫码）
+        when(scanRecordMapper.selectCount(any())).thenReturn(100L);
+        // scanRate.scanned（被真实消费者扫过的绑定码）
+        when(scanRecordMapper.countScannedBoundCodes(any())).thenReturn(3L);
     }
 
     private void stubProductCategory() {
@@ -71,8 +73,6 @@ class DataScreenServiceTest {
         assertEquals(17L, kpiData.get("productCount"));
 
         assertEquals(10L, rate.get("total"));
-        assertEquals(7L, rate.get("bound"));
-        assertEquals(3L, rate.get("unbound"));
         assertEquals(3L, rate.get("scanned"));
     }
 
@@ -132,7 +132,7 @@ class DataScreenServiceTest {
     }
 
     @Test
-    void 企业视图_扫码率未绑定数正确() {
+    void 企业视图_扫码率为绑定码被扫比例() {
         stubCommonCounts();
 
         Map<String, Object> result = service.getAllData(1L);
@@ -140,7 +140,6 @@ class DataScreenServiceTest {
         Map<String, Object> rate = (Map<String, Object>) result.get("scanRate");
 
         assertEquals(10L, rate.get("total"));
-        assertEquals(7L, rate.get("bound"));
-        assertEquals(3L, rate.get("unbound"));
+        assertEquals(3L, rate.get("scanned"));
     }
 }

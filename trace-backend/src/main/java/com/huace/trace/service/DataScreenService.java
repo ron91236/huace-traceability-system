@@ -29,7 +29,7 @@ public class DataScreenService {
         result.put("cityRanking", scanRecordMapper.countByCity(enterpriseId));
         result.put("scanTrend", scanRecordMapper.scanTrend(enterpriseId));
         result.put("scanRate", getScanRate(enterpriseId));
-        result.put("labelDistribution", scanRecordMapper.monthlyScans(enterpriseId));
+        result.put("labelDistribution", codePackageItemMapper.monthlyBindings(enterpriseId));
         result.put("productCategory", getProductCategoryRatio(enterpriseId));
         if (enterpriseId == null) {
             result.put("enterpriseRanking", getEnterpriseScanRanking());
@@ -39,14 +39,13 @@ public class DataScreenService {
 
     private Map<String, Object> getKpiData(Long enterpriseId) {
         Map<String, Object> kpi = new HashMap<>();
-        LambdaQueryWrapper<CodePackageItem> boundQuery = new LambdaQueryWrapper<CodePackageItem>()
-                .eq(CodePackageItem::getBindStatus, "BOUND");
-        if (enterpriseId != null) boundQuery.eq(CodePackageItem::getEnterpriseId, enterpriseId);
-        kpi.put("totalInventory", codePackageItemMapper.selectCount(boundQuery));
+        // 总库存 = 尚未绑定发放、仍在库的码
+        LambdaQueryWrapper<CodePackageItem> stockQuery = new LambdaQueryWrapper<CodePackageItem>()
+                .eq(CodePackageItem::getBindStatus, "UNBOUND");
+        if (enterpriseId != null) stockQuery.eq(CodePackageItem::getEnterpriseId, enterpriseId);
+        kpi.put("totalInventory", codePackageItemMapper.selectCount(stockQuery));
 
-        LambdaQueryWrapper<ScanRecord> scanQuery = new LambdaQueryWrapper<>();
-        if (enterpriseId != null) scanQuery.eq(ScanRecord::getEnterpriseId, enterpriseId);
-        kpi.put("totalScans", scanRecordMapper.selectCount(scanQuery));
+        kpi.put("totalScans", scanRecordMapper.selectCount(realScanWrapper(enterpriseId)));
 
         if (enterpriseId != null) {
             kpi.put("merchantCount", 1L);
@@ -62,24 +61,26 @@ public class DataScreenService {
         return kpi;
     }
 
+    /** 扫码率 = 已绑定码中被真实消费者扫过的比例 */
     private Map<String, Object> getScanRate(Long enterpriseId) {
-        LambdaQueryWrapper<CodePackageItem> totalQuery = new LambdaQueryWrapper<>();
-        if (enterpriseId != null) totalQuery.eq(CodePackageItem::getEnterpriseId, enterpriseId);
-        long total = codePackageItemMapper.selectCount(totalQuery);
-
         LambdaQueryWrapper<CodePackageItem> boundQuery = new LambdaQueryWrapper<CodePackageItem>()
                 .eq(CodePackageItem::getBindStatus, "BOUND");
         if (enterpriseId != null) boundQuery.eq(CodePackageItem::getEnterpriseId, enterpriseId);
-        long bound = codePackageItemMapper.selectCount(boundQuery);
 
         Map<String, Object> rate = new HashMap<>();
-        rate.put("total", total);
-        rate.put("scanned", scanRecordMapper.selectCount(
-                enterpriseId != null ? new LambdaQueryWrapper<ScanRecord>()
-                        .eq(ScanRecord::getEnterpriseId, enterpriseId) : new LambdaQueryWrapper<>()));
-        rate.put("bound", bound);
-        rate.put("unbound", total - bound);
+        rate.put("total", codePackageItemMapper.selectCount(boundQuery));
+        rate.put("scanned", scanRecordMapper.countScannedBoundCodes(enterpriseId));
         return rate;
+    }
+
+    private LambdaQueryWrapper<ScanRecord> realScanWrapper(Long enterpriseId) {
+        LambdaQueryWrapper<ScanRecord> w = new LambdaQueryWrapper<ScanRecord>()
+                .isNotNull(ScanRecord::getIp)
+                .ne(ScanRecord::getIp, "")
+                .notLikeRight(ScanRecord::getIp, "127")
+                .notIn(ScanRecord::getIp, "::1", "0:0:0:0:0:0:0:1");
+        if (enterpriseId != null) w.eq(ScanRecord::getEnterpriseId, enterpriseId);
+        return w;
     }
 
     private List<Map<String, Object>> getProductCategoryRatio(Long enterpriseId) {

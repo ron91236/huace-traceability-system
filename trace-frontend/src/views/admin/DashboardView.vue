@@ -139,7 +139,7 @@
       <el-row :gutter="16" style="margin-top: 16px">
         <el-col :span="8">
           <el-card class="chart-card">
-            <template #header><span class="chart-title">扫码率</span></template>
+            <template #header><span class="chart-title">激活码扫码率</span></template>
             <div ref="scanRateChartRef" class="chart-body"></div>
           </el-card>
         </el-col>
@@ -298,7 +298,7 @@ function renderScreenData(data: any) {
         splitLine: { show: false },
         axisLabel: { show: false },
         detail: { valueAnimation: true, fontSize: 24, color: '#1f2937', offsetCenter: [0, '10%'], formatter: '{value}%' },
-        data: [{ value: ratePercent, name: '扫码率' }],
+        data: [{ value: ratePercent, name: '激活码扫码率' }],
         title: { color: axisColor, fontSize: 12, offsetCenter: [0, '40%'] },
       }],
     })
