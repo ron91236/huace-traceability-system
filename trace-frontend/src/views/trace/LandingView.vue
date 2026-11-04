@@ -33,8 +33,6 @@
       <div v-if="menuVisible" :class="['ld-float', { collapsed: isFloat && collapsed }]">
         <div v-if="isFloat" class="ld-float-trigger" @click="toggle">{{ collapsed ? '‹' : '›' }}</div>
         <div class="ld-btn-group">
-          <!-- 直显态没有把手，光靠阴影看不出这一列能点，所以给一句明示 -->
-          <div class="ld-cap">轻触查看</div>
           <button v-if="showTraceDetail" class="ld-btn ld-btn-trace" @click="goTrace">
             <span class="ld-btn-name">溯源详情</span>
           </button>
@@ -46,8 +44,13 @@
       </div>
     </template>
 
-    <el-dialog v-model="qrVisible" :title="qrTitle" width="320px" align-center>
-      <img v-if="qrImage" :src="qrImage" class="ld-qr" :alt="qrTitle" />
+    <!-- 资料查看器：单张二维码与多页报告走同一条路径，竖着滑比左右翻更适合手机上扫大图 -->
+    <el-dialog v-model="mediaVisible" :title="mediaTitle" width="92vw" top="5vh">
+      <div class="ld-media-scroll">
+        <img v-for="(p, i) in mediaPages" :key="p + i" :src="p" class="ld-media-img" loading="lazy"
+          :alt="`${mediaTitle} 第 ${i + 1} 页`" />
+        <div v-if="mediaPages.length === 0" class="ld-media-empty">资料暂时无法显示</div>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -69,9 +72,9 @@ const loaded = ref(false)
 const collapsed = ref(true)
 const fwResult = ref<any>(null)
 const fwLoading = ref(false)
-const qrVisible = ref(false)
-const qrImage = ref('')
-const qrTitle = ref('')
+const mediaVisible = ref(false)
+const mediaPages = ref<string[]>([])
+const mediaTitle = ref('')
 
 const blocks = computed(() => payload.value.blocks || [])
 const links = computed(() => payload.value.sideLinks || [])
@@ -117,14 +120,23 @@ function goTrace() {
 
 function onLink(l: any) {
   if (gateBlocks()) return
-  // 三分支，与参考页一致：有链接就跳，只有图片就弹二维码。
+  // 三分支，与参考页一致：有链接就跳，只有资料就弹查看器，两者都空是死按钮不响应。
   // url 的协议在 SideLinkService.validate 里已经限死 http/https，这里不再重复判一遍
   if (l.url) { window.location.href = l.url; return }
-  if (l.image) {
-    qrImage.value = l.image
-    qrTitle.value = l.name || '扫码关注'
-    qrVisible.value = true
-  }
+  // 判"有没有配资料"看 image 而不是 pages：pages 为空只说明 PDF 展开失败，
+  // 那要给一句「资料暂时无法显示」，而不是让按钮点了没反应
+  if (!l.image) return
+  mediaPages.value = pagesOf(l)
+  mediaTitle.value = l.name || '资料'
+  mediaVisible.value = true
+}
+
+/** 后端把 PDF 展开成页图放进 pages；后端回滚时回落到 image 本身，单份图片资料照样能看 */
+function pagesOf(l: any): string[] {
+  const raw = Array.isArray(l.pages)
+    ? l.pages
+    : (typeof l.image === 'string' && l.image.startsWith('/uploads/') ? [l.image] : [])
+  return raw.filter((p: any) => typeof p === 'string' && p !== '')
 }
 
 async function doVerify() {
@@ -197,10 +209,6 @@ onMounted(async () => {
 }
 @keyframes ld-nudge { 0%, 100% { transform: translateX(0); } 45% { transform: translateX(-10px); } }
 @media (prefers-reduced-motion: reduce) { .ld-btn-group { animation: none; } }
-.ld-cap {
-  padding: 2px 8px; border-radius: 8px 0 0 8px; background: rgba(0, 0, 0, .45);
-  color: #fff; font-size: 10px; letter-spacing: .5px; line-height: 1.6;
-}
 /* 窄栏竖排：图标在上、文案在下，长名字换行而不是把侧栏撑宽。
    66px 是实测出来的：文字区在 62~70px 之间都会断成「低GI产品 / 证书」「朝日唯品 / Morning / Club」，
    到 72px 就变成「低GI产品证 / 书」——留 6px 余量是因为各机型字体度量不完全一样。 */
@@ -216,5 +224,9 @@ onMounted(async () => {
 .ld-btn:active { transform: translateX(3px); background: #e9fbf0; }
 .ld-btn-trace { font-weight: 600; }
 .ld-btn-ico { width: 30px; height: 30px; object-fit: contain; }
-.ld-qr { display: block; width: 100%; margin: 0 auto; }
+/* 内容区自己滚，弹层整体不跟着页面滚：多页报告滑到底时标题还得留在屏幕上 */
+.ld-media-scroll { max-height: 74vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.ld-media-img { display: block; width: 100%; border-radius: 6px; }
+.ld-media-img + .ld-media-img { margin-top: 8px; }
+.ld-media-empty { padding: 48px 0; text-align: center; color: #909399; font-size: 14px; }
 </style>

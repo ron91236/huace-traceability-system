@@ -9,7 +9,7 @@
       </template>
 
       <el-alert type="info" :closable="false" style="margin-bottom:16px"
-        title="这些按钮出现在消费者扫码后的落地页右侧。填了跳转地址就直接跳转；只填图片（例如公众号二维码）就点开弹层显示图片。拖动第一列可调整顺序。" />
+        title="这些按钮出现在消费者扫码后的落地页右侧。填了跳转地址就直接跳转；只填资料（图片或多页 PDF）就点开弹层上下滑动查看。拖动第一列可调整顺序。" />
 
       <el-table :data="links" border stripe v-loading="loading" size="default" row-key="id">
         <el-table-column width="40">
@@ -29,9 +29,13 @@
             <span v-else class="sl-muted">—</span>
           </template>
         </el-table-column>
-        <el-table-column label="图片" width="90" align="center">
+        <el-table-column label="资料" width="110" align="center">
           <template #default="{ row }">
-            <el-image v-if="row.image" :src="row.image" :preview-src-list="[row.image]" preview-teleported fit="cover" class="sl-thumb" />
+            <template v-if="mediaOf(row).length">
+              <el-image v-if="imagesOf(row).length" :src="imagesOf(row)[0]" :preview-src-list="imagesOf(row)"
+                preview-teleported fit="cover" class="sl-thumb" />
+              <div class="sl-media-count">{{ mediaOf(row).length }} 份</div>
+            </template>
             <span v-else class="sl-muted">—</span>
           </template>
         </el-table-column>
@@ -71,12 +75,23 @@
         <el-form-item label="跳转地址">
           <el-input v-model="form.url" placeholder="https://… 微博、企业官网等" />
         </el-form-item>
-        <el-form-item label="跳转图片">
-          <el-upload :auto-upload="false" :show-file-list="false" accept="image/*" :on-change="onImagePick">
-            <el-button size="small">选择图片</el-button>
-          </el-upload>
-          <img v-if="form.image" :src="form.image" class="sl-preview" />
-          <span v-else class="sl-muted">未选择</span>
+        <el-form-item label="跳转资料">
+          <div class="sl-media">
+            <el-upload :auto-upload="false" :show-file-list="false" multiple accept="image/*,.pdf" :on-change="onMediaPick">
+              <el-button size="small" :loading="pending > 0">选择图片或 PDF</el-button>
+            </el-upload>
+            <div class="sl-hint">
+              可多选，最多 {{ MAX_ITEMS }} 份；单个 PDF 不超过 {{ MAX_PDF_PAGES }} 页、合计不超过 {{ MAX_TOTAL_PAGES }} 页。
+              消费者点开按钮后上下滑动查看。
+            </div>
+            <div v-for="(m, i) in media" :key="m.url" class="sl-media-row">
+              <img v-if="!isPdf(m.url)" :src="m.url" class="sl-media-thumb" alt="资料缩略图" />
+              <span v-else class="sl-media-badge">PDF</span>
+              <span class="sl-media-name">{{ m.name || (isPdf(m.url) ? 'PDF 文件' : '图片') }}</span>
+              <el-button size="small" link type="danger" @click="media.splice(i, 1)">删除</el-button>
+            </div>
+            <span v-if="!media.length" class="sl-muted">未选择</span>
+          </div>
         </el-form-item>
         <el-form-item label="启用">
           <el-switch v-model="form.status" :active-value="1" :inactive-value="0" />
@@ -104,6 +119,14 @@ const links = ref<any[]>([])
 const dialogVisible = ref(false)
 const editing = ref<any>(null)
 const form = reactive({ name: '', icon: '', url: '', image: '', status: 1 })
+/** 弹窗里正在编辑的资料条目；保存时序列化成 form.image 的 JSON 数组 */
+const media = ref<{ url: string; name: string }[]>([])
+const pending = ref(0)
+const MAX_ITEMS = 10
+const MAX_PDF_PAGES = 30
+const MAX_TOTAL_PAGES = 60
+// 多选时 el-upload 逐个回调，串成一条队列：并发上传的完成顺序不可控，条目顺序就该等于选择顺序
+let uploadChain: Promise<void> = Promise.resolve()
 let sortable: Sortable | null = null
 
 onMounted(async () => { await loadData(); initSortable() })
@@ -121,6 +144,7 @@ async function loadData() {
 function openCreate() {
   editing.value = null
   Object.assign(form, { name: '', icon: '', url: '', image: '', status: 1 })
+  media.value = []
   dialogVisible.value = true
 }
 
@@ -129,6 +153,7 @@ function openEdit(row: any) {
   Object.assign(form, {
     name: row.name || '', icon: row.icon || '', url: row.url || '', image: row.image || '', status: row.status ?? 1,
   })
+  media.value = parseMedia(row.image)
   dialogVisible.value = true
 }
 
@@ -142,22 +167,68 @@ async function onIconPick(file: any) {
   }
 }
 
-async function onImagePick(file: any) {
-  try {
-    const res: any = await uploadFile(file.raw)
-    if (!res.data?.url) return ElMessage.error('上传失败')
-    form.image = res.data.url
-  } catch {
-    // request 拦截器已处理错误提示
+function onMediaPick(file: any) {
+  const raw: File | undefined = file?.raw
+  if (!raw) return
+  if (media.value.length + pending.value >= MAX_ITEMS) {
+    return ElMessage.warning(`单个按钮最多 ${MAX_ITEMS} 份资料`)
   }
+  if (!raw.type.startsWith('image/') && !isPdf(raw.name)) {
+    return ElMessage.error(`只支持图片或 PDF：${raw.name}`)
+  }
+  pending.value++
+  uploadChain = uploadChain.then(() => doUploadMedia(raw))
+}
+
+async function doUploadMedia(raw: File): Promise<void> {
+  try {
+    const res: any = await uploadFile(raw)
+    if (!res.data?.url) {
+      ElMessage.error(`${raw.name} 上传失败`)
+      return
+    }
+    // 弹窗已关就别再往列表里塞：那会让下一次打开时凭空多出条目
+    if (dialogVisible.value) media.value.push({ url: res.data.url, name: raw.name })
+  } catch {
+    // request 拦截器已处理错误提示；队列继续跑剩下的文件
+  } finally { pending.value-- }
+}
+
+/** 库里的 image 是 JSON 数组；本次改动之前的老数据可能是单个裸路径，两种都要能编辑 */
+function parseMedia(image: any): { url: string; name: string }[] {
+  const raw = String(image ?? '').trim()
+  if (!raw) return []
+  if (!raw.startsWith('[')) return [{ url: raw, name: '' }]
+  try {
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return []
+    return arr.filter((u: any) => typeof u === 'string' && u).map((u: string) => ({ url: u, name: '' }))
+  } catch {
+    return []
+  }
+}
+
+/** .PDF 也算：判定大小写不敏感，与后端 SideLinkService.isPdf 同口径 */
+function isPdf(path: string): boolean {
+  return /\.pdf$/i.test(path || '')
+}
+
+function mediaOf(row: any): string[] {
+  return parseMedia(row?.image).map(m => m.url)
+}
+
+function imagesOf(row: any): string[] {
+  return mediaOf(row).filter(u => !isPdf(u))
 }
 
 async function handleSave() {
   // 与后端 SideLinkService.validate 同口径：两处说法不同，用户就会看到"明明填了还被拒"
   if (!String(form.name || '').trim()) return ElMessage.warning('按钮名称不能为空')
-  if (!String(form.url || '').trim() && !String(form.image || '').trim()) {
-    return ElMessage.warning('跳转链接与跳转图片至少填一项')
+  if (!String(form.url || '').trim() && media.value.length === 0) {
+    return ElMessage.warning('跳转链接与跳转资料至少填一项')
   }
+  if (pending.value > 0) return ElMessage.warning('资料还在上传，请稍候再保存')
+  form.image = media.value.length ? JSON.stringify(media.value.map(m => m.url)) : ''
   saving.value = true
   try {
     if (editing.value?.id) await updateSideLink(editing.value.id, { ...form })
@@ -226,6 +297,17 @@ onUnmounted(() => sortable?.destroy())
 .sl-name-ico { width: 16px; height: 16px; object-fit: contain; }
 .sl-icon-row { display: flex; align-items: center; gap: 10px; }
 .sl-icon-preview { width: 22px; height: 22px; object-fit: contain; border: 1px solid var(--el-border-color); border-radius: 4px; }
-.sl-hint { font-size: 12px; color: #909399; margin-top: 4px; }
-.sl-preview { display: block; max-width: 180px; margin-top: 8px; border-radius: 6px; }
+.sl-hint { font-size: 12px; color: #909399; margin-top: 4px; line-height: 1.6; }
+.sl-media { width: 100%; }
+.sl-media-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.sl-media-thumb { width: 40px; height: 40px; object-fit: cover; border: 1px solid var(--el-border-color); border-radius: 4px; }
+.sl-media-badge {
+  width: 40px; height: 40px; flex: none; display: flex; align-items: center; justify-content: center;
+  border-radius: 4px; background: #fef0f0; color: #f56c6c; font-size: 11px; font-weight: 600;
+}
+.sl-media-name {
+  flex: 1; min-width: 0; font-size: 13px; color: #606266;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sl-media-count { font-size: 12px; color: #909399; }
 </style>

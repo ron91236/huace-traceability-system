@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huace.trace.common.BusinessException;
 import com.huace.trace.entity.EnterpriseSideLink;
 import com.huace.trace.mapper.EnterpriseSideLinkMapper;
@@ -16,6 +17,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -32,11 +34,14 @@ import static org.mockito.Mockito.*;
  * 5. 消费者只拿 status=1 的项且按 sort_order 升序
  * 6. 更新与排序都不能顺带把 status 写成 null（那等于凭空停用按钮，而接口照样 200）
  * 7. 更新逐列显式 SET：updateById 的 NOT_NULL 策略会跳过 null，"清空图标/清空跳转地址"就永远不生效
+ * 8. 资料（image）是 JSON 数组：写入归一、条目上限、只认 /uploads/、PDF 保存时预热页图并卡总页数
+ * 9. 消费者侧把 PDF 展开成页图填进瞬态 pages，转不动的那条跳过而不是整页报错；企业端列表不填 pages
  */
 @ExtendWith(MockitoExtension.class)
 class SideLinkServiceTest {
 
     @Mock private EnterpriseSideLinkMapper linkMapper;
+    @Mock private PdfConvertService pdfConvertService;
 
     private SideLinkService service;
 
@@ -49,7 +54,8 @@ class SideLinkServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new SideLinkService(linkMapper);
+        // ObjectMapper 用真实实例：mock 会让归一化用例假通过
+        service = new SideLinkService(linkMapper, new ObjectMapper(), pdfConvertService);
     }
 
     private EnterpriseSideLink aLink(long id, String url, String image, int status) {
@@ -100,6 +106,8 @@ class SideLinkServiceTest {
 
         assertDoesNotThrow(() -> service.create(form, ENTERPRISE_ID));
         verify(linkMapper).insert(form);
+        // 裸路径是线上现存数据的形态，写入时必须归一成数组，否则库里就有两种"一份资料"的表示
+        assertEquals("[\"/uploads/qr.png\"]", form.getImage());
     }
 
     @Test
@@ -336,5 +344,215 @@ class SideLinkServiceTest {
         service.delete(9L, ENTERPRISE_ID);
 
         verify(linkMapper).deleteById(9L);
+    }
+
+    // ---------- 跳转资料：数组语义 ----------
+
+    private EnterpriseSideLink mediaForm(String image) {
+        EnterpriseSideLink form = new EnterpriseSideLink();
+        form.setName("检测报告");
+        form.setImage(image);
+        return form;
+    }
+
+    private String insertedImage() {
+        ArgumentCaptor<EnterpriseSideLink> captor = ArgumentCaptor.forClass(EnterpriseSideLink.class);
+        verify(linkMapper).insert(captor.capture());
+        return captor.getValue().getImage();
+    }
+
+    @Test
+    void 资料数组按上传顺序落库() {
+        when(linkMapper.selectCount(any())).thenReturn(0L);
+
+        service.create(mediaForm("[\"/uploads/a.png\",\"/uploads/b.jpg\"]"), ENTERPRISE_ID);
+
+        assertEquals("[\"/uploads/a.png\",\"/uploads/b.jpg\"]", insertedImage());
+    }
+
+    @Test
+    void 资料里的空项被清掉且空数组落成NULL() {
+        when(linkMapper.selectCount(any())).thenReturn(0L);
+
+        service.create(mediaForm("[\"/uploads/a.png\",\"\",null]"), ENTERPRISE_ID);
+        assertEquals("[\"/uploads/a.png\"]", insertedImage());
+
+        // url 有值时资料清空是合法的，且不能留下 "[]" 这种"未填"的第二种表示
+        EnterpriseSideLink onlyUrl = new EnterpriseSideLink();
+        onlyUrl.setName("官微");
+        onlyUrl.setUrl("https://weibo.com/x");
+        onlyUrl.setImage("[]");
+        service.create(onlyUrl, ENTERPRISE_ID);
+        assertNull(onlyUrl.getImage());
+    }
+
+    @Test
+    void url为空时资料必须非空() {
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service.create(mediaForm("[]"), ENTERPRISE_ID));
+        assertTrue(e.getMessage().contains("至少填一项"), e.getMessage());
+        verify(linkMapper, never()).insert(any());
+    }
+
+    @Test
+    void 资料不是数组时被拒() {
+        BusinessException obj = assertThrows(BusinessException.class,
+                () -> service.create(mediaForm("{\"a\":1}"), ENTERPRISE_ID));
+        assertTrue(obj.getMessage().contains("资料"), obj.getMessage());
+
+        BusinessException nested = assertThrows(BusinessException.class,
+                () -> service.create(mediaForm("[[\"/uploads/a.png\"]]"), ENTERPRISE_ID));
+        assertTrue(nested.getMessage().contains("资料"), nested.getMessage());
+        verify(linkMapper, never()).insert(any());
+    }
+
+    @Test
+    void 非uploads前缀的资料被拒() {
+        // 这个值最终是消费者免登录页面上 <img> 的 src，放行外链等于把落地页变成别人的追踪像素
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service.create(mediaForm("[\"https://evil.example/x.png\"]"), ENTERPRISE_ID));
+        assertTrue(e.getMessage().contains("/uploads/"), e.getMessage());
+        verify(linkMapper, never()).insert(any());
+    }
+
+    @Test
+    void 资料条目超过上限被拒() {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < 11; i++) {
+            if (i > 0) sb.append(',');
+            sb.append("\"/uploads/").append(i).append(".png\"");
+        }
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service.create(mediaForm(sb.append(']').toString()), ENTERPRISE_ID));
+        assertTrue(e.getMessage().contains("10"), e.getMessage());
+        verify(linkMapper, never()).insert(any());
+    }
+
+    // ---------- PDF：保存时预热与页数上限 ----------
+
+    @Test
+    void 保存时预热PDF页图() {
+        when(linkMapper.selectCount(any())).thenReturn(0L);
+        when(pdfConvertService.convertPdfToImages("/uploads/report.PDF", 30))
+                .thenReturn(List.of("/uploads/pdf-images/k/k_p1.jpg"));
+
+        service.create(mediaForm("[\"/uploads/report.PDF\"]"), ENTERPRISE_ID);
+
+        // 扩展名判定大小写不敏感：.PDF 也是 PDF，漏判就是消费者点开一片空白
+        verify(pdfConvertService).convertPdfToImages("/uploads/report.PDF", 30);
+        assertEquals("[\"/uploads/report.PDF\"]", insertedImage(), "库里只存原始条目，页图靠缓存目录还原");
+    }
+
+    @Test
+    void PDF转不动时整个保存被拒且不写库() {
+        when(pdfConvertService.convertPdfToImages("/uploads/bad.pdf", 30))
+                .thenThrow(new BusinessException("PDF 共 40 页，超过 30 页上限，请拆分后上传"));
+
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service.create(mediaForm("[\"/uploads/bad.pdf\"]"), ENTERPRISE_ID));
+        assertTrue(e.getMessage().contains("bad.pdf"), "文案要带上是哪个文件：" + e.getMessage());
+        verify(linkMapper, never()).insert(any());
+    }
+
+    @Test
+    void PDF转出来是空的也算失败() {
+        // 文件不存在、不是 PDF、超过体积上限时 convert 返回空列表而不抛异常，
+        // 放过它就会存下一个消费者点开必然空白的条目
+        when(pdfConvertService.convertPdfToImages("/uploads/gone.pdf", 30)).thenReturn(List.of());
+
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service.create(mediaForm("[\"/uploads/gone.pdf\"]"), ENTERPRISE_ID));
+        assertTrue(e.getMessage().contains("gone.pdf"), e.getMessage());
+        verify(linkMapper, never()).insert(any());
+    }
+
+    @Test
+    void 展开后总页数超过上限被拒() {
+        List<String> thirty = new ArrayList<>();
+        for (int i = 1; i <= 30; i++) thirty.add("/uploads/pdf-images/k/k_p" + i + ".jpg");
+        when(pdfConvertService.convertPdfToImages("/uploads/a.pdf", 30)).thenReturn(thirty);
+        when(pdfConvertService.convertPdfToImages("/uploads/b.pdf", 30)).thenReturn(thirty);
+        when(pdfConvertService.convertPdfToImages("/uploads/c.pdf", 30)).thenReturn(thirty);
+
+        BusinessException e = assertThrows(BusinessException.class, () -> service.create(
+                mediaForm("[\"/uploads/a.pdf\",\"/uploads/b.pdf\",\"/uploads/c.pdf\"]"), ENTERPRISE_ID));
+        assertTrue(e.getMessage().contains("60"), e.getMessage());
+        verify(linkMapper, never()).insert(any());
+    }
+
+    @Test
+    void 更新同样预热PDF并逐列SET() {
+        when(linkMapper.selectById(5L)).thenReturn(aLink(5L, null, "[\"/uploads/old.png\"]", 1));
+        when(pdfConvertService.convertPdfToImages("/uploads/new.pdf", 30))
+                .thenReturn(List.of("/uploads/pdf-images/n/n_p1.jpg"));
+
+        EnterpriseSideLink form = new EnterpriseSideLink();
+        form.setName("检测报告");
+        form.setImage("[\"/uploads/new.pdf\"]");
+
+        service.update(5L, form, ENTERPRISE_ID);
+
+        LambdaUpdateWrapper<EnterpriseSideLink> w = captureUpdate();
+        assertTrue(flat(w.getSqlSet()).contains("image="), w.getSqlSet());
+        assertTrue(w.getParamNameValuePairs().containsValue("[\"/uploads/new.pdf\"]"),
+                "资料必须按归一化后的数组写进去：" + w.getParamNameValuePairs());
+    }
+
+    // ---------- 消费者侧展开 ----------
+
+    @Test
+    void 消费者取数把PDF展开成页图() {
+        when(linkMapper.selectList(any())).thenReturn(List.of(
+                aLink(1L, null, "[\"/uploads/qr.png\",\"/uploads/r.pdf\"]", 1)));
+        when(pdfConvertService.convertPdfToImages("/uploads/r.pdf", 30))
+                .thenReturn(List.of("/uploads/pdf-images/k/k_p1.jpg", "/uploads/pdf-images/k/k_p2.jpg"));
+
+        List<EnterpriseSideLink> links = service.resolveForConsumer(ENTERPRISE_ID);
+
+        assertEquals(List.of("/uploads/qr.png", "/uploads/pdf-images/k/k_p1.jpg", "/uploads/pdf-images/k/k_p2.jpg"),
+                links.get(0).getPages());
+    }
+
+    @Test
+    void 消费者取数遇到转不动的PDF只跳过该条() {
+        when(linkMapper.selectList(any())).thenReturn(List.of(
+                aLink(1L, null, "[\"/uploads/bad.pdf\",\"/uploads/ok.pdf\"]", 1)));
+        when(pdfConvertService.convertPdfToImages("/uploads/bad.pdf", 30))
+                .thenThrow(new BusinessException("PDF 共 40 页，超过 30 页上限，请拆分后上传"));
+        when(pdfConvertService.convertPdfToImages("/uploads/ok.pdf", 30))
+                .thenReturn(List.of("/uploads/pdf-images/o/o_p1.jpg"));
+
+        List<EnterpriseSideLink> links = service.resolveForConsumer(ENTERPRISE_ID);
+
+        assertEquals(List.of("/uploads/pdf-images/o/o_p1.jpg"), links.get(0).getPages(),
+                "一条转不动不该让整个侧栏按钮点不开");
+    }
+
+    @Test
+    void 消费者取数兼容库里的裸路径老数据() {
+        when(linkMapper.selectList(any())).thenReturn(List.of(aLink(1L, null, "/uploads/legacy-qr.png", 1)));
+
+        List<EnterpriseSideLink> links = service.resolveForConsumer(ENTERPRISE_ID);
+
+        assertEquals(List.of("/uploads/legacy-qr.png"), links.get(0).getPages());
+        verifyNoInteractions(pdfConvertService);
+    }
+
+    @Test
+    void 没有资料的链接pages是空数组而不是null() {
+        when(linkMapper.selectList(any())).thenReturn(List.of(aLink(1L, "https://a", null, 1)));
+
+        assertEquals(List.of(), service.resolveForConsumer(ENTERPRISE_ID).get(0).getPages());
+    }
+
+    @Test
+    void 企业端列表不填pages() {
+        // 企业要看的是自己传的原始条目；填 pages 就得每次列表都扫一遍缓存目录，不值当
+        when(linkMapper.selectList(any())).thenReturn(List.of(aLink(1L, null, "[\"/uploads/r.pdf\"]", 1)));
+
+        List<EnterpriseSideLink> links = service.list(ENTERPRISE_ID);
+
+        assertNull(links.get(0).getPages());
+        verifyNoInteractions(pdfConvertService);
     }
 }
